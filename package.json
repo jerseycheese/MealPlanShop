@@ -1,0 +1,23 @@
+{
+  "name": "mealplanshop",
+  "version": "1.0.0",
+  "description": "AI-powered meal planning with grocery circular scanning",
+  "scripts": {
+    "scan": "tsx scripts/scan-circular.ts",
+    "plan": "tsx scripts/generate-meal-plan.ts",
+    "pipeline": "tsx scripts/full-pipeline.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^1.48.0",
+    "dotenv": "^17.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}
