@@ -1,6 +1,7 @@
 import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execSync } from "node:child_process";
 import { GoogleGenAI } from "@google/genai";
 
 // -- Types --
@@ -57,18 +58,13 @@ const extractionSchema = {
   required: ["items", "storeName", "validThrough"],
 };
 
-// -- Main --
+// -- Single image scanning --
 
-export async function scanCircular(
-  imagePath: string
+async function scanImage(
+  ai: GoogleGenAI,
+  imagePath: string,
+  prompt: string
 ): Promise<ExtractionResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-  const prompt = fs.readFileSync(
-    path.join(__dirname, "../prompts/circular-extraction.md"),
-    "utf-8"
-  );
-
   const imageBuffer = fs.readFileSync(imagePath);
   const base64Image = imageBuffer.toString("base64");
 
@@ -80,9 +76,6 @@ export async function scanCircular(
     ".webp": "image/webp",
   };
   const mimeType = mimeTypes[ext] || "image/jpeg";
-
-  console.log(`Scanning circular: ${imagePath}`);
-  console.log(`Image size: ${(imageBuffer.length / 1024).toFixed(0)} KB`);
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -101,28 +94,122 @@ export async function scanCircular(
     },
   });
 
-  const result: ExtractionResult = JSON.parse(response.text ?? "{}");
+  return JSON.parse(response.text ?? '{"items":[],"storeName":null,"validThrough":null}');
+}
 
-  console.log(`Extracted ${result.items.length} sale items`);
-  if (result.storeName) console.log(`Store: ${result.storeName}`);
-  if (result.validThrough) console.log(`Valid through: ${result.validThrough}`);
+// -- PDF conversion --
 
-  return result;
+function convertPdfToImages(pdfPath: string): string[] {
+  const tmpDir = path.join(path.dirname(pdfPath), ".pdf-tmp");
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const prefix = path.join(tmpDir, "page");
+  execSync(`pdftoppm -r 150 -jpeg "${pdfPath}" "${prefix}"`, {
+    stdio: "pipe",
+  });
+
+  const files = fs
+    .readdirSync(tmpDir)
+    .filter((f) => f.endsWith(".jpg"))
+    .sort()
+    .map((f) => path.join(tmpDir, f));
+
+  console.log(`Converted PDF to ${files.length} page images`);
+  return files;
+}
+
+function cleanupTmpImages(pdfPath: string) {
+  const tmpDir = path.join(path.dirname(pdfPath), ".pdf-tmp");
+  if (fs.existsSync(tmpDir)) {
+    fs.rmSync(tmpDir, { recursive: true });
+  }
+}
+
+// -- Deduplication --
+
+function deduplicateItems(items: SaleItem[]): SaleItem[] {
+  const seen = new Map<string, SaleItem>();
+  for (const item of items) {
+    // Key on lowercase item name + price to catch duplicates across pages
+    const key = `${item.item.toLowerCase()}|${item.price}`;
+    if (!seen.has(key)) {
+      seen.set(key, item);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+// -- Main export --
+
+export async function scanCircular(
+  filePath: string
+): Promise<ExtractionResult> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const prompt = fs.readFileSync(
+    path.join(__dirname, "../prompts/circular-extraction.md"),
+    "utf-8"
+  );
+
+  const ext = path.extname(filePath).toLowerCase();
+  const isPdf = ext === ".pdf";
+
+  if (!isPdf) {
+    // Single image
+    console.log(`Scanning circular image: ${filePath}`);
+    const size = fs.statSync(filePath).size;
+    console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
+    return scanImage(ai, filePath, prompt);
+  }
+
+  // PDF: convert to images, scan each page, merge results
+  console.log(`Scanning PDF circular: ${filePath}`);
+  const pageImages = convertPdfToImages(filePath);
+
+  let allItems: SaleItem[] = [];
+  let storeName: string | null = null;
+  let validThrough: string | null = null;
+
+  for (let i = 0; i < pageImages.length; i++) {
+    const pageNum = i + 1;
+    process.stdout.write(`  Page ${pageNum}/${pageImages.length}... `);
+
+    const result = await scanImage(ai, pageImages[i], prompt);
+    console.log(`${result.items.length} items`);
+
+    allItems.push(...result.items);
+
+    // Capture store info from whichever page has it
+    if (result.storeName && !storeName) storeName = result.storeName;
+    if (result.validThrough && !validThrough)
+      validThrough = result.validThrough;
+  }
+
+  cleanupTmpImages(filePath);
+
+  const deduplicated = deduplicateItems(allItems);
+  console.log(
+    `\nTotal: ${allItems.length} raw items -> ${deduplicated.length} after dedup`
+  );
+  if (storeName) console.log(`Store: ${storeName}`);
+  if (validThrough) console.log(`Valid through: ${validThrough}`);
+
+  return { items: deduplicated, storeName, validThrough };
 }
 
 // -- CLI entry point --
 
 async function main() {
-  const imagePath = process.argv[2];
+  const filePath = process.argv[2];
 
-  if (!imagePath) {
-    console.error("Usage: npm run scan -- <path-to-circular-image>");
-    console.error("Example: npm run scan -- samples/weekly-circular.jpg");
+  if (!filePath) {
+    console.error("Usage: npm run scan -- <path-to-circular>");
+    console.error("Supports: .jpg, .jpeg, .png, .webp, .pdf");
+    console.error("Example: npm run scan -- samples/flyer.pdf");
     process.exit(1);
   }
 
-  if (!fs.existsSync(imagePath)) {
-    console.error(`File not found: ${imagePath}`);
+  if (!fs.existsSync(filePath)) {
+    console.error(`File not found: ${filePath}`);
     process.exit(1);
   }
 
@@ -132,7 +219,7 @@ async function main() {
     process.exit(1);
   }
 
-  const result = await scanCircular(imagePath);
+  const result = await scanCircular(filePath);
 
   // Write output
   const outputPath = path.join(__dirname, "../output/extraction.json");
