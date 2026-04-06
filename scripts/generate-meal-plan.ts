@@ -10,6 +10,7 @@ interface SaleItem {
   price: number;
   unit: string;
   category: string;
+  priceNote?: string;
 }
 
 interface UserPreferences {

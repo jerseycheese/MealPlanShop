@@ -1,14 +1,32 @@
-You are analyzing a grocery store weekly sales circular (flyer/ad). Extract every sale item visible in the image.
+You are analyzing a grocery store weekly sales circular (flyer/ad). Extract every sale item visible in the image that is **human food or drink**.
 
 For each item, extract:
 - **item**: The product name, as specific as possible (include brand if visible)
-- **price**: The sale price as a number (e.g., 2.99). If it's a multi-buy deal like "2 for $5", set price to 2.50 and note the deal in the unit field
+- **price**: The sale price as a number (e.g., 2.99). If it's a multi-buy deal like "2 for $5", set price to 2.50 and note the deal in `priceNote`
 - **unit**: The unit of measure (e.g., "per lb", "each", "per oz", "2 for $5"). Default to "each" if unclear
 - **category**: One of: produce, meat, seafood, dairy, bakery, frozen, pantry, beverages, snacks, deli, other
+- **priceNote** (optional): Only include this field when the price required interpretation. Examples: "BOGO, effective per-unit price", "2 for $5", "price estimated from partially obscured text", "digital coupon price"
 
-Rules:
-- Extract ALL visible sale items, not just a sample
-- If a price is unclear or partially obscured, make your best estimate and note it
-- If an item appears multiple times at different prices, include each occurrence
-- Ignore non-food items (cleaning supplies, paper goods, etc.) unless they're clearly groceries
-- For BOGO (buy one get one) deals, calculate the effective per-unit price
+## What to extract (human food and drink only)
+
+Include: fresh produce, meat, poultry, seafood, dairy, eggs, cheese, bread, bakery items, frozen meals, frozen vegetables, canned goods, dry pasta, rice, cereal, condiments, sauces, cooking oils, spices, coffee, tea, juice, soda, water, beer, wine, snack foods, chips, crackers, cookies, candy, ice cream, deli meats, prepared foods, baby food snacks meant for human consumption.
+
+## What to skip (do NOT extract)
+
+- Pet food and pet supplies (Purina, Friskies, Fancy Feast, Beneful, Meow Mix, Iams, Pedigree, Tidy Cats, cat litter, dog treats)
+- Flowers, plants, bouquets
+- Cleaning supplies, detergent, dish soap
+- Paper goods (paper towels, toilet paper, napkins)
+- Health and beauty (shampoo, toothpaste, vitamins, medicine)
+- Baby care non-food items (diapers, wipes, formula)
+- Household items (batteries, light bulbs, trash bags)
+- Gift cards, coupons with no associated product
+
+## Rules
+
+1. Extract ALL visible sale items that are human food/drink, not just a sample.
+2. If a price is unclear or partially obscured, make your best estimate and explain in `priceNote`.
+3. **No zero prices.** If an item has no visible price, no parseable price, or is only available as a free-with-purchase promo with no standalone price shown, OMIT the item entirely. Never set price to 0.
+4. **Duplicates.** If the same product appears more than once (e.g., "Whole Golden Pineapple" and "Pineapple" are the same item), keep ONLY the entry that has a real, visible price. If both have prices, keep the more specific name.
+5. For BOGO (buy one get one) deals, calculate the effective per-unit price and note it in `priceNote`.
+6. For multi-buy deals (e.g., "3 for $9"), divide to get the per-unit price, put that in `price`, and note the deal in both `unit` and `priceNote`.

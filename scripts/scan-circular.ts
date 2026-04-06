@@ -11,6 +11,7 @@ interface SaleItem {
   price: number;
   unit: string;
   category: string;
+  priceNote?: string;
 }
 
 interface ExtractionResult {
@@ -48,6 +49,7 @@ const extractionSchema = {
               "other",
             ],
           },
+          priceNote: { type: "string" as const },
         },
         required: ["item", "price", "unit", "category"],
       },
@@ -231,8 +233,9 @@ async function main() {
   console.log("\n--- Sale Items ---");
   for (const item of result.items) {
     const priceStr = `$${item.price.toFixed(2)}`;
+    const note = item.priceNote ? ` (${item.priceNote})` : "";
     console.log(
-      `  [${item.category.padEnd(10)}] ${item.item.padEnd(40)} ${priceStr.padStart(8)} ${item.unit}`
+      `  [${item.category.padEnd(10)}] ${item.item.padEnd(40)} ${priceStr.padStart(8)} ${item.unit}${note}`
     );
   }
 }
