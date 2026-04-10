@@ -8,8 +8,9 @@
     "outDir": "dist",
     "rootDir": ".",
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "react-jsx"
   },
-  "include": ["scripts/**/*"],
+  "include": ["scripts/**/*", "server/**/*", "src/app/**/*", "types.ts"],
   "exclude": ["node_modules", "dist"]
 }

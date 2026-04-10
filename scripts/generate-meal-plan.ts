@@ -2,8 +2,9 @@ import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { GoogleGenAI } from "@google/genai";
+import type { MealPlanResult } from "../types";
 
-// -- Types --
+// -- Types (script-local) --
 
 interface SaleItem {
   item: string;
@@ -18,39 +19,6 @@ interface UserPreferences {
   dietaryRestrictions: string[];
   cuisinePreferences: string[];
   mealsPerDay: string[];
-}
-
-interface Ingredient {
-  name: string;
-  quantity: string;
-  onSale: boolean;
-}
-
-interface Meal {
-  name: string;
-  ingredients: Ingredient[];
-  prepTime: number;
-  cookTime: number;
-}
-
-interface DayPlan {
-  day: string;
-  breakfast: Meal;
-  lunch: Meal;
-  dinner: Meal;
-}
-
-interface ShoppingListItem {
-  name: string;
-  quantity: string;
-  category: string;
-  onSale: boolean;
-  salePrice: number | null;
-}
-
-interface MealPlanResult {
-  weekPlan: DayPlan[];
-  shoppingList: ShoppingListItem[];
 }
 
 // -- Schema for structured output --
@@ -73,8 +41,20 @@ const mealSchema = {
     },
     prepTime: { type: "number" as const },
     cookTime: { type: "number" as const },
+    instructions: {
+      type: "array" as const,
+      items: { type: "string" as const },
+    },
+    estimatedCalories: { type: "number" as const },
   },
-  required: ["name", "ingredients", "prepTime", "cookTime"],
+  required: [
+    "name",
+    "ingredients",
+    "prepTime",
+    "cookTime",
+    "instructions",
+    "estimatedCalories",
+  ],
 };
 
 const mealPlanSchema = {
@@ -188,7 +168,7 @@ async function main() {
   // Default preferences for testing — customize as needed
   const preferences: UserPreferences = {
     householdSize: 2,
-    dietaryRestrictions: [],
+    dietaryRestrictions: ["low carb", "low sodium"],
     cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
     mealsPerDay: ["breakfast", "lunch", "dinner"],
   };
@@ -204,9 +184,13 @@ async function main() {
   console.log("\n--- Weekly Meal Plan ---");
   for (const day of result.weekPlan) {
     console.log(`\n${day.day}:`);
-    console.log(`  Breakfast: ${day.breakfast.name}`);
-    console.log(`  Lunch:     ${day.lunch.name}`);
-    console.log(`  Dinner:    ${day.dinner.name}`);
+    for (const mealType of ["breakfast", "lunch", "dinner"] as const) {
+      const meal = day[mealType];
+      console.log(`  ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}: ${meal.name} (~${meal.estimatedCalories} cal)`);
+      for (const [i, step] of meal.instructions.entries()) {
+        console.log(`    ${i + 1}. ${step}`);
+      }
+    }
   }
 
   const saleCount = result.shoppingList.filter((i) => i.onSale).length;

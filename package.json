@@ -5,7 +5,12 @@
   "scripts": {
     "scan": "tsx scripts/scan-circular.ts",
     "plan": "tsx scripts/generate-meal-plan.ts",
-    "pipeline": "tsx scripts/full-pipeline.ts"
+    "pipeline": "tsx scripts/full-pipeline.ts",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "PORT=3001 tsx watch server/index.ts",
+    "dev:client": "vite --config vite.config.ts",
+    "build:client": "vite build --config vite.config.ts",
+    "start": "NODE_ENV=production tsx server/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -13,11 +18,20 @@
   "type": "commonjs",
   "dependencies": {
     "@google/genai": "^1.48.0",
-    "dotenv": "^17.4.1"
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8"
   }
 }
