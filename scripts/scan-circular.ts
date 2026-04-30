@@ -20,6 +20,10 @@ interface ExtractionResult {
   validThrough: string | null;
 }
 
+export type ScanProgressEvent =
+  | { type: "preparing" }
+  | { type: "page"; page: number; pages: number; storeName: string | null };
+
 // -- Schema for structured output --
 
 const extractionSchema = {
@@ -144,7 +148,8 @@ function deduplicateItems(items: SaleItem[]): SaleItem[] {
 // -- Main export --
 
 export async function scanCircular(
-  filePath: string
+  filePath: string,
+  onProgress?: (event: ScanProgressEvent) => void
 ): Promise<ExtractionResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const prompt = fs.readFileSync(
@@ -160,11 +165,20 @@ export async function scanCircular(
     console.log(`Scanning circular image: ${filePath}`);
     const size = fs.statSync(filePath).size;
     console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
-    return scanImage(ai, filePath, prompt);
+    onProgress?.({ type: "page", page: 1, pages: 1, storeName: null });
+    const result = await scanImage(ai, filePath, prompt);
+    onProgress?.({
+      type: "page",
+      page: 1,
+      pages: 1,
+      storeName: result.storeName,
+    });
+    return result;
   }
 
   // PDF: convert to images, scan each page, merge results
   console.log(`Scanning PDF circular: ${filePath}`);
+  onProgress?.({ type: "preparing" });
   const pageImages = convertPdfToImages(filePath);
 
   let allItems: SaleItem[] = [];
@@ -184,6 +198,13 @@ export async function scanCircular(
     if (result.storeName && !storeName) storeName = result.storeName;
     if (result.validThrough && !validThrough)
       validThrough = result.validThrough;
+
+    onProgress?.({
+      type: "page",
+      page: pageNum,
+      pages: pageImages.length,
+      storeName,
+    });
   }
 
   cleanupTmpImages(filePath);
@@ -240,7 +261,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("Error:", err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("Error:", err.message);
+    process.exit(1);
+  });
+}

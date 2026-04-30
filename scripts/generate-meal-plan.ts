@@ -6,7 +6,7 @@ import type { MealPlanResult } from "../types";
 
 // -- Types (script-local) --
 
-interface SaleItem {
+export interface SaleItem {
   item: string;
   price: number;
   unit: string;
@@ -14,12 +14,19 @@ interface SaleItem {
   priceNote?: string;
 }
 
-interface UserPreferences {
+export interface UserPreferences {
   householdSize: number;
   dietaryRestrictions: string[];
   cuisinePreferences: string[];
   mealsPerDay: string[];
 }
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  householdSize: 2,
+  dietaryRestrictions: ["low carb", "low sodium"],
+  cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
+  mealsPerDay: ["breakfast", "lunch", "dinner"],
+};
 
 // -- Schema for structured output --
 
@@ -165,15 +172,7 @@ async function main() {
   const extraction = JSON.parse(fs.readFileSync(itemsPath, "utf-8"));
   const saleItems: SaleItem[] = extraction.items || extraction;
 
-  // Default preferences for testing — customize as needed
-  const preferences: UserPreferences = {
-    householdSize: 2,
-    dietaryRestrictions: ["low carb", "low sodium"],
-    cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
-    mealsPerDay: ["breakfast", "lunch", "dinner"],
-  };
-
-  const result = await generateMealPlan(saleItems, preferences);
+  const result = await generateMealPlan(saleItems, DEFAULT_PREFERENCES);
 
   // Write output
   const outputPath = path.join(__dirname, "../output/meal-plan.json");
@@ -205,7 +204,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("Error:", err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("Error:", err.message);
+    process.exit(1);
+  });
+}

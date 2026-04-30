@@ -2,17 +2,45 @@ import { useState, useEffect, useCallback } from "react";
 import type { MealPlanResult, Meal } from "../../types";
 import { MealCard } from "./MealCard";
 import { ShoppingList } from "./ShoppingList";
+import { UploadCircular } from "./UploadCircular";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
+
+type ScanProgress =
+  | { stage: "idle" }
+  | { stage: "preparing" }
+  | { stage: "scanning"; page: number; pages: number; storeName: string | null }
+  | { stage: "planning" };
+
+function progressLabel(p: ScanProgress): string | null {
+  switch (p.stage) {
+    case "preparing":
+      return "Preparing circular...";
+    case "scanning":
+      return p.storeName
+        ? `Scanning ${p.storeName} page ${p.page} of ${p.pages}...`
+        : `Scanning page ${p.page} of ${p.pages}...`;
+    case "planning":
+      return "Building meal plan...";
+    default:
+      return null;
+  }
+}
 
 export function App() {
   const [mealPlan, setMealPlan] = useState<MealPlanResult | null>(null);
   const [selectedDay, setSelectedDay] = useState(0);
   const [expandedMeals, setExpandedMeals] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [scanProgress, setScanProgress] = useState<ScanProgress>({
+    stage: "idle",
+  });
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  const busy = generating || uploading;
 
   const fetchMealPlan = useCallback(async () => {
     try {
@@ -36,6 +64,29 @@ export function App() {
     fetchMealPlan();
   }, [fetchMealPlan]);
 
+  useEffect(() => {
+    if (!uploading) {
+      setScanProgress({ stage: "idle" });
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/circular/progress");
+        const data: ScanProgress = await res.json();
+        if (!cancelled) setScanProgress(data);
+      } catch {
+        // poll failures are non-fatal
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [uploading]);
+
   const handleRegenerate = async () => {
     setGenerating(true);
     setError(null);
@@ -52,6 +103,31 @@ export function App() {
       setError("Failed to generate meal plan");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("circular", file);
+      const res = await fetch("/api/circular/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || "Upload failed");
+      } else {
+        await fetchMealPlan();
+        setExpandedMeals(new Set());
+        setSelectedDay(0);
+      }
+    } catch {
+      setError("Failed to upload circular");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -76,28 +152,63 @@ export function App() {
   }
 
   const day = mealPlan?.weekPlan[selectedDay];
+  const busyLabel = uploading
+    ? (progressLabel(scanProgress) ?? "Scanning circular...")
+    : generating
+      ? "Generating..."
+      : null;
+  const compactBusyLabel = uploading
+    ? scanProgress.stage === "scanning"
+      ? `Scanning ${scanProgress.page}/${scanProgress.pages}...`
+      : (progressLabel(scanProgress) ?? "Scanning...")
+    : busyLabel;
 
   return (
     <div className="app">
       <header className="header">
         <h1 className="header__title">MealPlanShop</h1>
-        <button
-          className={`header__regenerate ${generating ? "header__regenerate--loading" : ""}`}
-          onClick={handleRegenerate}
-          disabled={generating}
-        >
-          {generating ? "Generating..." : mealPlan ? "Regenerate" : "Generate Plan"}
-        </button>
+        {mealPlan && (
+          <div className="header__actions">
+            <UploadCircular
+              variant="header"
+              onFile={handleUpload}
+              disabled={busy}
+            />
+            <button
+              className={`header__regenerate ${busy ? "header__regenerate--loading" : ""}`}
+              onClick={handleRegenerate}
+              disabled={busy}
+            >
+              {compactBusyLabel ?? "Regenerate"}
+            </button>
+          </div>
+        )}
       </header>
 
       {error && <div className="error-banner">{error}</div>}
+
+      {busy && !mealPlan && (
+        <div className="processing-banner">
+          {busyLabel ?? "Processing..."}{" "}
+          <span className="processing-banner__hint">
+            Multi-page PDFs can take several minutes.
+          </span>
+        </div>
+      )}
 
       {!mealPlan ? (
         <div className="empty-state">
           <h2 className="empty-state__title">No meal plan yet</h2>
           <p className="empty-state__text">
-            Generate your first weekly meal plan based on current grocery store sales.
+            Upload your store's weekly circular and we'll build a meal plan around the deals.
           </p>
+          <div className="empty-state__upload">
+            <UploadCircular
+              variant="empty"
+              onFile={handleUpload}
+              disabled={busy}
+            />
+          </div>
         </div>
       ) : (
         <>
