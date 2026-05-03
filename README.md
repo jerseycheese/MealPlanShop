@@ -34,6 +34,8 @@ brew install poppler
 sudo apt-get install poppler-utils
 ```
 
+The dev API server defaults to port `3101`. Override with `API_PORT` if it collides with another local service — e.g. `API_PORT=3201 npm run dev` (Vite proxy and server both pick it up).
+
 ## Usage
 
 ### Web UI
