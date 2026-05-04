@@ -32,3 +32,10 @@ export interface MealPlanResult {
   weekPlan: DayPlan[];
   shoppingList: ShoppingListItem[];
 }
+
+export interface UserPreferences {
+  householdSize: number;
+  dietaryRestrictions: string[];
+  cuisinePreferences: string[];
+  mealsPerDay: string[];
+}

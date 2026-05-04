@@ -9,6 +9,7 @@ import {
   generateMealPlan,
   DEFAULT_PREFERENCES,
 } from "../scripts/generate-meal-plan";
+import type { UserPreferences } from "../types";
 
 type ScanProgress =
   | { stage: "idle" }
@@ -22,6 +23,10 @@ const PROJECT_ROOT = path.join(__dirname, "..");
 const OUTPUT_DIR = path.join(PROJECT_ROOT, "output");
 const MEAL_PLAN_PATH = path.join(OUTPUT_DIR, "meal-plan.json");
 const EXTRACTION_PATH = path.join(OUTPUT_DIR, "extraction.json");
+const PREFERENCES_PATH = path.join(OUTPUT_DIR, "preferences.json");
+const VALID_MEAL_TYPES = new Set(["breakfast", "lunch", "dinner"]);
+const MAX_LIST_ITEMS = 12;
+const MAX_LIST_ITEM_LEN = 40;
 
 const ALLOWED_EXTENSIONS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".webp"]);
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -37,6 +42,89 @@ let scanProgress: ScanProgress = { stage: "idle" };
 function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
+
+function loadPreferences(): UserPreferences {
+  if (!fs.existsSync(PREFERENCES_PATH)) return DEFAULT_PREFERENCES;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PREFERENCES_PATH, "utf-8"));
+    return { ...DEFAULT_PREFERENCES, ...parsed };
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+function validatePreferences(input: unknown): UserPreferences | string {
+  if (!input || typeof input !== "object") return "Body must be a JSON object";
+  const p = input as Record<string, unknown>;
+
+  const size = p.householdSize;
+  if (!Number.isInteger(size) || (size as number) < 1 || (size as number) > 20) {
+    return "householdSize must be an integer between 1 and 20";
+  }
+
+  const checkList = (key: string, value: unknown): string[] | string => {
+    if (!Array.isArray(value)) return `${key} must be an array`;
+    if (value.length > MAX_LIST_ITEMS) return `${key} can have at most ${MAX_LIST_ITEMS} entries`;
+    const cleaned: string[] = [];
+    for (const v of value) {
+      if (typeof v !== "string") return `${key} entries must be strings`;
+      const trimmed = v.trim();
+      if (!trimmed) return `${key} entries cannot be empty`;
+      if (trimmed.length > MAX_LIST_ITEM_LEN) {
+        return `${key} entries must be ${MAX_LIST_ITEM_LEN} chars or fewer`;
+      }
+      cleaned.push(trimmed);
+    }
+    return cleaned;
+  };
+
+  const dietary = checkList("dietaryRestrictions", p.dietaryRestrictions);
+  if (typeof dietary === "string") return dietary;
+  const cuisine = checkList("cuisinePreferences", p.cuisinePreferences);
+  if (typeof cuisine === "string") return cuisine;
+
+  if (!Array.isArray(p.mealsPerDay) || p.mealsPerDay.length === 0) {
+    return "mealsPerDay must include at least one meal";
+  }
+  const meals: string[] = [];
+  for (const m of p.mealsPerDay) {
+    if (typeof m !== "string" || !VALID_MEAL_TYPES.has(m)) {
+      return "mealsPerDay entries must be 'breakfast', 'lunch', or 'dinner'";
+    }
+    if (!meals.includes(m)) meals.push(m);
+  }
+
+  return {
+    householdSize: size as number,
+    dietaryRestrictions: dietary,
+    cuisinePreferences: cuisine,
+    mealsPerDay: meals,
+  };
+}
+
+app.use(express.json());
+
+app.get("/api/preferences", (_req, res) => {
+  res.json({ preferences: loadPreferences() });
+});
+
+app.put("/api/preferences", (req, res) => {
+  const result = validatePreferences(req.body);
+  if (typeof result === "string") {
+    res.status(400).json({ success: false, error: result });
+    return;
+  }
+  try {
+    ensureOutputDir();
+    fs.writeFileSync(PREFERENCES_PATH, JSON.stringify(result, null, 2));
+    res.json({ success: true, preferences: result });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save preferences",
+    });
+  }
+});
 
 app.get("/api/circular/progress", (_req, res) => {
   res.json(scanProgress);
@@ -74,7 +162,7 @@ app.post("/api/meal-plan/generate", async (_req, res) => {
   try {
     const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
     const saleItems = extraction.items || extraction;
-    const result = await generateMealPlan(saleItems, DEFAULT_PREFERENCES);
+    const result = await generateMealPlan(saleItems, loadPreferences());
 
     ensureOutputDir();
     fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(result, null, 2));
@@ -150,7 +238,7 @@ app.post(
       scanProgress = { stage: "planning" };
       const mealPlan = await generateMealPlan(
         extraction.items,
-        DEFAULT_PREFERENCES
+        loadPreferences()
       );
       fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(mealPlan, null, 2));
 

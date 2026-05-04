@@ -3,6 +3,7 @@ import type { MealPlanResult, Meal } from "../../types";
 import { MealCard } from "./MealCard";
 import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
+import { Preferences } from "./Preferences";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
@@ -39,6 +40,8 @@ export function App() {
   });
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [savedHint, setSavedHint] = useState(false);
 
   const busy = generating || uploading;
 
@@ -63,6 +66,12 @@ export function App() {
   useEffect(() => {
     fetchMealPlan();
   }, [fetchMealPlan]);
+
+  useEffect(() => {
+    if (!savedHint) return;
+    const timer = window.setTimeout(() => setSavedHint(false), 3500);
+    return () => window.clearTimeout(timer);
+  }, [savedHint]);
 
   useEffect(() => {
     if (!uploading) {
@@ -167,23 +176,48 @@ export function App() {
     <div className="app">
       <header className="header">
         <h1 className="header__title">MealPlanShop</h1>
-        {mealPlan && (
-          <div className="header__actions">
-            <UploadCircular
-              variant="header"
-              onFile={handleUpload}
-              disabled={busy}
-            />
-            <button
-              className={`header__regenerate ${busy ? "header__regenerate--loading" : ""}`}
-              onClick={handleRegenerate}
-              disabled={busy}
-            >
-              {compactBusyLabel ?? "Regenerate"}
-            </button>
-          </div>
-        )}
+        <div className="header__actions">
+          <button
+            className="header__prefs"
+            onClick={() => setShowPrefs(true)}
+            disabled={busy}
+          >
+            Preferences
+          </button>
+          {mealPlan && (
+            <>
+              <UploadCircular
+                variant="header"
+                onFile={handleUpload}
+                disabled={busy}
+              />
+              <button
+                className={`header__regenerate ${busy ? "header__regenerate--loading" : ""}`}
+                onClick={handleRegenerate}
+                disabled={busy}
+              >
+                {compactBusyLabel ?? "Regenerate"}
+              </button>
+            </>
+          )}
+        </div>
       </header>
+
+      {showPrefs && (
+        <Preferences
+          onClose={() => setShowPrefs(false)}
+          onSaved={() => {
+            setShowPrefs(false);
+            setSavedHint(true);
+          }}
+        />
+      )}
+
+      {savedHint && (
+        <div className="saved-hint">
+          Preferences saved &mdash; click Regenerate to apply.
+        </div>
+      )}
 
       {error && <div className="error-banner">{error}</div>}
 

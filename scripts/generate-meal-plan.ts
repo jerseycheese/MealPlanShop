@@ -2,7 +2,8 @@ import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { GoogleGenAI } from "@google/genai";
-import type { MealPlanResult } from "../types";
+import type { MealPlanResult, UserPreferences } from "../types";
+export type { UserPreferences };
 
 // -- Types (script-local) --
 
@@ -12,13 +13,6 @@ export interface SaleItem {
   unit: string;
   category: string;
   priceNote?: string;
-}
-
-export interface UserPreferences {
-  householdSize: number;
-  dietaryRestrictions: string[];
-  cuisinePreferences: string[];
-  mealsPerDay: string[];
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {

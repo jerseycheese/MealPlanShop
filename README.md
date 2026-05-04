@@ -78,7 +78,7 @@ npm run plan
 
 Reads from `output/extraction.json` and writes to `output/meal-plan.json`.
 
-To customize household preferences (size, dietary restrictions, cuisine preferences), edit the `preferences` object in `scripts/generate-meal-plan.ts` around line 190. Current defaults: household size 2, low carb + low sodium restrictions, Italian/Mexican/Asian/American cuisines.
+For household preferences (size, dietary restrictions, cuisine preferences, which meals to plan), use the **Preferences** button in the web UI header. Saved values live in `output/preferences.json` and apply to the next Regenerate or Upload. Defaults: household 2, low carb + low sodium, Italian/Mexican/Asian/American.
 
 ## Output format
 
