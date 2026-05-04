@@ -680,3 +680,20 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Dark Mode Rule Overrides ──────────────────── */
+/* Primary is light enough on dark bg for foreground use, so swap button
+   labels to dark text to keep AA contrast on primary-bg controls. */
+
+@media (prefers-color-scheme: dark) {
+  .header__regenerate,
+  .day-tabs__tab--active,
+  .day-tabs__tab--active:hover {
+    color: var(--color-bg);
+  }
+
+  .header__regenerate:hover {
+    background: #a8cdac;
+    color: var(--color-bg);
+  }
+}
