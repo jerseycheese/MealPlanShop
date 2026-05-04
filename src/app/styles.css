@@ -20,6 +20,22 @@
   --max-width: 720px;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1612;
+    --color-surface: #24201a;
+    --color-text: #f0e8da;
+    --color-text-muted: #a89a86;
+    --color-primary: #8fb893;
+    --color-primary-light: #2a3a2c;
+    --color-accent: #e8845a;
+    --color-accent-light: #3d2418;
+    --color-border: #3a342c;
+    --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.4);
+    --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.55);
+  }
+}
+
 /* ─── Reset & Base ──────────────────────────────── */
 
 *,
