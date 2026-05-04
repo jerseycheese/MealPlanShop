@@ -9,8 +9,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    port: process.env.PORT ? Number(process.env.PORT) : undefined,
+    strictPort: !!process.env.PORT,
     proxy: {
-      "/api": "http://localhost:3001",
+      "/api": "http://localhost:3101",
     },
   },
 });

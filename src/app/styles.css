@@ -247,14 +247,9 @@ body {
   transition: max-height 0.35s ease;
 }
 
-.meal-card--expanded .meal-card__details {
-  max-height: 800px;
-}
-
 .meal-card__details-inner {
-  padding: 0 20px 20px;
+  padding: 16px 20px 20px;
   border-top: 1px solid var(--color-border);
-  padding-top: 16px;
 }
 
 .meal-card__section {
