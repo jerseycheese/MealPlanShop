@@ -58,38 +58,19 @@ const mealSchema = {
   ],
 };
 
-const mealPlanSchema = {
-  type: "object" as const,
-  properties: {
-    weekPlan: {
-      type: "array" as const,
-      items: {
-        type: "object" as const,
-        properties: {
-          day: { type: "string" as const },
-          breakfast: mealSchema,
-          lunch: mealSchema,
-          dinner: mealSchema,
-        },
-        required: ["day", "breakfast", "lunch", "dinner"],
-      },
+const shoppingListSchema = {
+  type: "array" as const,
+  items: {
+    type: "object" as const,
+    properties: {
+      name: { type: "string" as const },
+      quantity: { type: "string" as const },
+      category: { type: "string" as const },
+      onSale: { type: "boolean" as const },
+      salePrice: { type: ["number", "null"] as const },
     },
-    shoppingList: {
-      type: "array" as const,
-      items: {
-        type: "object" as const,
-        properties: {
-          name: { type: "string" as const },
-          quantity: { type: "string" as const },
-          category: { type: "string" as const },
-          onSale: { type: "boolean" as const },
-          salePrice: { type: ["number", "null"] as const },
-        },
-        required: ["name", "quantity", "category", "onSale", "salePrice"],
-      },
-    },
+    required: ["name", "quantity", "category", "onSale", "salePrice"],
   },
-  required: ["weekPlan", "shoppingList"],
 };
 
 // -- Main --
@@ -119,6 +100,30 @@ ${saleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [${i.categ
 
 Generate a weekly meal plan for Monday through Sunday.
 `;
+
+  const validMeals = ["breakfast", "lunch", "dinner"];
+  const requestedMeals = preferences.mealsPerDay.filter((m) =>
+    validMeals.includes(m)
+  );
+  const dayProperties: Record<string, unknown> = { day: { type: "string" } };
+  for (const meal of requestedMeals) {
+    dayProperties[meal] = mealSchema;
+  }
+  const mealPlanSchema = {
+    type: "object" as const,
+    properties: {
+      weekPlan: {
+        type: "array" as const,
+        items: {
+          type: "object" as const,
+          properties: dayProperties,
+          required: ["day", ...requestedMeals],
+        },
+      },
+      shoppingList: shoppingListSchema,
+    },
+    required: ["weekPlan", "shoppingList"],
+  };
 
   console.log("Generating meal plan...");
   console.log(`  Sale items: ${saleItems.length}`);
@@ -179,6 +184,7 @@ async function main() {
     console.log(`\n${day.day}:`);
     for (const mealType of ["breakfast", "lunch", "dinner"] as const) {
       const meal = day[mealType];
+      if (!meal) continue;
       console.log(`  ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}: ${meal.name} (~${meal.estimatedCalories} cal)`);
       for (const [i, step] of meal.instructions.entries()) {
         console.log(`    ${i + 1}. ${step}`);

@@ -6,7 +6,7 @@ import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
+const ALL_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 
 type ScanProgress =
   | { stage: "idle" }
@@ -42,6 +42,11 @@ export function App() {
   const [loaded, setLoaded] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
+  const [mealsPerDay, setMealsPerDay] = useState<string[]>([
+    "breakfast",
+    "lunch",
+    "dinner",
+  ]);
 
   const busy = generating || uploading;
 
@@ -66,6 +71,13 @@ export function App() {
   useEffect(() => {
     fetchMealPlan();
   }, [fetchMealPlan]);
+
+  useEffect(() => {
+    fetch("/api/preferences")
+      .then((r) => r.json())
+      .then((data) => setMealsPerDay(data.preferences.mealsPerDay))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!savedHint) return;
@@ -206,7 +218,8 @@ export function App() {
       {showPrefs && (
         <Preferences
           onClose={() => setShowPrefs(false)}
-          onSaved={() => {
+          onSaved={(prefs) => {
+            setMealsPerDay(prefs.mealsPerDay);
             setShowPrefs(false);
             setSavedHint(true);
           }}
@@ -261,8 +274,10 @@ export function App() {
           {day && (
             <main className="day-view">
               <h2 className="day-view__title">{day.day}</h2>
-              {MEAL_TYPES.map((type, i) => {
-                const meal: Meal = day[type];
+              {ALL_MEAL_TYPES.filter(
+                (type) => mealsPerDay.includes(type) && day[type]
+              ).map((type, i) => {
+                const meal = day[type] as Meal;
                 const key = `${day.day}-${type}`;
                 return (
                   <MealCard

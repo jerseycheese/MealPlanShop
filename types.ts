@@ -15,9 +15,9 @@ export interface Meal {
 
 export interface DayPlan {
   day: string;
-  breakfast: Meal;
-  lunch: Meal;
-  dinner: Meal;
+  breakfast?: Meal;
+  lunch?: Meal;
+  dinner?: Meal;
 }
 
 export interface ShoppingListItem {
