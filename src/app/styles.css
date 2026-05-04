@@ -244,11 +244,11 @@ body {
 .meal-card__details {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.35s ease;
+  transition: max-height 0.3s ease;
 }
 
 .meal-card--expanded .meal-card__details {
-  max-height: 800px;
+  max-height: 2000px;
 }
 
 .meal-card__details-inner {
@@ -644,8 +644,8 @@ body {
   }
 
   .day-tabs__tab {
-    padding: 6px 14px;
-    font-size: 13px;
+    padding: 6px 10px;
+    font-size: 12px;
   }
 
   .meal-card__header {

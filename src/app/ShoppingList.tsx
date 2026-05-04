@@ -55,7 +55,7 @@ export function ShoppingList({ items }: ShoppingListProps) {
                   className={`shopping-list__item ${item.onSale ? "shopping-list__item--sale" : ""}`}
                 >
                   <div className="shopping-list__item-info">
-                    <span className="shopping-list__item-name">{item.name}</span>
+                    <span className="shopping-list__item-name" title={item.name}>{item.name}</span>
                     <span className="shopping-list__item-qty">{item.quantity}</span>
                   </div>
                   {item.onSale && item.salePrice != null && (

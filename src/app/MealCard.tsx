@@ -23,7 +23,11 @@ export function MealCard({
       className={`meal-card ${expanded ? "meal-card--expanded" : ""}`}
       style={{ animationDelay: `${animationDelay}ms` }}
     >
-      <button className="meal-card__header" onClick={onToggle}>
+      <button
+        className="meal-card__header"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
         <div className="meal-card__header-top">
           <span className="meal-card__type">{type}</span>
           <span className="meal-card__chevron">{expanded ? "\u25B2" : "\u25BC"}</span>
@@ -44,7 +48,7 @@ export function MealCard({
         </div>
       </button>
 
-      <div className="meal-card__details">
+      <div className="meal-card__details" aria-hidden={!expanded}>
         <div className="meal-card__details-inner">
           <div className="meal-card__section">
             <h4 className="meal-card__section-title">Ingredients</h4>

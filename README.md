@@ -39,15 +39,21 @@ sudo apt-get install poppler-utils
 ### Web UI
 
 ```bash
-npm run serve
+npm run dev
 ```
 
-Opens a local web UI at `http://localhost:3333`. From there you can view the current meal plan and hit Regenerate to re-run the pipeline from the last circular scan.
+Opens a local dev server — API on `http://localhost:3101`, UI on `http://localhost:5173`. From there you can upload a circular, view the current meal plan, and hit Regenerate to rebuild from the last scan.
+
+If port 3101 conflicts with another local service, override with `API_PORT`:
+
+```bash
+API_PORT=3201 npm run dev
+```
 
 ### Full pipeline (scan + plan in one step)
 
 ```bash
-npm run pipeline -- samples/flyer.pdf
+npm run pipeline -- samples/flyer-1.pdf
 ```
 
 Scans the circular, then generates the meal plan. Output goes to `output/extraction.json` and `output/meal-plan.json`.
@@ -56,7 +62,7 @@ Scans the circular, then generates the meal plan. Output goes to `output/extract
 
 ```bash
 # PDF (multi-page support)
-npm run scan -- samples/flyer.pdf
+npm run scan -- samples/flyer-1.pdf
 
 # Single image
 npm run scan -- samples/flyer-page-01.jpg

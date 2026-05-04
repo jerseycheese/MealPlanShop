@@ -17,7 +17,7 @@ type ScanProgress =
   | { stage: "planning" };
 
 const app = express();
-const PORT = parseInt(process.env.PORT || "3001", 10);
+const PORT = parseInt(process.env.API_PORT ?? process.env.PORT ?? "3101", 10);
 const PROJECT_ROOT = path.join(__dirname, "..");
 const OUTPUT_DIR = path.join(PROJECT_ROOT, "output");
 const MEAL_PLAN_PATH = path.join(OUTPUT_DIR, "meal-plan.json");
@@ -58,7 +58,7 @@ app.get("/api/meal-plan", (_req, res) => {
 
 app.post("/api/meal-plan/generate", async (_req, res) => {
   if (processing) {
-    res.status(409).json({ error: "Already processing a request" });
+    res.status(409).json({ success: false, error: "Already processing a request" });
     return;
   }
 
