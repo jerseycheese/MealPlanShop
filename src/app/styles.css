@@ -20,6 +20,22 @@
   --max-width: 720px;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1612;
+    --color-surface: #24201a;
+    --color-text: #f0e8da;
+    --color-text-muted: #a89a86;
+    --color-primary: #8fb893;
+    --color-primary-light: #2a3a2c;
+    --color-accent: #e8845a;
+    --color-accent-light: #3d2418;
+    --color-border: #3a342c;
+    --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.4);
+    --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.55);
+  }
+}
+
 /* ─── Reset & Base ──────────────────────────────── */
 
 *,
@@ -247,14 +263,9 @@ body {
   transition: max-height 0.3s ease;
 }
 
-.meal-card--expanded .meal-card__details {
-  max-height: 2000px;
-}
-
 .meal-card__details-inner {
-  padding: 0 20px 20px;
+  padding: 16px 20px 20px;
   border-top: 1px solid var(--color-border);
-  padding-top: 16px;
 }
 
 .meal-card__section {
@@ -904,5 +915,22 @@ body {
 
   .shopping-list__grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Dark Mode Rule Overrides ──────────────────── */
+/* Primary is light enough on dark bg for foreground use, so swap button
+   labels to dark text to keep AA contrast on primary-bg controls. */
+
+@media (prefers-color-scheme: dark) {
+  .header__regenerate,
+  .day-tabs__tab--active,
+  .day-tabs__tab--active:hover {
+    color: var(--color-bg);
+  }
+
+  .header__regenerate:hover {
+    background: #a8cdac;
+    color: var(--color-bg);
   }
 }

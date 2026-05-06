@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Meal } from "../../types";
 
 interface MealCardProps {
@@ -18,6 +19,15 @@ export function MealCard({
   const totalTime = meal.prepTime + meal.cookTime;
   const saleCount = meal.ingredients.filter((i) => i.onSale).length;
 
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    setContentHeight(el.scrollHeight);
+  }, [meal]);
+
   return (
     <article
       className={`meal-card ${expanded ? "meal-card--expanded" : ""}`}
@@ -30,7 +40,7 @@ export function MealCard({
       >
         <div className="meal-card__header-top">
           <span className="meal-card__type">{type}</span>
-          <span className="meal-card__chevron">{expanded ? "\u25B2" : "\u25BC"}</span>
+          <span className="meal-card__chevron">{expanded ? "▲" : "▼"}</span>
         </div>
         <h3 className="meal-card__name">{meal.name}</h3>
         <div className="meal-card__meta">
@@ -48,8 +58,12 @@ export function MealCard({
         </div>
       </button>
 
-      <div className="meal-card__details" aria-hidden={!expanded}>
-        <div className="meal-card__details-inner">
+      <div
+        className="meal-card__details"
+        aria-hidden={!expanded}
+        style={{ maxHeight: expanded ? `${contentHeight}px` : 0 }}
+      >
+        <div className="meal-card__details-inner" ref={innerRef}>
           <div className="meal-card__section">
             <h4 className="meal-card__section-title">Ingredients</h4>
             <ul className="meal-card__ingredients">
