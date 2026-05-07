@@ -689,6 +689,31 @@ body {
   text-align: center;
 }
 
+.circular-banner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+.circular-banner__store {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.circular-banner__dates {
+  font-size: 13px;
+}
+
 .preferences-modal__backdrop {
   position: fixed;
   inset: 0;

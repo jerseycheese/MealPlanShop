@@ -8,6 +8,12 @@ import { Preferences } from "./Preferences";
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const ALL_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 
+type CircularMeta = {
+  storeName: string | null;
+  validThrough: string | null;
+  itemCount: number;
+};
+
 type ScanProgress =
   | { stage: "idle" }
   | { stage: "preparing" }
@@ -48,8 +54,28 @@ export function App() {
     "dinner",
   ]);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  const [circular, setCircular] = useState<CircularMeta | null>(null);
 
   const busy = generating || uploading;
+
+  const fetchCircular = useCallback(async () => {
+    try {
+      const res = await fetch("/api/circular");
+      const data = await res.json();
+      if (data.exists === false) {
+        setCircular(null);
+        return;
+      }
+      setCircular({
+        storeName: typeof data.storeName === "string" ? data.storeName : null,
+        validThrough:
+          typeof data.validThrough === "string" ? data.validThrough : null,
+        itemCount: typeof data.itemCount === "number" ? data.itemCount : 0,
+      });
+    } catch {
+      setCircular(null);
+    }
+  }, []);
 
   const fetchMealPlan = useCallback(async () => {
     try {
@@ -88,7 +114,8 @@ export function App() {
 
   useEffect(() => {
     fetchMealPlan();
-  }, [fetchMealPlan]);
+    fetchCircular();
+  }, [fetchMealPlan, fetchCircular]);
 
   useEffect(() => {
     fetch("/api/preferences")
@@ -160,6 +187,7 @@ export function App() {
         setError(data.error || "Upload failed");
       } else {
         await fetchMealPlan();
+        await fetchCircular();
         setExpandedMeals(new Set());
         setSelectedDay(0);
       }
@@ -278,6 +306,19 @@ export function App() {
       )}
 
       {error && <div className="error-banner">{error}</div>}
+
+      {circular && (circular.storeName || circular.validThrough) && (
+        <div className="circular-banner">
+          {circular.storeName && (
+            <span className="circular-banner__store">{circular.storeName}</span>
+          )}
+          {circular.validThrough && (
+            <span className="circular-banner__dates">
+              Valid through {circular.validThrough}
+            </span>
+          )}
+        </div>
+      )}
 
       {busy && !mealPlan && (
         <div className="processing-banner">
