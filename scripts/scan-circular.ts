@@ -131,6 +131,45 @@ function cleanupTmpImages(pdfPath: string) {
   }
 }
 
+// -- validThrough sanity check --
+
+// If the string contains a 4-digit year and we can parse a date out of it,
+// drop it when the date is more than ~2 weeks in the past. Gemini sometimes
+// misreads the year (e.g. returns 2024 for a current flyer); better to show
+// no date than a wrong one. Strings without a year are left alone — the UI
+// degrades gracefully.
+function validateValidThrough(validThrough: string | null): string | null {
+  if (!validThrough) return null;
+  if (!/\b20\d{2}\b/.test(validThrough)) return validThrough;
+
+  let date: Date | null = null;
+  const direct = new Date(validThrough);
+  if (!isNaN(direct.getTime())) {
+    date = direct;
+  } else {
+    const m = validThrough.match(
+      /([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})/
+    );
+    if (m) {
+      const p = new Date(`${m[1]} ${m[2]}, ${m[3]}`);
+      if (!isNaN(p.getTime())) date = p;
+    }
+  }
+
+  if (!date) return validThrough;
+
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  if (date < cutoff) {
+    console.warn(
+      `Warning: validThrough "${validThrough}" parsed as ${date
+        .toISOString()
+        .slice(0, 10)}, more than 2 weeks in the past - dropping`
+    );
+    return null;
+  }
+  return validThrough;
+}
+
 // -- Deduplication --
 
 function deduplicateItems(items: SaleItem[]): SaleItem[] {
@@ -167,6 +206,7 @@ export async function scanCircular(
     console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
     onProgress?.({ type: "page", page: 1, pages: 1, storeName: null });
     const result = await scanImage(ai, filePath, prompt);
+    result.validThrough = validateValidThrough(result.validThrough);
     onProgress?.({
       type: "page",
       page: 1,
@@ -208,6 +248,8 @@ export async function scanCircular(
   }
 
   cleanupTmpImages(filePath);
+
+  validThrough = validateValidThrough(validThrough);
 
   const deduplicated = deduplicateItems(allItems);
   console.log(
