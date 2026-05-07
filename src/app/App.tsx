@@ -55,8 +55,10 @@ export function App() {
   ]);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
   const [circular, setCircular] = useState<CircularMeta | null>(null);
+  const [swappingKey, setSwappingKey] = useState<string | null>(null);
+  const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
 
-  const busy = generating || uploading;
+  const busy = generating || uploading || swappingKey !== null;
 
   const fetchCircular = useCallback(async () => {
     try {
@@ -169,6 +171,32 @@ export function App() {
       setError("Failed to generate meal plan");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleSwap = async (
+    dayName: string,
+    mealType: "breakfast" | "lunch" | "dinner"
+  ) => {
+    const key = `${dayName}-${mealType}`;
+    setSwappingKey(key);
+    setSwapError(null);
+    try {
+      const res = await fetch("/api/meal-plan/swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day: dayName, mealType }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setSwapError({ key, message: data.error || "Swap failed" });
+      } else {
+        await fetchMealPlan();
+      }
+    } catch {
+      setSwapError({ key, message: "Failed to swap meal" });
+    } finally {
+      setSwappingKey(null);
     }
   };
 
@@ -365,6 +393,7 @@ export function App() {
               ).map((type, i) => {
                 const meal = day[type] as Meal;
                 const key = `${day.day}-${type}`;
+                const isSwapping = swappingKey === key;
                 return (
                   <MealCard
                     key={key}
@@ -373,6 +402,10 @@ export function App() {
                     expanded={expandedMeals.has(key)}
                     onToggle={() => toggleMeal(key)}
                     animationDelay={i * 80}
+                    onSwap={() => handleSwap(day.day, type)}
+                    swapping={isSwapping}
+                    swapDisabled={busy && !isSwapping}
+                    swapError={swapError?.key === key ? swapError.message : null}
                   />
                 );
               })}
