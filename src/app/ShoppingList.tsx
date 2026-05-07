@@ -1,4 +1,5 @@
 import type { ShoppingListItem } from "../../types";
+import { shoppingItemKey } from "./shoppingItemKey";
 
 const CATEGORY_ORDER = [
   "produce",
@@ -14,9 +15,11 @@ const CATEGORY_ORDER = [
 
 interface ShoppingListProps {
   items: ShoppingListItem[];
+  checkedKeys: Set<string>;
+  onToggle: (key: string) => void;
 }
 
-export function ShoppingList({ items }: ShoppingListProps) {
+export function ShoppingList({ items, checkedKeys, onToggle }: ShoppingListProps) {
   const grouped = new Map<string, ShoppingListItem[]>();
 
   for (const item of items) {
@@ -49,22 +52,38 @@ export function ShoppingList({ items }: ShoppingListProps) {
           <div key={category} className="shopping-list__category">
             <h3 className="shopping-list__category-name">{category}</h3>
             <ul className="shopping-list__items">
-              {grouped.get(category)!.map((item, i) => (
-                <li
-                  key={i}
-                  className={`shopping-list__item ${item.onSale ? "shopping-list__item--sale" : ""}`}
-                >
-                  <div className="shopping-list__item-info">
-                    <span className="shopping-list__item-name" title={item.name}>{item.name}</span>
-                    <span className="shopping-list__item-qty">{item.quantity}</span>
-                  </div>
-                  {item.onSale && item.salePrice != null && (
-                    <span className="shopping-list__price">
-                      ${item.salePrice.toFixed(2)}
-                    </span>
-                  )}
-                </li>
-              ))}
+              {grouped.get(category)!.map((item) => {
+                const key = shoppingItemKey(item);
+                const checked = checkedKeys.has(key);
+                const classes = [
+                  "shopping-list__item",
+                  item.onSale ? "shopping-list__item--sale" : "",
+                  checked ? "shopping-list__item--checked" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <li key={key} className="shopping-list__item-row">
+                    <label className={classes}>
+                      <input
+                        type="checkbox"
+                        className="shopping-list__item-checkbox"
+                        checked={checked}
+                        onChange={() => onToggle(key)}
+                      />
+                      <div className="shopping-list__item-info">
+                        <span className="shopping-list__item-name" title={item.name}>{item.name}</span>
+                        <span className="shopping-list__item-qty">{item.quantity}</span>
+                      </div>
+                      {item.onSale && item.salePrice != null && (
+                        <span className="shopping-list__price">
+                          ${item.salePrice.toFixed(2)}
+                        </span>
+                      )}
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}

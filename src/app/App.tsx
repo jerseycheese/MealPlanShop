@@ -47,6 +47,7 @@ export function App() {
     "lunch",
     "dinner",
   ]);
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
 
   const busy = generating || uploading;
 
@@ -56,9 +57,26 @@ export function App() {
       const data = await res.json();
       if (data.exists === false) {
         setMealPlan(null);
+        setCheckedKeys(new Set());
       } else {
         const { exists: _, ...plan } = data;
-        setMealPlan(plan as MealPlanResult);
+        const planResult = plan as MealPlanResult;
+        setMealPlan(planResult);
+        try {
+          const stateRes = await fetch("/api/shopping-list-state");
+          const state = await stateRes.json();
+          if (
+            planResult.planId &&
+            state.planId === planResult.planId &&
+            Array.isArray(state.checkedKeys)
+          ) {
+            setCheckedKeys(new Set(state.checkedKeys));
+          } else {
+            setCheckedKeys(new Set());
+          }
+        } catch {
+          setCheckedKeys(new Set());
+        }
       }
       setError(null);
     } catch {
@@ -150,6 +168,33 @@ export function App() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const toggleChecked = (key: string) => {
+    if (!mealPlan?.planId) return;
+    const planId = mealPlan.planId;
+    const next = new Set(checkedKeys);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setCheckedKeys(next);
+    fetch("/api/shopping-list-state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planId, checkedKeys: [...next] }),
+    }).catch(() => {
+      setCheckedKeys((current) => {
+        const reverted = new Set(current);
+        if (reverted.has(key)) {
+          reverted.delete(key);
+        } else {
+          reverted.add(key);
+        }
+        return reverted;
+      });
+    });
   };
 
   const toggleMeal = (key: string) => {
@@ -293,7 +338,11 @@ export function App() {
             </main>
           )}
 
-          <ShoppingList items={mealPlan.shoppingList} />
+          <ShoppingList
+            items={mealPlan.shoppingList}
+            checkedKeys={checkedKeys}
+            onToggle={toggleChecked}
+          />
         </>
       )}
     </div>
