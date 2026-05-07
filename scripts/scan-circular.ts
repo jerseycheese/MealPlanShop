@@ -131,6 +131,30 @@ function cleanupTmpImages(pdfPath: string) {
   }
 }
 
+// -- Filtering --
+
+const EXCLUDE_KEYWORDS = [
+  "gerber",
+  "happy tot",
+  "happy baby",
+  "plum organics",
+  "beech-nut",
+  "beech nut",
+  "earth's best",
+  "sprout organic",
+  "baby food",
+  "toddler",
+  "infant cereal",
+  "baby cereal",
+];
+
+function filterNonMealItems(items: SaleItem[]): SaleItem[] {
+  return items.filter((item) => {
+    const name = item.item.toLowerCase();
+    return !EXCLUDE_KEYWORDS.some((kw) => name.includes(kw));
+  });
+}
+
 // -- validThrough sanity check --
 
 // If the string contains a 4-digit year and we can parse a date out of it,
@@ -213,7 +237,7 @@ export async function scanCircular(
       pages: 1,
       storeName: result.storeName,
     });
-    return result;
+    return { ...result, items: filterNonMealItems(result.items) };
   }
 
   // PDF: convert to images, scan each page, merge results
@@ -251,9 +275,10 @@ export async function scanCircular(
 
   validThrough = validateValidThrough(validThrough);
 
-  const deduplicated = deduplicateItems(allItems);
+  const filtered = filterNonMealItems(allItems);
+  const deduplicated = deduplicateItems(filtered);
   console.log(
-    `\nTotal: ${allItems.length} raw items -> ${deduplicated.length} after dedup`
+    `\nTotal: ${allItems.length} raw -> ${filtered.length} after filter -> ${deduplicated.length} after dedup`
   );
   if (storeName) console.log(`Store: ${storeName}`);
   if (validThrough) console.log(`Valid through: ${validThrough}`);
