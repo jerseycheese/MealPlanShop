@@ -7,6 +7,10 @@ interface MealCardProps {
   expanded: boolean;
   onToggle: () => void;
   animationDelay: number;
+  onSwap?: () => void;
+  swapping?: boolean;
+  swapDisabled?: boolean;
+  swapError?: string | null;
 }
 
 export function MealCard({
@@ -15,6 +19,10 @@ export function MealCard({
   expanded,
   onToggle,
   animationDelay,
+  onSwap,
+  swapping = false,
+  swapDisabled = false,
+  swapError = null,
 }: MealCardProps) {
   const totalTime = meal.prepTime + meal.cookTime;
   const saleCount = meal.ingredients.filter((i) => i.onSale).length;
@@ -40,7 +48,34 @@ export function MealCard({
       >
         <div className="meal-card__header-top">
           <span className="meal-card__type">{type}</span>
-          <span className="meal-card__chevron">{expanded ? "▲" : "▼"}</span>
+          <div className="meal-card__header-actions">
+            {onSwap && (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Swap ${type}`}
+                aria-busy={swapping}
+                className={`meal-card__swap ${swapping ? "meal-card__swap--loading" : ""}`}
+                aria-disabled={swapping || swapDisabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (swapping || swapDisabled) return;
+                  onSwap();
+                }}
+                onKeyDown={(e) => {
+                  if (swapping || swapDisabled) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSwap();
+                  }
+                }}
+              >
+                {swapping ? "Swapping..." : "Swap"}
+              </span>
+            )}
+            <span className="meal-card__chevron">{expanded ? "▲" : "▼"}</span>
+          </div>
         </div>
         <h3 className="meal-card__name">{meal.name}</h3>
         <div className="meal-card__meta">
@@ -57,6 +92,12 @@ export function MealCard({
           )}
         </div>
       </button>
+
+      {swapError && (
+        <div className="meal-card__swap-error" role="alert">
+          {swapError}
+        </div>
+      )}
 
       <div
         className="meal-card__details"

@@ -2,7 +2,12 @@ import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { GoogleGenAI } from "@google/genai";
-import type { MealPlanResult, UserPreferences } from "../types";
+import type {
+  Meal,
+  MealPlanResult,
+  ShoppingListItem,
+  UserPreferences,
+} from "../types";
 export type { UserPreferences };
 
 // -- Types (script-local) --
@@ -146,6 +151,78 @@ Generate a weekly meal plan for Monday through Sunday.
   console.log(`Shopping list: ${result.shoppingList.length} items`);
 
   return result;
+}
+
+// -- Per-meal swap --
+
+export async function generateMealSwap(
+  currentPlan: MealPlanResult,
+  day: string,
+  mealType: "breakfast" | "lunch" | "dinner",
+  saleItems: SaleItem[],
+  preferences: UserPreferences
+): Promise<{ meal: Meal; shoppingList: ShoppingListItem[] }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  const systemPrompt = fs.readFileSync(
+    path.join(__dirname, "../prompts/meal-swap.md"),
+    "utf-8"
+  );
+
+  const userPrompt = `
+## Current Weekly Meal Plan
+
+${JSON.stringify(currentPlan.weekPlan, null, 2)}
+
+## Slot to Replace
+
+- Day: ${day}
+- Meal type: ${mealType}
+
+## Current Sale Items
+
+${saleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [${i.category}]`).join("\n")}
+
+## User Preferences
+
+- Household size: ${preferences.householdSize}
+- Dietary restrictions: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
+- Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
+- Meals to plan: ${preferences.mealsPerDay.join(", ")}
+
+Generate one replacement meal for the slot above, plus the regenerated full-week shopping list.
+`;
+
+  const swapSchema = {
+    type: "object" as const,
+    properties: {
+      meal: mealSchema,
+      shoppingList: shoppingListSchema,
+    },
+    required: ["meal", "shoppingList"],
+  };
+
+  console.log(`Swapping ${day} ${mealType}...`);
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: userPrompt,
+    config: {
+      systemInstruction: systemPrompt,
+      responseMimeType: "application/json",
+      responseJsonSchema: swapSchema,
+    },
+  });
+
+  const parsed = JSON.parse(response.text ?? "{}") as {
+    meal: Meal;
+    shoppingList: ShoppingListItem[];
+  };
+
+  console.log(`Replacement: ${parsed.meal.name}`);
+  console.log(`Shopping list: ${parsed.shoppingList.length} items`);
+
+  return parsed;
 }
 
 // -- CLI entry point --

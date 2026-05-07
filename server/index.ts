@@ -7,9 +7,10 @@ import * as crypto from "node:crypto";
 import { scanCircular } from "../scripts/scan-circular";
 import {
   generateMealPlan,
+  generateMealSwap,
   DEFAULT_PREFERENCES,
 } from "../scripts/generate-meal-plan";
-import type { UserPreferences } from "../types";
+import type { MealPlanResult, UserPreferences } from "../types";
 
 type ScanProgress =
   | { stage: "idle" }
@@ -276,6 +277,93 @@ app.post("/api/meal-plan/generate", async (_req, res) => {
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : "Generation failed",
+    });
+  } finally {
+    processing = false;
+  }
+});
+
+app.post("/api/meal-plan/swap", async (req, res) => {
+  if (processing) {
+    res.status(409).json({ success: false, error: "Already processing a request" });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown> | null | undefined;
+  if (!body || typeof body !== "object") {
+    res.status(400).json({ success: false, error: "Body must be a JSON object" });
+    return;
+  }
+  const day = body.day;
+  const mealType = body.mealType;
+  if (typeof day !== "string" || !day.trim()) {
+    res.status(400).json({ success: false, error: "day must be a non-empty string" });
+    return;
+  }
+  if (typeof mealType !== "string" || !VALID_MEAL_TYPES.has(mealType)) {
+    res.status(400).json({
+      success: false,
+      error: "mealType must be 'breakfast', 'lunch', or 'dinner'",
+    });
+    return;
+  }
+
+  if (!fs.existsSync(MEAL_PLAN_PATH)) {
+    res.status(400).json({
+      success: false,
+      error: "No meal plan exists. Generate one first.",
+    });
+    return;
+  }
+  if (!fs.existsSync(EXTRACTION_PATH)) {
+    res.status(400).json({
+      success: false,
+      error: "No circular extracted yet. Upload a circular first.",
+    });
+    return;
+  }
+
+  processing = true;
+  try {
+    const plan = JSON.parse(fs.readFileSync(MEAL_PLAN_PATH, "utf-8")) as MealPlanResult;
+    const dayIndex = plan.weekPlan.findIndex((d) => d.day === day);
+    if (dayIndex === -1) {
+      res.status(400).json({ success: false, error: `Day not found in plan: ${day}` });
+      return;
+    }
+    const slotKey = mealType as "breakfast" | "lunch" | "dinner";
+    if (!plan.weekPlan[dayIndex][slotKey]) {
+      res.status(400).json({
+        success: false,
+        error: `No ${mealType} in current plan for ${day}`,
+      });
+      return;
+    }
+
+    const preferences = loadPreferences();
+    if (!preferences.mealsPerDay.includes(slotKey)) {
+      res.status(400).json({
+        success: false,
+        error: `${mealType} is not enabled in current preferences`,
+      });
+      return;
+    }
+
+    const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
+    const saleItems = extraction.items || extraction;
+
+    const result = await generateMealSwap(plan, day, slotKey, saleItems, preferences);
+
+    plan.weekPlan[dayIndex][slotKey] = result.meal;
+    plan.shoppingList = result.shoppingList;
+
+    ensureOutputDir();
+    fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(plan, null, 2));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Swap failed",
     });
   } finally {
     processing = false;
