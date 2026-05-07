@@ -203,6 +203,28 @@ app.get("/api/circular/progress", (_req, res) => {
   res.json(scanProgress);
 });
 
+app.get("/api/circular", (_req, res) => {
+  if (!fs.existsSync(EXTRACTION_PATH)) {
+    res.json({ exists: false });
+    return;
+  }
+  try {
+    const data = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
+    const storeName =
+      typeof data.storeName === "string" && data.storeName.trim()
+        ? data.storeName.trim()
+        : null;
+    const validThrough =
+      typeof data.validThrough === "string" && data.validThrough.trim()
+        ? data.validThrough.trim()
+        : null;
+    const itemCount = Array.isArray(data.items) ? data.items.length : 0;
+    res.json({ exists: true, storeName, validThrough, itemCount });
+  } catch {
+    res.json({ exists: false });
+  }
+});
+
 app.get("/api/meal-plan", (_req, res) => {
   if (!fs.existsSync(MEAL_PLAN_PATH)) {
     res.json({ exists: false });
