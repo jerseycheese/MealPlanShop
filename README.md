@@ -50,6 +50,17 @@ If port 3101 conflicts with another local service, override with `API_PORT`:
 API_PORT=3201 npm run dev
 ```
 
+### Where to get your store's circular
+
+For now, circulars have to be downloaded manually from the store's site. Auto-fetch is tracked in [#19](https://github.com/jerseycheese/MealPlanShop/issues/19).
+
+For Food Lion:
+
+- **Print view** (preferred — cleanest extraction): https://foodlion.com/savings/weekly-ad/print-view. Select your store first, then save the page as PDF.
+- **Flipp viewer**: https://ad.foodlion.com/flyers/foodlion-weekly. Select your store; harder to extract since it's image tiles, but works as a fallback.
+
+To keep your store details out of git but reusable across sessions, copy `.env.example` to `.env` and fill in `STORE_NAME` / `STORE_ADDRESS` / `STORE_ZIP` / `STORE_CODE`. These keys aren't read by the app yet — they're reserved for #19.
+
 ### Full pipeline (scan + plan in one step)
 
 ```bash
