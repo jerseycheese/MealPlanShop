@@ -24,9 +24,12 @@ const OUTPUT_DIR = path.join(PROJECT_ROOT, "output");
 const MEAL_PLAN_PATH = path.join(OUTPUT_DIR, "meal-plan.json");
 const EXTRACTION_PATH = path.join(OUTPUT_DIR, "extraction.json");
 const PREFERENCES_PATH = path.join(OUTPUT_DIR, "preferences.json");
+const SHOPPING_LIST_STATE_PATH = path.join(OUTPUT_DIR, "shopping-list-state.json");
 const VALID_MEAL_TYPES = new Set(["breakfast", "lunch", "dinner"]);
 const MAX_LIST_ITEMS = 12;
 const MAX_LIST_ITEM_LEN = 40;
+const MAX_CHECKED_KEYS = 500;
+const MAX_KEY_LEN = 200;
 
 const ALLOWED_EXTENSIONS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".webp"]);
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -41,6 +44,16 @@ let scanProgress: ScanProgress = { stage: "idle" };
 
 function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+function clearShoppingListState() {
+  if (fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
+    try {
+      fs.unlinkSync(SHOPPING_LIST_STATE_PATH);
+    } catch {
+      // best-effort
+    }
+  }
 }
 
 function loadPreferences(): UserPreferences {
@@ -126,6 +139,66 @@ app.put("/api/preferences", (req, res) => {
   }
 });
 
+app.get("/api/shopping-list-state", (_req, res) => {
+  if (!fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
+    res.json({ planId: null, checkedKeys: [] });
+    return;
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(SHOPPING_LIST_STATE_PATH, "utf-8"));
+    const planId = typeof parsed.planId === "string" ? parsed.planId : null;
+    const checkedKeys = Array.isArray(parsed.checkedKeys)
+      ? parsed.checkedKeys.filter((k: unknown) => typeof k === "string")
+      : [];
+    res.json({ planId, checkedKeys });
+  } catch {
+    res.json({ planId: null, checkedKeys: [] });
+  }
+});
+
+app.put("/api/shopping-list-state", (req, res) => {
+  const body = req.body as Record<string, unknown> | null | undefined;
+  if (!body || typeof body !== "object") {
+    res.status(400).json({ success: false, error: "Body must be a JSON object" });
+    return;
+  }
+  if (typeof body.planId !== "string" || !body.planId) {
+    res.status(400).json({ success: false, error: "planId must be a non-empty string" });
+    return;
+  }
+  if (!Array.isArray(body.checkedKeys)) {
+    res.status(400).json({ success: false, error: "checkedKeys must be an array" });
+    return;
+  }
+  const seen = new Set<string>();
+  for (const k of body.checkedKeys) {
+    if (typeof k !== "string") {
+      res.status(400).json({ success: false, error: "checkedKeys entries must be strings" });
+      return;
+    }
+    if (k.length > MAX_KEY_LEN) {
+      res.status(400).json({ success: false, error: `checkedKeys entries must be ${MAX_KEY_LEN} chars or fewer` });
+      return;
+    }
+    seen.add(k);
+    if (seen.size > MAX_CHECKED_KEYS) {
+      res.status(400).json({ success: false, error: `checkedKeys can have at most ${MAX_CHECKED_KEYS} entries` });
+      return;
+    }
+  }
+  try {
+    ensureOutputDir();
+    const out = { planId: body.planId, checkedKeys: [...seen] };
+    fs.writeFileSync(SHOPPING_LIST_STATE_PATH, JSON.stringify(out, null, 2));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save shopping list state",
+    });
+  }
+});
+
 app.get("/api/circular/progress", (_req, res) => {
   res.json(scanProgress);
 });
@@ -138,6 +211,14 @@ app.get("/api/meal-plan", (_req, res) => {
 
   try {
     const data = JSON.parse(fs.readFileSync(MEAL_PLAN_PATH, "utf-8"));
+    if (typeof data.planId !== "string" || !data.planId) {
+      data.planId = crypto.randomUUID();
+      try {
+        fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(data, null, 2));
+      } catch {
+        // best-effort; serve anyway
+      }
+    }
     res.json({ exists: true, ...data });
   } catch {
     res.status(500).json({ error: "Failed to read meal plan" });
@@ -163,9 +244,11 @@ app.post("/api/meal-plan/generate", async (_req, res) => {
     const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
     const saleItems = extraction.items || extraction;
     const result = await generateMealPlan(saleItems, loadPreferences());
+    const stamped = { planId: crypto.randomUUID(), ...result };
 
     ensureOutputDir();
-    fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(result, null, 2));
+    fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
+    clearShoppingListState();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({
@@ -240,7 +323,9 @@ app.post(
         extraction.items,
         loadPreferences()
       );
-      fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(mealPlan, null, 2));
+      const stamped = { planId: crypto.randomUUID(), ...mealPlan };
+      fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
+      clearShoppingListState();
 
       res.json({
         success: true,

@@ -29,6 +29,7 @@ export interface ShoppingListItem {
 }
 
 export interface MealPlanResult {
+  planId?: string;
   weekPlan: DayPlan[];
   shoppingList: ShoppingListItem[];
 }
