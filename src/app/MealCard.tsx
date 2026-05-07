@@ -1,6 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Meal } from "../../types";
 
+function formatMinutes(total: number): string {
+  if (total < 60) return `${total} min`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 interface MealCardProps {
   meal: Meal;
   type: string;
@@ -80,7 +87,7 @@ export function MealCard({
         <h3 className="meal-card__name">{meal.name}</h3>
         <div className="meal-card__meta">
           <span className="meal-card__pill">
-            {totalTime} min
+            {formatMinutes(totalTime)}
           </span>
           <span className="meal-card__pill">
             {meal.estimatedCalories} cal
@@ -133,8 +140,8 @@ export function MealCard({
           </div>
 
           <div className="meal-card__times">
-            <span>Prep: {meal.prepTime} min</span>
-            <span>Cook: {meal.cookTime} min</span>
+            <span>Prep: {formatMinutes(meal.prepTime)}</span>
+            <span>Cook: {formatMinutes(meal.cookTime)}</span>
           </div>
         </div>
       </div>
