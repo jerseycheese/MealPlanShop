@@ -244,7 +244,7 @@ app.post("/api/meal-plan/generate", async (_req, res) => {
     const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
     const saleItems = extraction.items || extraction;
     const result = await generateMealPlan(saleItems, loadPreferences());
-    const stamped = { planId: crypto.randomUUID(), ...result };
+    const stamped = { ...result, planId: crypto.randomUUID() };
 
     ensureOutputDir();
     fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
@@ -323,7 +323,7 @@ app.post(
         extraction.items,
         loadPreferences()
       );
-      const stamped = { planId: crypto.randomUUID(), ...mealPlan };
+      const stamped = { ...mealPlan, planId: crypto.randomUUID() };
       fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
       clearShoppingListState();
 
