@@ -146,10 +146,6 @@ const EXCLUDE_KEYWORDS = [
   "toddler",
   "infant cereal",
   "baby cereal",
-  "stage 1",
-  "stage 2",
-  "stage 3",
-  "stage 4",
 ];
 
 function filterNonMealItems(items: SaleItem[]): SaleItem[] {
