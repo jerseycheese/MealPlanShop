@@ -7,8 +7,8 @@ export interface Ingredient {
 export interface Meal {
   name: string;
   ingredients: Ingredient[];
-  prepTime: number;
-  cookTime: number;
+  activeTime: number;
+  totalTime: number;
   instructions: string[];
   estimatedCalories: number;
 }

@@ -47,8 +47,8 @@ const mealSchema = {
         required: ["name", "quantity", "onSale"],
       },
     },
-    prepTime: { type: "number" as const },
-    cookTime: { type: "number" as const },
+    activeTime: { type: "number" as const },
+    totalTime: { type: "number" as const },
     instructions: {
       type: "array" as const,
       items: { type: "string" as const },
@@ -58,8 +58,8 @@ const mealSchema = {
   required: [
     "name",
     "ingredients",
-    "prepTime",
-    "cookTime",
+    "activeTime",
+    "totalTime",
     "instructions",
     "estimatedCalories",
   ],

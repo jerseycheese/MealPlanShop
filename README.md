@@ -118,8 +118,8 @@ For household preferences (size, dietary restrictions, cuisine preferences, whic
       "breakfast": {
         "name": "Strawberry and Cream Cheese Sourdough Toast",
         "estimatedCalories": 320,
-        "prepTime": 5,
-        "cookTime": 5,
+        "activeTime": 5,
+        "totalTime": 10,
         "ingredients": [
           { "name": "Izzio Sliced Sourdough Bread", "quantity": "2 slices", "onSale": true },
           { "name": "Philadelphia Cream Cheese", "quantity": "2 tbsp", "onSale": true },
