@@ -41,7 +41,13 @@ function normalizedExcluded(terms: string[]): string[] {
 
 function matchExcludedTerm(text: string, excluded: string[]): string | null {
   for (const term of excluded) {
-    if (new RegExp(`\\b${escapeRegex(term)}\\b`, "i").test(text)) return term;
+    // Unicode-aware word boundary so terms with accents (acai, jalapeno)
+    // still match. JavaScript's \b is ASCII-only and would fail on those.
+    const re = new RegExp(
+      `(?<![\\p{L}\\p{N}_])${escapeRegex(term)}(?![\\p{L}\\p{N}_])`,
+      "iu"
+    );
+    if (re.test(text)) return term;
   }
   return null;
 }
