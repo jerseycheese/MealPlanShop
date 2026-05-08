@@ -54,6 +54,7 @@ const mealSchema = {
       items: { type: "string" as const },
     },
     estimatedCalories: { type: "number" as const },
+    estimatedCost: { type: "number" as const },
   },
   required: [
     "name",
@@ -62,6 +63,7 @@ const mealSchema = {
     "totalTime",
     "instructions",
     "estimatedCalories",
+    "estimatedCost",
   ],
 };
 
@@ -268,7 +270,7 @@ async function main() {
     for (const mealType of ["breakfast", "lunch", "dinner"] as const) {
       const meal = day[mealType];
       if (!meal) continue;
-      console.log(`  ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}: ${meal.name} (~${meal.estimatedCalories} cal)`);
+      console.log(`  ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}: ${meal.name} (~${meal.estimatedCalories} cal, ~$${meal.estimatedCost.toFixed(2)})`);
       for (const [i, step] of meal.instructions.entries()) {
         console.log(`    ${i + 1}. ${step}`);
       }

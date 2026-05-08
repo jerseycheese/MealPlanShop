@@ -17,9 +17,10 @@ interface ShoppingListProps {
   items: ShoppingListItem[];
   checkedKeys: Set<string>;
   onToggle: (key: string) => void;
+  weeklyTotal: number;
 }
 
-export function ShoppingList({ items, checkedKeys, onToggle }: ShoppingListProps) {
+export function ShoppingList({ items, checkedKeys, onToggle, weeklyTotal }: ShoppingListProps) {
   const grouped = new Map<string, ShoppingListItem[]>();
 
   for (const item of items) {
@@ -43,7 +44,7 @@ export function ShoppingList({ items, checkedKeys, onToggle }: ShoppingListProps
       <div className="shopping-list__header">
         <h2 className="shopping-list__title">Shopping List</h2>
         <span className="shopping-list__count">
-          {items.length} items ({saleCount} on sale)
+          {items.length} items ({saleCount} on sale) · ~${weeklyTotal.toFixed(2)} this week
         </span>
       </div>
 

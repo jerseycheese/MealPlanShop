@@ -11,6 +11,7 @@ export interface Meal {
   totalTime: number;
   instructions: string[];
   estimatedCalories: number;
+  estimatedCost: number;
 }
 
 export interface DayPlan {
