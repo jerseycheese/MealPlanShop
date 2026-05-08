@@ -6,12 +6,14 @@ type MealType = (typeof MEAL_TYPES)[number];
 
 interface PreferencesProps {
   onClose: () => void;
-  onSaved: (prefs: UserPreferences) => void;
+  onSaved: (prefs: UserPreferences, opts?: { regenerate?: boolean }) => void;
+  canRegenerate?: boolean;
 }
 
-export function Preferences({ onClose, onSaved }: PreferencesProps) {
+export function Preferences({ onClose, onSaved, canRegenerate = false }: PreferencesProps) {
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleId = "preferences-title";
   const householdRef = useRef<HTMLInputElement>(null);
@@ -48,9 +50,10 @@ export function Preferences({ onClose, onSaved }: PreferencesProps) {
     }
   }, [prefs]);
 
-  const handleSave = async () => {
+  const persistAnd = async (opts: { regenerate: boolean }) => {
     if (!prefs) return;
-    setSaving(true);
+    if (opts.regenerate) setRegenerating(true);
+    else setSaving(true);
     setError(null);
     try {
       const res = await fetch("/api/preferences", {
@@ -63,13 +66,17 @@ export function Preferences({ onClose, onSaved }: PreferencesProps) {
         setError(data.error || "Couldn't save");
         return;
       }
-      onSaved(data.preferences);
+      onSaved(data.preferences, { regenerate: opts.regenerate });
     } catch {
       setError("Couldn't save");
     } finally {
       setSaving(false);
+      setRegenerating(false);
     }
   };
+
+  const handleSave = () => persistAnd({ regenerate: false });
+  const handleSaveAndRegenerate = () => persistAnd({ regenerate: true });
 
   const toggleMeal = (meal: MealType) => {
     if (!prefs) return;
@@ -191,7 +198,7 @@ export function Preferences({ onClose, onSaved }: PreferencesProps) {
             type="button"
             className="preferences-modal__cancel"
             onClick={onClose}
-            disabled={saving}
+            disabled={saving || regenerating}
           >
             Cancel
           </button>
@@ -199,10 +206,20 @@ export function Preferences({ onClose, onSaved }: PreferencesProps) {
             type="button"
             className="preferences-modal__save"
             onClick={handleSave}
-            disabled={!prefs || saving}
+            disabled={!prefs || saving || regenerating}
           >
             {saving ? "Saving..." : "Save"}
           </button>
+          {canRegenerate && (
+            <button
+              type="button"
+              className="preferences-modal__regenerate"
+              onClick={handleSaveAndRegenerate}
+              disabled={!prefs || saving || regenerating}
+            >
+              {regenerating ? "Regenerating..." : "Save & Regenerate"}
+            </button>
+          )}
         </div>
       </div>
     </div>
