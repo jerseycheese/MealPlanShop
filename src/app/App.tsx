@@ -436,6 +436,9 @@ export function App() {
             items={filterPantry(mealPlan.shoppingList, pantryStaples)}
             checkedKeys={checkedKeys}
             onToggle={toggleChecked}
+            weeklyTotal={mealPlan.weekPlan
+              .flatMap((d) => ALL_MEAL_TYPES.map((t) => d[t]?.estimatedCost ?? 0))
+              .reduce((a, b) => a + b, 0)}
           />
         </>
       )}
