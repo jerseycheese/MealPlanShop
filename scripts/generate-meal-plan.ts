@@ -20,12 +20,25 @@ export interface SaleItem {
   priceNote?: string;
 }
 
+export const DEFAULT_PANTRY_STAPLES: string[] = [
+  "salt",
+  "black pepper",
+  "olive oil",
+  "butter",
+  "garlic",
+  "onion",
+  "flour",
+  "sugar",
+  "soy sauce",
+  "vinegar",
+];
+
 export const DEFAULT_PREFERENCES: UserPreferences = {
   householdSize: 2,
   dietaryRestrictions: ["low carb", "low sodium"],
   cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
   excludedIngredients: [],
-  pantryStaples: [],
+  pantryStaples: [...DEFAULT_PANTRY_STAPLES],
   mealsPerDay: ["breakfast", "lunch", "dinner"],
 };
 
