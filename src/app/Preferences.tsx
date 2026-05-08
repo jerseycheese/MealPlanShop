@@ -148,6 +148,24 @@ export function Preferences({ onClose, onSaved }: PreferencesProps) {
               }
             />
 
+            <ChipField
+              label="Excluded ingredients"
+              hint="e.g. seafood, shrimp, mushrooms"
+              values={prefs.excludedIngredients}
+              onChange={(next) =>
+                setPrefs({ ...prefs, excludedIngredients: next })
+              }
+            />
+
+            <ChipField
+              label="Pantry staples (already on hand)"
+              hint="e.g. olive oil, garlic, salt, eggs"
+              values={prefs.pantryStaples}
+              onChange={(next) =>
+                setPrefs({ ...prefs, pantryStaples: next })
+              }
+            />
+
             <fieldset className="preferences-modal__field">
               <legend className="preferences-modal__label">Meals per day</legend>
               <div className="preferences-modal__checkrow">

@@ -2,7 +2,7 @@ import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { scanCircular } from "./scan-circular";
-import { generateMealPlan } from "./generate-meal-plan";
+import { generateMealPlan, DEFAULT_PREFERENCES } from "./generate-meal-plan";
 
 async function main() {
   const imagePath = process.argv[2];
@@ -42,10 +42,8 @@ async function main() {
   // Step 2: Generate meal plan from sale items
   console.log("--- Step 2: Generating meal plan ---");
   const preferences = {
-    householdSize: 2,
+    ...DEFAULT_PREFERENCES,
     dietaryRestrictions: [],
-    cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
-    mealsPerDay: ["breakfast", "lunch", "dinner"],
   };
 
   const mealPlan = await generateMealPlan(extraction.items, preferences);
