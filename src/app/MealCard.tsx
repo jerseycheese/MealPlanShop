@@ -31,7 +31,6 @@ export function MealCard({
   swapDisabled = false,
   swapError = null,
 }: MealCardProps) {
-  const totalTime = meal.prepTime + meal.cookTime;
   const saleCount = meal.ingredients.filter((i) => i.onSale).length;
 
   const innerRef = useRef<HTMLDivElement>(null);
@@ -86,8 +85,8 @@ export function MealCard({
         </div>
         <h3 className="meal-card__name">{meal.name}</h3>
         <div className="meal-card__meta">
-          <span className="meal-card__pill">
-            {formatMinutes(totalTime)}
+          <span className="meal-card__pill meal-card__pill--time">
+            {formatMinutes(meal.activeTime)} active / {formatMinutes(meal.totalTime)} total
           </span>
           <span className="meal-card__pill">
             {meal.estimatedCalories} cal
@@ -140,8 +139,8 @@ export function MealCard({
           </div>
 
           <div className="meal-card__times">
-            <span>Prep: {formatMinutes(meal.prepTime)}</span>
-            <span>Cook: {formatMinutes(meal.cookTime)}</span>
+            <span>Active: {formatMinutes(meal.activeTime)}</span>
+            <span>Total: {formatMinutes(meal.totalTime)}</span>
           </div>
         </div>
       </div>
