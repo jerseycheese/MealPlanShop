@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import type { MealPlanResult, Meal } from "../../types";
+import type { MealPlanResult, Meal, ShoppingListItem } from "../../types";
 import { MealCard } from "./MealCard";
 import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
@@ -19,6 +19,21 @@ type ScanProgress =
   | { stage: "preparing" }
   | { stage: "scanning"; page: number; pages: number; storeName: string | null }
   | { stage: "planning" };
+
+function filterPantry(
+  items: ShoppingListItem[],
+  pantry: string[]
+): ShoppingListItem[] {
+  if (pantry.length === 0) return items;
+  const needles = pantry
+    .map((p) => p.trim().toLowerCase())
+    .filter((p) => p.length > 0);
+  if (needles.length === 0) return items;
+  return items.filter((item) => {
+    const name = item.name.toLowerCase();
+    return !needles.some((n) => name.includes(n));
+  });
+}
 
 function progressLabel(p: ScanProgress): string | null {
   switch (p.stage) {
@@ -53,6 +68,7 @@ export function App() {
     "lunch",
     "dinner",
   ]);
+  const [pantryStaples, setPantryStaples] = useState<string[]>([]);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
   const [circular, setCircular] = useState<CircularMeta | null>(null);
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
@@ -122,7 +138,10 @@ export function App() {
   useEffect(() => {
     fetch("/api/preferences")
       .then((r) => r.json())
-      .then((data) => setMealsPerDay(data.preferences.mealsPerDay))
+      .then((data) => {
+        setMealsPerDay(data.preferences.mealsPerDay);
+        setPantryStaples(data.preferences.pantryStaples ?? []);
+      })
       .catch(() => {});
   }, []);
 
@@ -321,6 +340,7 @@ export function App() {
           onClose={() => setShowPrefs(false)}
           onSaved={(prefs) => {
             setMealsPerDay(prefs.mealsPerDay);
+            setPantryStaples(prefs.pantryStaples);
             setShowPrefs(false);
             setSavedHint(true);
           }}
@@ -413,7 +433,7 @@ export function App() {
           )}
 
           <ShoppingList
-            items={mealPlan.shoppingList}
+            items={filterPantry(mealPlan.shoppingList, pantryStaples)}
             checkedKeys={checkedKeys}
             onToggle={toggleChecked}
           />

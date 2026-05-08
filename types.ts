@@ -38,5 +38,7 @@ export interface UserPreferences {
   householdSize: number;
   dietaryRestrictions: string[];
   cuisinePreferences: string[];
+  excludedIngredients: string[];
+  pantryStaples: string[];
   mealsPerDay: string[];
 }

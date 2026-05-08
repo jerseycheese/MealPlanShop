@@ -96,6 +96,10 @@ function validatePreferences(input: unknown): UserPreferences | string {
   if (typeof dietary === "string") return dietary;
   const cuisine = checkList("cuisinePreferences", p.cuisinePreferences);
   if (typeof cuisine === "string") return cuisine;
+  const excluded = checkList("excludedIngredients", p.excludedIngredients);
+  if (typeof excluded === "string") return excluded;
+  const pantry = checkList("pantryStaples", p.pantryStaples);
+  if (typeof pantry === "string") return pantry;
 
   if (!Array.isArray(p.mealsPerDay) || p.mealsPerDay.length === 0) {
     return "mealsPerDay must include at least one meal";
@@ -112,6 +116,8 @@ function validatePreferences(input: unknown): UserPreferences | string {
     householdSize: size as number,
     dietaryRestrictions: dietary,
     cuisinePreferences: cuisine,
+    excludedIngredients: excluded,
+    pantryStaples: pantry,
     mealsPerDay: meals,
   };
 }

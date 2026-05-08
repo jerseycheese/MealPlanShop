@@ -24,6 +24,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   householdSize: 2,
   dietaryRestrictions: ["low carb", "low sodium"],
   cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
+  excludedIngredients: [],
+  pantryStaples: [],
   mealsPerDay: ["breakfast", "lunch", "dinner"],
 };
 
@@ -101,6 +103,8 @@ ${saleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [${i.categ
 - Household size: ${preferences.householdSize}
 - Dietary restrictions: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
 - Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
+- Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
+- Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
 
 Generate a weekly meal plan for Monday through Sunday.
@@ -188,6 +192,8 @@ ${saleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [${i.categ
 - Household size: ${preferences.householdSize}
 - Dietary restrictions: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
 - Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
+- Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
+- Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
 
 Generate one replacement meal for the slot above, plus the regenerated full-week shopping list.
