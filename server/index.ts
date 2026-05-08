@@ -101,6 +101,12 @@ function validatePreferences(input: unknown): UserPreferences | string {
   const pantry = checkList("pantryStaples", p.pantryStaples);
   if (typeof pantry === "string") return pantry;
 
+  const pantryLower = new Set(pantry.map((s) => s.toLowerCase()));
+  const conflicts = excluded.filter((s) => pantryLower.has(s.toLowerCase()));
+  if (conflicts.length > 0) {
+    return `Cannot have the same ingredient in both excluded ingredients and pantry staples: ${conflicts.join(", ")}`;
+  }
+
   if (!Array.isArray(p.mealsPerDay) || p.mealsPerDay.length === 0) {
     return "mealsPerDay must include at least one meal";
   }
