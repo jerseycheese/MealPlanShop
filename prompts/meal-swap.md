@@ -13,7 +13,7 @@ You are a meal planning assistant. Generate a single replacement meal for one sl
 - **totalTime**: Full wall-clock minutes from starting prep to dish on the table. **Must include** oven preheat (typically 10-15 min when an oven is used), marinade/brine time spec'd in the instructions, and rest time for proteins (5-10 min for steaks).
 - **instructions**: 4-8 concise cooking steps written for home cooks (no sub-steps, no essay paragraphs -- just clear directions)
 - **estimatedCalories**: Rough per-serving calorie estimate (integer)
-- **estimatedCost**: Approximate per-meal grocery cost in USD (number). For ingredients on sale, use (parsed quantity × per-unit price) from the provided sale items. For non-sale items, use a typical US grocery price. **Exclude pantry staples** (already on hand). Round to the nearest $0.50.
+- **estimatedCost**: Approximate per-meal grocery cost in USD (number). Sum (parsed quantity × per-unit sale price) across the sale ingredients only. **Exclude pantry staples** (already on hand) and any non-sale ingredients — the cost reflects only what the user is paying out of the circular, not a guess at full grocery prices. Round to the nearest $0.50.
 
 **Then generate a shopping list for the entire updated week:**
 - Treat every meal in the provided week as still in the plan, with the replacement meal taking the place of the slot being swapped

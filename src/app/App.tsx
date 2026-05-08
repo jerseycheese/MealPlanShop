@@ -298,12 +298,6 @@ export function App() {
     : generating
       ? "Generating..."
       : null;
-  const compactBusyLabel = uploading
-    ? scanProgress.stage === "scanning"
-      ? `Scanning ${scanProgress.page}/${scanProgress.pages}...`
-      : (progressLabel(scanProgress) ?? "Scanning...")
-    : busyLabel;
-
   return (
     <div className="app">
       <header className="header">
@@ -317,39 +311,35 @@ export function App() {
             Preferences
           </button>
           {mealPlan && (
-            <>
-              <UploadCircular
-                variant="header"
-                onFile={handleUpload}
-                disabled={busy}
-              />
-              <button
-                className={`header__regenerate ${busy ? "header__regenerate--loading" : ""}`}
-                onClick={handleRegenerate}
-                disabled={busy}
-              >
-                {compactBusyLabel ?? "Regenerate"}
-              </button>
-            </>
+            <UploadCircular
+              variant="header"
+              onFile={handleUpload}
+              disabled={busy}
+            />
           )}
         </div>
       </header>
 
       {showPrefs && (
         <Preferences
+          canRegenerate={!!mealPlan}
           onClose={() => setShowPrefs(false)}
-          onSaved={(prefs) => {
+          onSaved={(prefs, opts) => {
             setMealsPerDay(prefs.mealsPerDay);
             setPantryStaples(prefs.pantryStaples);
             setShowPrefs(false);
-            setSavedHint(true);
+            if (opts?.regenerate) {
+              handleRegenerate();
+            } else {
+              setSavedHint(true);
+            }
           }}
         />
       )}
 
       {savedHint && (
         <div className="saved-hint">
-          Preferences saved &mdash; click Regenerate to apply.
+          Preferences saved. They'll apply on the next regenerate.
         </div>
       )}
 
@@ -368,12 +358,14 @@ export function App() {
         </div>
       )}
 
-      {busy && !mealPlan && (
+      {busyLabel && (
         <div className="processing-banner">
-          {busyLabel ?? "Processing..."}{" "}
-          <span className="processing-banner__hint">
-            Multi-page PDFs can take several minutes.
-          </span>
+          {busyLabel}{" "}
+          {!mealPlan && (
+            <span className="processing-banner__hint">
+              Multi-page PDFs can take several minutes.
+            </span>
+          )}
         </div>
       )}
 

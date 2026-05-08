@@ -88,37 +88,6 @@ body {
   align-items: center;
 }
 
-.header__regenerate {
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  padding: 10px 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--color-primary);
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-
-.header__regenerate:hover {
-  background: #4a6e4c;
-  transform: translateY(-1px);
-}
-
-.header__regenerate:active {
-  transform: translateY(0);
-}
-
-.header__regenerate:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.header__regenerate--loading {
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
 /* ─── Day Tabs ──────────────────────────────────── */
 
 .day-tabs {
@@ -919,7 +888,8 @@ body {
 }
 
 .preferences-modal__cancel,
-.preferences-modal__save {
+.preferences-modal__save,
+.preferences-modal__regenerate {
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -941,18 +911,29 @@ body {
 }
 
 .preferences-modal__save {
+  border: 1px solid var(--color-primary);
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.preferences-modal__save:hover:not(:disabled) {
+  background: var(--color-accent-light);
+}
+
+.preferences-modal__regenerate {
   border: none;
   background: var(--color-primary);
   color: #fff;
 }
 
-.preferences-modal__save:hover:not(:disabled) {
+.preferences-modal__regenerate:hover:not(:disabled) {
   background: #4a6e4c;
   transform: translateY(-1px);
 }
 
 .preferences-modal__cancel:disabled,
-.preferences-modal__save:disabled {
+.preferences-modal__save:disabled,
+.preferences-modal__regenerate:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -977,7 +958,6 @@ body {
     gap: 6px;
   }
 
-  .header__regenerate,
   .upload-circular__header-btn,
   .header__prefs {
     font-size: 13px;
@@ -986,6 +966,30 @@ body {
 
   .preferences-modal__card {
     padding: 20px;
+  }
+
+  .preferences-modal__actions {
+    flex-wrap: wrap;
+  }
+
+  .shopping-list__item {
+    align-items: flex-start;
+  }
+
+  .shopping-list__item-checkbox {
+    margin-top: 2px;
+  }
+
+  .shopping-list__item-info {
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+
+  .shopping-list__item-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    word-break: break-word;
   }
 
   .upload-circular__dropzone {
@@ -1019,13 +1023,13 @@ body {
    labels to dark text to keep AA contrast on primary-bg controls. */
 
 @media (prefers-color-scheme: dark) {
-  .header__regenerate,
+  .preferences-modal__regenerate,
   .day-tabs__tab--active,
   .day-tabs__tab--active:hover {
     color: var(--color-bg);
   }
 
-  .header__regenerate:hover {
+  .preferences-modal__regenerate:hover:not(:disabled) {
     background: #a8cdac;
     color: var(--color-bg);
   }
