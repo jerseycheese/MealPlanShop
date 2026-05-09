@@ -705,6 +705,53 @@ body {
   text-align: center;
 }
 
+.meal-plan-stale-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.meal-plan-stale-banner__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.meal-plan-stale-banner__cta {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-surface);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.meal-plan-stale-banner__cta:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.meal-plan-stale-banner__cta:active {
+  transform: translateY(0);
+}
+
+.meal-plan-stale-banner__cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .circular-banner {
   display: flex;
   align-items: baseline;

@@ -31,6 +31,7 @@ export interface ShoppingListItem {
 
 export interface MealPlanResult {
   planId?: string;
+  prefsFingerprint?: string;
   weekPlan: DayPlan[];
   shoppingList: ShoppingListItem[];
 }
