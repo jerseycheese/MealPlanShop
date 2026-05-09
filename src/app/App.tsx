@@ -5,7 +5,19 @@ import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS: Record<string, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+
+function dayTabLabel(day: string): string {
+  return DAY_LABELS[day.trim().toLowerCase()] ?? day.slice(0, 3);
+}
 const ALL_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 
 type CircularMeta = {
@@ -392,7 +404,7 @@ export function App() {
                 className={`day-tabs__tab ${i === selectedDay ? "day-tabs__tab--active" : ""}`}
                 onClick={() => setSelectedDay(i)}
               >
-                {DAY_LABELS[i]}
+                {dayTabLabel(d.day)}
               </button>
             ))}
           </nav>

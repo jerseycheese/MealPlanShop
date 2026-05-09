@@ -42,4 +42,5 @@ export interface UserPreferences {
   excludedIngredients: string[];
   pantryStaples: string[];
   mealsPerDay: string[];
+  daysOfWeek: string[];
 }

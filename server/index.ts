@@ -27,7 +27,16 @@ const EXTRACTION_PATH = path.join(OUTPUT_DIR, "extraction.json");
 const PREFERENCES_PATH = path.join(OUTPUT_DIR, "preferences.json");
 const SHOPPING_LIST_STATE_PATH = path.join(OUTPUT_DIR, "shopping-list-state.json");
 const VALID_MEAL_TYPES = new Set(["breakfast", "lunch", "dinner"]);
-const MAX_LIST_ITEMS = 12;
+const VALID_DAYS_OF_WEEK = new Set([
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+]);
+const MAX_LIST_ITEMS = 50;
 const MAX_LIST_ITEM_LEN = 40;
 const MAX_CHECKED_KEYS = 500;
 const MAX_KEY_LEN = 200;
@@ -118,6 +127,21 @@ function validatePreferences(input: unknown): UserPreferences | string {
     if (!meals.includes(m)) meals.push(m);
   }
 
+  if (!Array.isArray(p.daysOfWeek) || p.daysOfWeek.length === 0) {
+    return "daysOfWeek must include at least one day";
+  }
+  const days: string[] = [];
+  for (const d of p.daysOfWeek) {
+    if (typeof d !== "string") {
+      return "daysOfWeek entries must be strings";
+    }
+    const normalized = d.trim().toLowerCase();
+    if (!VALID_DAYS_OF_WEEK.has(normalized)) {
+      return "daysOfWeek entries must be lowercase day names (monday-sunday)";
+    }
+    if (!days.includes(normalized)) days.push(normalized);
+  }
+
   return {
     householdSize: size as number,
     dietaryRestrictions: dietary,
@@ -125,6 +149,7 @@ function validatePreferences(input: unknown): UserPreferences | string {
     excludedIngredients: excluded,
     pantryStaples: pantry,
     mealsPerDay: meals,
+    daysOfWeek: days,
   };
 }
 

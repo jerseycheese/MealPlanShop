@@ -4,6 +4,17 @@ import type { UserPreferences } from "../../types";
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 type MealType = (typeof MEAL_TYPES)[number];
 
+const DAYS_OF_WEEK = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
 interface PreferencesProps {
   onClose: () => void;
   onSaved: (prefs: UserPreferences, opts?: { regenerate?: boolean }) => void;
@@ -89,6 +100,18 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
     });
   };
 
+  const toggleDay = (day: DayOfWeek) => {
+    if (!prefs) return;
+    const has = prefs.daysOfWeek.includes(day);
+    const next = has
+      ? prefs.daysOfWeek.filter((d) => d !== day)
+      : [...prefs.daysOfWeek, day];
+    next.sort(
+      (a, b) => DAYS_OF_WEEK.indexOf(a as DayOfWeek) - DAYS_OF_WEEK.indexOf(b as DayOfWeek)
+    );
+    setPrefs({ ...prefs, daysOfWeek: next });
+  };
+
   return (
     <div
       className="preferences-modal__backdrop"
@@ -138,8 +161,8 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
             </div>
 
             <ChipField
-              label="Dietary restrictions"
-              hint="e.g. low carb, gluten-free, no shellfish"
+              label="Dietary preferences"
+              hint="e.g. low carb, organic, gluten-free, vegetarian"
               values={prefs.dietaryRestrictions}
               onChange={(next) =>
                 setPrefs({ ...prefs, dietaryRestrictions: next })
@@ -166,7 +189,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
 
             <ChipField
               label="Pantry staples (already on hand)"
-              hint="e.g. olive oil, garlic, salt, eggs"
+              hint="e.g. olive oil, salt, cumin, paprika, oregano — anything you don't want on the shopping list"
               values={prefs.pantryStaples}
               onChange={(next) =>
                 setPrefs({ ...prefs, pantryStaples: next })
@@ -184,6 +207,22 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                       onChange={() => toggleMeal(meal)}
                     />
                     {meal}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="preferences-modal__field preferences-modal__field--days">
+              <legend className="preferences-modal__label">Days to plan</legend>
+              <div className="preferences-modal__checkrow">
+                {DAYS_OF_WEEK.map((day) => (
+                  <label key={day} className="preferences-modal__check">
+                    <input
+                      type="checkbox"
+                      checked={prefs.daysOfWeek.includes(day)}
+                      onChange={() => toggleDay(day)}
+                    />
+                    {day}
                   </label>
                 ))}
               </div>
