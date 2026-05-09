@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { UserPreferences } from "../../types";
+import { findExcludedPantryConflicts } from "./preferenceConflicts";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 type MealType = (typeof MEAL_TYPES)[number];
@@ -27,8 +28,24 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleId = "preferences-title";
+  const conflictId = "preferences-conflicts";
   const householdRef = useRef<HTMLInputElement>(null);
   const initialFocused = useRef(false);
+  const conflicts = useMemo(
+    () =>
+      prefs
+        ? findExcludedPantryConflicts(
+            prefs.excludedIngredients,
+            prefs.pantryStaples,
+          )
+        : [],
+    [prefs],
+  );
+  const hasConflicts = conflicts.length > 0;
+  const conflictText =
+    conflicts.length === 1
+      ? `${conflicts[0]} is in both excluded ingredients and pantry staples. Remove it from one list before saving.`
+      : `${conflicts.join(", ")} are in both excluded ingredients and pantry staples. Remove them from one list before saving.`;
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +80,10 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
 
   const persistAnd = async (opts: { regenerate: boolean }) => {
     if (!prefs) return;
+    if (hasConflicts) {
+      setError("Resolve preference conflicts before saving.");
+      return;
+    }
     if (opts.regenerate) setRegenerating(true);
     else setSaving(true);
     setError(null);
@@ -195,6 +216,15 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 setPrefs({ ...prefs, pantryStaples: next })
               }
             />
+            {hasConflicts && (
+              <div
+                id={conflictId}
+                className="preferences-modal__error"
+                role="alert"
+              >
+                {conflictText}
+              </div>
+            )}
 
             <fieldset className="preferences-modal__field">
               <legend className="preferences-modal__label">Meals per day</legend>
@@ -245,7 +275,8 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
             type="button"
             className="preferences-modal__save"
             onClick={handleSave}
-            disabled={!prefs || saving || regenerating}
+            disabled={!prefs || saving || regenerating || hasConflicts}
+            aria-describedby={hasConflicts ? conflictId : undefined}
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -254,7 +285,8 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               type="button"
               className="preferences-modal__regenerate"
               onClick={handleSaveAndRegenerate}
-              disabled={!prefs || saving || regenerating}
+              disabled={!prefs || saving || regenerating || hasConflicts}
+              aria-describedby={hasConflicts ? conflictId : undefined}
             >
               {regenerating ? "Regenerating..." : "Save & Regenerate"}
             </button>
