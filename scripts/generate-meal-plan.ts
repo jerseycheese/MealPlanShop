@@ -40,6 +40,15 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   excludedIngredients: [],
   pantryStaples: [...DEFAULT_PANTRY_STAPLES],
   mealsPerDay: ["breakfast", "lunch", "dinner"],
+  daysOfWeek: [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ],
 };
 
 // -- Exclusion helpers --
@@ -215,13 +224,14 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 ## User Preferences
 
 - Household size: ${preferences.householdSize}
-- Dietary restrictions: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
+- Dietary preferences: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
 - Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
 - Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
+- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
 
-Generate a weekly meal plan for Monday through Sunday.
+Generate a meal plan covering the selected days.
 `;
 
   const validMeals = ["breakfast", "lunch", "dinner"];
@@ -332,11 +342,12 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 ## User Preferences
 
 - Household size: ${preferences.householdSize}
-- Dietary restrictions: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
+- Dietary preferences: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
 - Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
 - Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
+- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
 
 Generate one replacement meal for the slot above, plus the regenerated full-week shopping list.
 `;
