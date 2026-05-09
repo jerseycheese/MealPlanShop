@@ -10,6 +10,7 @@ import {
   generateMealSwap,
   DEFAULT_PREFERENCES,
 } from "../scripts/generate-meal-plan";
+import { computePrefsFingerprint } from "./prefs-fingerprint";
 import type { MealPlanResult, UserPreferences } from "../types";
 
 type ScanProgress =
@@ -279,7 +280,11 @@ app.get("/api/meal-plan", (_req, res) => {
         // best-effort; serve anyway
       }
     }
-    res.json({ exists: true, ...data });
+    const currentFingerprint = computePrefsFingerprint(loadPreferences());
+    const stale =
+      typeof data.prefsFingerprint !== "string" ||
+      data.prefsFingerprint !== currentFingerprint;
+    res.json({ exists: true, stale, ...data });
   } catch {
     res.status(500).json({ error: "Failed to read meal plan" });
   }
@@ -303,8 +308,13 @@ app.post("/api/meal-plan/generate", async (_req, res) => {
   try {
     const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
     const saleItems = extraction.items || extraction;
-    const result = await generateMealPlan(saleItems, loadPreferences());
-    const stamped = { ...result, planId: crypto.randomUUID() };
+    const prefs = loadPreferences();
+    const result = await generateMealPlan(saleItems, prefs);
+    const stamped = {
+      ...result,
+      planId: crypto.randomUUID(),
+      prefsFingerprint: computePrefsFingerprint(prefs),
+    };
 
     ensureOutputDir();
     fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
@@ -466,11 +476,13 @@ app.post(
       fs.writeFileSync(EXTRACTION_PATH, JSON.stringify(extraction, null, 2));
 
       scanProgress = { stage: "planning" };
-      const mealPlan = await generateMealPlan(
-        extraction.items,
-        loadPreferences()
-      );
-      const stamped = { ...mealPlan, planId: crypto.randomUUID() };
+      const prefs = loadPreferences();
+      const mealPlan = await generateMealPlan(extraction.items, prefs);
+      const stamped = {
+        ...mealPlan,
+        planId: crypto.randomUUID(),
+        prefsFingerprint: computePrefsFingerprint(prefs),
+      };
       fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
       clearShoppingListState();
 

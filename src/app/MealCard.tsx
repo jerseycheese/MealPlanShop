@@ -17,6 +17,7 @@ interface MealCardProps {
   onSwap?: () => void;
   swapping?: boolean;
   swapDisabled?: boolean;
+  swapDisabledReason?: string | null;
   swapError?: string | null;
 }
 
@@ -29,6 +30,7 @@ export function MealCard({
   onSwap,
   swapping = false,
   swapDisabled = false,
+  swapDisabledReason = null,
   swapError = null,
 }: MealCardProps) {
   const saleCount = meal.ingredients.filter((i) => i.onSale).length;
@@ -61,6 +63,7 @@ export function MealCard({
                 tabIndex={0}
                 aria-label={`Swap ${type}`}
                 aria-busy={swapping}
+                title={swapDisabled && swapDisabledReason ? swapDisabledReason : undefined}
                 className={`meal-card__swap ${swapping ? "meal-card__swap--loading" : ""}`}
                 aria-disabled={swapping || swapDisabled}
                 onClick={(e) => {

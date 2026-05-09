@@ -64,6 +64,7 @@ function progressLabel(p: ScanProgress): string | null {
 
 export function App() {
   const [mealPlan, setMealPlan] = useState<MealPlanResult | null>(null);
+  const [stale, setStale] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
   const [expandedMeals, setExpandedMeals] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -113,11 +114,13 @@ export function App() {
       const data = await res.json();
       if (data.exists === false) {
         setMealPlan(null);
+        setStale(false);
         setCheckedKeys(new Set());
       } else {
-        const { exists: _, ...plan } = data;
+        const { exists: _, stale: staleFlag, ...plan } = data;
         const planResult = plan as MealPlanResult;
         setMealPlan(planResult);
+        setStale(staleFlag === true);
         try {
           const stateRes = await fetch("/api/shopping-list-state");
           const state = await stateRes.json();
@@ -344,6 +347,9 @@ export function App() {
               handleRegenerate();
             } else {
               setSavedHint(true);
+              if (mealPlan) {
+                fetchMealPlan();
+              }
             }
           }}
         />
@@ -397,6 +403,21 @@ export function App() {
         </div>
       ) : (
         <>
+          {stale && !generating && (
+            <div className="meal-plan-stale-banner" role="status">
+              <span className="meal-plan-stale-banner__text">
+                Your preferences changed since this plan was generated.
+              </span>
+              <button
+                className="meal-plan-stale-banner__cta"
+                onClick={handleRegenerate}
+                disabled={busy}
+              >
+                Regenerate to apply
+              </button>
+            </div>
+          )}
+
           <nav className="day-tabs">
             {mealPlan.weekPlan.map((d, i) => (
               <button
@@ -428,7 +449,10 @@ export function App() {
                     animationDelay={i * 80}
                     onSwap={() => handleSwap(day.day, type)}
                     swapping={isSwapping}
-                    swapDisabled={busy && !isSwapping}
+                    swapDisabled={(busy && !isSwapping) || stale}
+                    swapDisabledReason={
+                      stale ? "Regenerate first to apply preference changes" : null
+                    }
                     swapError={swapError?.key === key ? swapError.message : null}
                   />
                 );
