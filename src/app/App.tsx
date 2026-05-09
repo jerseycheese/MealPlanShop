@@ -348,6 +348,10 @@ export function App() {
             } else {
               setSavedHint(true);
               if (mealPlan) {
+                // Optimistically mark stale so Swap is blocked during the
+                // refetch window. The GET response will clear the flag if
+                // the new prefs still match the saved plan's fingerprint.
+                setStale(true);
                 fetchMealPlan();
               }
             }
