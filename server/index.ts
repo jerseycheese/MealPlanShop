@@ -10,7 +10,10 @@ import {
   generateMealSwap,
   DEFAULT_PREFERENCES,
 } from "../scripts/generate-meal-plan";
-import { computePrefsFingerprint } from "./prefs-fingerprint";
+import {
+  computePrefsFingerprint,
+  isPlanFingerprintStale,
+} from "./prefs-fingerprint";
 import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
 import type { MealPlanResult, UserPreferences } from "../types";
 
@@ -281,10 +284,7 @@ app.get("/api/meal-plan", (_req, res) => {
         // best-effort; serve anyway
       }
     }
-    const currentFingerprint = computePrefsFingerprint(loadPreferences());
-    const stale =
-      typeof data.prefsFingerprint !== "string" ||
-      data.prefsFingerprint !== currentFingerprint;
+    const stale = isPlanFingerprintStale(data, loadPreferences());
     res.json({ exists: true, stale, ...data });
   } catch {
     res.status(500).json({ error: "Failed to read meal plan" });
@@ -393,6 +393,17 @@ app.post("/api/meal-plan/swap", async (req, res) => {
       res.status(400).json({
         success: false,
         error: `${mealType} is not enabled in current preferences`,
+      });
+      return;
+    }
+
+    // Defense in depth: the UI disables Swap on a stale plan, but a direct API
+    // call or stale tab could still swap against outdated preferences and mix
+    // two pref versions into one plan. Reject before the expensive LLM call.
+    if (isPlanFingerprintStale(plan, preferences)) {
+      res.status(409).json({
+        success: false,
+        error: "Plan is out of sync with current preferences. Regenerate first.",
       });
       return;
     }
