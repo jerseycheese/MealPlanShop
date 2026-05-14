@@ -11,6 +11,7 @@ import {
   DEFAULT_PREFERENCES,
 } from "../scripts/generate-meal-plan";
 import { computePrefsFingerprint } from "./prefs-fingerprint";
+import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
 import type { MealPlanResult, UserPreferences } from "../types";
 
 type ScanProgress =
@@ -401,8 +402,16 @@ app.post("/api/meal-plan/swap", async (req, res) => {
 
     const result = await generateMealSwap(plan, day, slotKey, saleItems, preferences);
 
+    const mergedShoppingList = mergeShoppingListAfterSwap({
+      weekPlan: plan.weekPlan,
+      swappedDayIndex: dayIndex,
+      swappedSlot: slotKey,
+      newMeal: result.meal,
+      priorList: plan.shoppingList,
+      regeneratedList: result.shoppingList,
+    });
     plan.weekPlan[dayIndex][slotKey] = result.meal;
-    plan.shoppingList = result.shoppingList;
+    plan.shoppingList = mergedShoppingList;
 
     ensureOutputDir();
     fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(plan, null, 2));
