@@ -8,6 +8,7 @@ import type {
   ShoppingListItem,
   UserPreferences,
 } from "../types";
+import { expandExcludedTerms, type ExpandedTerm } from "./excludedCategories";
 export type { UserPreferences };
 
 // -- Types (script-local) --
@@ -74,6 +75,20 @@ function matchExcludedTerm(text: string, excluded: string[]): string | null {
   return null;
 }
 
+function matchExpandedTerm(
+  text: string,
+  expanded: ExpandedTerm[]
+): ExpandedTerm | null {
+  for (const entry of expanded) {
+    const re = new RegExp(
+      `(?<![\\p{L}\\p{N}_])${escapeRegex(entry.term)}(?![\\p{L}\\p{N}_])`,
+      "iu"
+    );
+    if (re.test(text)) return entry;
+  }
+  return null;
+}
+
 export function filterExcludedSaleItems(
   items: SaleItem[],
   excluded: string[]
@@ -91,15 +106,32 @@ interface ExcludedViolation {
   mealName: string;
   ingredient?: string;
   term: string;
+  sourceCategory?: string;
 }
 
-function scanMealForViolations(meal: Meal, excluded: string[]): ExcludedViolation[] {
+function scanMealForViolations(
+  meal: Meal,
+  expanded: ExpandedTerm[]
+): ExcludedViolation[] {
   const hits: ExcludedViolation[] = [];
-  const nameTerm = matchExcludedTerm(meal.name, excluded);
-  if (nameTerm) hits.push({ mealName: meal.name, term: nameTerm });
+  const nameMatch = matchExpandedTerm(meal.name, expanded);
+  if (nameMatch) {
+    hits.push({
+      mealName: meal.name,
+      term: nameMatch.term,
+      ...(nameMatch.sourceCategory ? { sourceCategory: nameMatch.sourceCategory } : {}),
+    });
+  }
   for (const ing of meal.ingredients) {
-    const t = matchExcludedTerm(ing.name, excluded);
-    if (t) hits.push({ mealName: meal.name, ingredient: ing.name, term: t });
+    const m = matchExpandedTerm(ing.name, expanded);
+    if (m) {
+      hits.push({
+        mealName: meal.name,
+        ingredient: ing.name,
+        term: m.term,
+        ...(m.sourceCategory ? { sourceCategory: m.sourceCategory } : {}),
+      });
+    }
   }
   return hits;
 }
@@ -108,14 +140,14 @@ export function findExcludedViolations(
   plan: MealPlanResult,
   excluded: string[]
 ): ExcludedViolation[] {
-  const terms = normalizedExcluded(excluded);
-  if (terms.length === 0) return [];
+  const expanded = expandExcludedTerms(excluded);
+  if (expanded.length === 0) return [];
   const out: ExcludedViolation[] = [];
   for (const day of plan.weekPlan) {
     for (const slot of ["breakfast", "lunch", "dinner"] as const) {
       const meal = day[slot];
       if (!meal) continue;
-      for (const v of scanMealForViolations(meal, terms)) {
+      for (const v of scanMealForViolations(meal, expanded)) {
         out.push({ ...v, day: day.day, slot });
       }
     }
@@ -124,13 +156,25 @@ export function findExcludedViolations(
 }
 
 function findMealViolations(meal: Meal, excluded: string[]): ExcludedViolation[] {
-  const terms = normalizedExcluded(excluded);
-  if (terms.length === 0) return [];
-  return scanMealForViolations(meal, terms);
+  const expanded = expandExcludedTerms(excluded);
+  if (expanded.length === 0) return [];
+  return scanMealForViolations(meal, expanded);
 }
 
 function formatViolationsForRetry(violations: ExcludedViolation[]): string {
-  const terms = Array.from(new Set(violations.map((v) => v.term)));
+  const labelMap = new Map<string, string>();
+  for (const v of violations) {
+    if (v.sourceCategory) {
+      const key = v.sourceCategory.toLowerCase();
+      if (!labelMap.has(key)) {
+        labelMap.set(key, `${v.sourceCategory} (e.g. "${v.term}")`);
+      }
+    } else {
+      const key = v.term.toLowerCase();
+      if (!labelMap.has(key)) labelMap.set(key, v.term);
+    }
+  }
+  const terms = Array.from(labelMap.values());
   const examples = violations
     .slice(0, 5)
     .map((v) =>
