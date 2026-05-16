@@ -8,7 +8,11 @@ import type {
   ShoppingListItem,
   UserPreferences,
 } from "../types";
-import { expandExcludedTerms, type ExpandedTerm } from "./excludedCategories";
+import {
+  expandExcludedTerms,
+  matchExpandedTerm,
+  type ExpandedTerm,
+} from "./excludedCategories";
 export type { UserPreferences };
 
 // -- Types (script-local) --
@@ -54,49 +58,14 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 
 // -- Exclusion helpers --
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizedExcluded(terms: string[]): string[] {
-  return terms.map((t) => t.trim()).filter(Boolean);
-}
-
-function matchExcludedTerm(text: string, excluded: string[]): string | null {
-  for (const term of excluded) {
-    // Unicode-aware word boundary so terms with accents (acai, jalapeno)
-    // still match. JavaScript's \b is ASCII-only and would fail on those.
-    const re = new RegExp(
-      `(?<![\\p{L}\\p{N}_])${escapeRegex(term)}(?![\\p{L}\\p{N}_])`,
-      "iu"
-    );
-    if (re.test(text)) return term;
-  }
-  return null;
-}
-
-function matchExpandedTerm(
-  text: string,
-  expanded: ExpandedTerm[]
-): ExpandedTerm | null {
-  for (const entry of expanded) {
-    const re = new RegExp(
-      `(?<![\\p{L}\\p{N}_])${escapeRegex(entry.term)}(?![\\p{L}\\p{N}_])`,
-      "iu"
-    );
-    if (re.test(text)) return entry;
-  }
-  return null;
-}
-
 export function filterExcludedSaleItems(
   items: SaleItem[],
   excluded: string[]
 ): SaleItem[] {
-  const terms = normalizedExcluded(excluded);
-  if (terms.length === 0) return items;
+  const expanded = expandExcludedTerms(excluded);
+  if (expanded.length === 0) return items;
   return items.filter(
-    (it) => !matchExcludedTerm(`${it.item} ${it.category}`, terms)
+    (it) => !matchExpandedTerm(`${it.item} ${it.category}`, expanded)
   );
 }
 
