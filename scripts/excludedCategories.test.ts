@@ -1,7 +1,11 @@
 import * as assert from "node:assert/strict";
 import type { Meal, MealPlanResult } from "../types";
 import { EXCLUDED_CATEGORIES, expandExcludedTerms } from "./excludedCategories";
-import { findExcludedViolations } from "./generate-meal-plan";
+import {
+  filterExcludedSaleItems,
+  findExcludedViolations,
+  type SaleItem,
+} from "./generate-meal-plan";
 
 // 1. Empty input -> empty output.
 assert.deepEqual(expandExcludedTerms([]), []);
@@ -86,4 +90,21 @@ assert.ok(kaleViolations.every((v) => v.sourceCategory === undefined));
 // 11. No excluded terms -> no violations.
 assert.deepEqual(findExcludedViolations(plan, []), []);
 
-console.log("excludedCategories: 11/11 passed");
+// 12. filterExcludedSaleItems: ["shellfish"] drops shrimp, keeps kale.
+const saleItems: SaleItem[] = [
+  { item: "shrimp", price: 5.99, unit: "lb", category: "seafood" },
+  { item: "kale", price: 1.99, unit: "bunch", category: "produce" },
+];
+const filtered = filterExcludedSaleItems(saleItems, ["shellfish"]);
+assert.equal(filtered.length, 1);
+assert.equal(filtered[0].item, "kale");
+
+// 13. filterExcludedSaleItems: literal non-category term still drops matching items.
+const kaleFiltered = filterExcludedSaleItems(saleItems, ["kale"]);
+assert.equal(kaleFiltered.length, 1);
+assert.equal(kaleFiltered[0].item, "shrimp");
+
+// 14. filterExcludedSaleItems: no excluded terms -> all items pass through.
+assert.deepEqual(filterExcludedSaleItems(saleItems, []), saleItems);
+
+console.log("excludedCategories: 14/14 passed");

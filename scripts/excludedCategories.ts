@@ -39,3 +39,23 @@ export function expandExcludedTerms(terms: string[]): ExpandedTerm[] {
   }
   return out;
 }
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function matchExpandedTerm(
+  text: string,
+  expanded: ExpandedTerm[]
+): ExpandedTerm | null {
+  for (const entry of expanded) {
+    // Unicode-aware word boundary so terms with accents (acai, jalapeno)
+    // still match. JavaScript's \b is ASCII-only and would fail on those.
+    const re = new RegExp(
+      `(?<![\\p{L}\\p{N}_])${escapeRegex(entry.term)}(?![\\p{L}\\p{N}_])`,
+      "iu"
+    );
+    if (re.test(text)) return entry;
+  }
+  return null;
+}
