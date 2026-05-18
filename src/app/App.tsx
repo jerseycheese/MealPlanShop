@@ -4,6 +4,7 @@ import { MealCard } from "./MealCard";
 import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
+import { StorePicker, type FlippMerchant } from "./StorePicker";
 
 const DAY_LABELS: Record<string, string> = {
   monday: "Mon",
@@ -30,6 +31,7 @@ type ScanProgress =
   | { stage: "idle" }
   | { stage: "preparing" }
   | { stage: "scanning"; page: number; pages: number; storeName: string | null }
+  | { stage: "fetching"; merchant: string }
   | { stage: "planning" };
 
 function filterPantry(
@@ -47,6 +49,28 @@ function filterPantry(
   });
 }
 
+function formatValidThrough(raw: string | null): string | null {
+  if (!raw) return null;
+  // PDF flow stores a free-form string like "May 19, 2026" — pass through.
+  // Flipp flow stores an ISO timestamp — render it as a friendly date.
+  if (!/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function loyaltyProgramFor(storeName: string | null): { label: string; modifier: string } | null {
+  if (!storeName) return null;
+  const s = storeName.toLowerCase();
+  if (s.includes("food lion")) return { label: "MVP", modifier: "mvp" };
+  if (s.includes("harris teeter")) return { label: "VIC", modifier: "vic" };
+  if (s.includes("kroger")) return { label: "Plus", modifier: "plus" };
+  if (s.includes("publix")) return { label: "Plus", modifier: "plus" };
+  if (s.includes("safeway") || s.includes("albertsons")) return { label: "Card", modifier: "generic" };
+  if (s.includes("shoprite")) return { label: "Price Plus", modifier: "plus" };
+  return { label: "Card", modifier: "generic" };
+}
+
 function progressLabel(p: ScanProgress): string | null {
   switch (p.stage) {
     case "preparing":
@@ -55,6 +79,8 @@ function progressLabel(p: ScanProgress): string | null {
       return p.storeName
         ? `Scanning ${p.storeName} page ${p.page} of ${p.pages}...`
         : `Scanning page ${p.page} of ${p.pages}...`;
+    case "fetching":
+      return `Fetching ${p.merchant} circular...`;
     case "planning":
       return "Building meal plan...";
     default:
@@ -86,6 +112,7 @@ export function App() {
   const [circular, setCircular] = useState<CircularMeta | null>(null);
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
+  const [showStorePicker, setShowStorePicker] = useState(false);
 
   const busy = generating || uploading || swappingKey !== null;
 
@@ -234,6 +261,37 @@ export function App() {
     }
   };
 
+  const handleFlippFetch = async (m: FlippMerchant) => {
+    setShowStorePicker(false);
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/circular/flipp/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          flyerId: m.flyerId,
+          merchantId: typeof m.merchantId === "number" ? m.merchantId : null,
+          merchantName: m.name,
+          validThrough: m.validTo,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || "Fetch failed");
+      } else {
+        await fetchMealPlan();
+        await fetchCircular();
+        setExpandedMeals(new Set());
+        setSelectedDay(0);
+      }
+    } catch {
+      setError("Failed to fetch circular");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleUpload = async (file: File) => {
     setUploading(true);
     setError(null);
@@ -326,11 +384,21 @@ export function App() {
             Preferences
           </button>
           {mealPlan && (
-            <UploadCircular
-              variant="header"
-              onFile={handleUpload}
-              disabled={busy}
-            />
+            <>
+              <button
+                className="header__change-store"
+                onClick={() => setShowStorePicker(true)}
+                disabled={busy}
+                type="button"
+              >
+                Change store
+              </button>
+              <UploadCircular
+                variant="header"
+                onFile={handleUpload}
+                disabled={busy}
+              />
+            </>
           )}
         </div>
       </header>
@@ -359,6 +427,35 @@ export function App() {
         />
       )}
 
+      {showStorePicker && (
+        <div
+          className="store-picker-modal__backdrop"
+          onClick={() => setShowStorePicker(false)}
+        >
+          <div
+            className="store-picker-modal__dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Change store"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="store-picker-modal__close"
+              onClick={() => setShowStorePicker(false)}
+              aria-label="Close"
+            >
+              x
+            </button>
+            <StorePicker
+              onFetch={handleFlippFetch}
+              onUploadFile={handleUpload}
+              disabled={busy}
+            />
+          </div>
+        </div>
+      )}
+
       {savedHint && (
         <div className="saved-hint">
           Preferences saved. They'll apply on the next regenerate.
@@ -374,7 +471,12 @@ export function App() {
           )}
           {circular.validThrough && (
             <span className="circular-banner__dates">
-              Valid through {circular.validThrough}
+              Valid through {formatValidThrough(circular.validThrough)}
+            </span>
+          )}
+          {mealPlan?.shoppingList.some((i) => i.requiresLoyaltyCard) && (
+            <span className="circular-banner__loyalty">
+              Some prices require a loyalty card
             </span>
           )}
         </div>
@@ -395,12 +497,12 @@ export function App() {
         <div className="empty-state">
           <h2 className="empty-state__title">No meal plan yet</h2>
           <p className="empty-state__text">
-            Upload your store's weekly circular and we'll build a meal plan around the deals.
+            Pick your store's weekly circular and we'll build a meal plan around the deals.
           </p>
-          <div className="empty-state__upload">
-            <UploadCircular
-              variant="empty"
-              onFile={handleUpload}
+          <div className="empty-state__picker">
+            <StorePicker
+              onFetch={handleFlippFetch}
+              onUploadFile={handleUpload}
               disabled={busy}
             />
           </div>
@@ -471,6 +573,7 @@ export function App() {
             weeklyTotal={mealPlan.weekPlan
               .flatMap((d) => ALL_MEAL_TYPES.map((t) => d[t]?.estimatedCost ?? 0))
               .reduce((a, b) => a + b, 0)}
+            loyaltyProgram={loyaltyProgramFor(circular?.storeName ?? null)}
           />
         </>
       )}

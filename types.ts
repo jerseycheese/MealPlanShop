@@ -1,3 +1,18 @@
+export interface SaleItem {
+  item: string;
+  price: number;
+  unit: string;
+  category: string;
+  priceNote?: string;
+  requiresLoyaltyCard?: boolean;
+}
+
+export interface ExtractionResult {
+  items: SaleItem[];
+  storeName: string | null;
+  validThrough: string | null;
+}
+
 export interface Ingredient {
   name: string;
   quantity: string;
@@ -27,6 +42,7 @@ export interface ShoppingListItem {
   category: string;
   onSale: boolean;
   salePrice: number | null;
+  requiresLoyaltyCard?: boolean;
 }
 
 export interface MealPlanResult {

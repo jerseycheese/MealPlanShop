@@ -1082,3 +1082,298 @@ body {
     color: var(--color-bg);
   }
 }
+
+/* StorePicker ─────────────────────────────────── */
+
+.store-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: var(--max-width);
+}
+
+.store-picker__header {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.store-picker__zip-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.store-picker__zip-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.store-picker__zip-input {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100px;
+  letter-spacing: 0.05em;
+}
+
+.store-picker__zip-input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.store-picker__zip-submit {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-bg);
+  cursor: pointer;
+}
+
+.store-picker__zip-submit:hover:not(:disabled) {
+  background: #2f4630;
+}
+
+.store-picker__zip-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.store-picker__status {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  min-height: 1.2em;
+  font-variant-numeric: tabular-nums;
+}
+
+.store-picker__status--error {
+  color: var(--color-accent);
+}
+
+.store-picker__tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.store-picker__merchant-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.merchant-card {
+  font: inherit;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  width: 100%;
+  color: var(--color-text);
+}
+
+.merchant-card:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.merchant-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.merchant-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.merchant-card--expiring {
+  border-left: 3px solid #d97706;
+}
+
+.merchant-card__name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.merchant-card__dates {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-card__expiry-pill {
+  display: inline-block;
+  align-self: start;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: #fff3e0;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.merchant-card__cta {
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  margin-top: 4px;
+}
+
+.store-picker__fallback {
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.store-picker__fallback-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.store-picker__fallback-toggle:hover {
+  color: var(--color-text);
+}
+
+/* Store picker modal ──────────────────────────── */
+
+.store-picker-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(45, 36, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.store-picker-modal__dialog {
+  position: relative;
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  max-width: var(--max-width);
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-card-hover);
+}
+
+.store-picker-modal__close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 4px 8px;
+}
+
+.store-picker-modal__close:hover {
+  color: var(--color-text);
+}
+
+/* Header change-store button ──────────────────── */
+
+.header__change-store {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.header__change-store:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.header__change-store:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empty state — picker variant ────────────────── */
+
+.empty-state__picker {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Loyalty chip ─────────────────────────────────── */
+
+.loyalty-chip {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  vertical-align: middle;
+  background: var(--color-surface);
+}
+
+.loyalty-chip--mvp {
+  color: #c8102e;
+  border-color: #f7c5cc;
+  background: #fdeef0;
+}
+
+.loyalty-chip--vic {
+  color: #00857d;
+  border-color: #b4e0dc;
+  background: #e6f5f3;
+}
+
+.loyalty-chip--plus {
+  color: #003da5;
+  border-color: #b8c8e6;
+  background: #e8eef9;
+}
+
+.loyalty-chip--generic {
+  color: var(--color-text);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Loyalty caveat in circular banner */
+
+.circular-banner__loyalty {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-left: 8px;
+  font-style: italic;
+}
