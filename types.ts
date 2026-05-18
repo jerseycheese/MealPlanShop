@@ -61,3 +61,24 @@ export interface UserPreferences {
   mealsPerDay: string[];
   daysOfWeek: string[];
 }
+
+export const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
+export type MealType = (typeof MEAL_TYPES)[number];
+
+export const DAYS_OF_WEEK = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+export type ScanProgress =
+  | { stage: "idle" }
+  | { stage: "preparing" }
+  | { stage: "scanning"; page: number; pages: number; storeName: string | null }
+  | { stage: "fetching"; merchant: string }
+  | { stage: "planning" };
