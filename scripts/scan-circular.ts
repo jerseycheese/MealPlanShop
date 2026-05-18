@@ -3,22 +3,21 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
 import { GoogleGenAI } from "@google/genai";
+import type { SaleItem, ExtractionResult } from "../types";
 
-// -- Types --
-
-interface SaleItem {
-  item: string;
-  price: number;
-  unit: string;
-  category: string;
-  priceNote?: string;
-}
-
-interface ExtractionResult {
-  items: SaleItem[];
-  storeName: string | null;
-  validThrough: string | null;
-}
+export const CATEGORY_ENUM = [
+  "produce",
+  "meat",
+  "seafood",
+  "dairy",
+  "bakery",
+  "frozen",
+  "pantry",
+  "beverages",
+  "snacks",
+  "deli",
+  "other",
+] as const;
 
 export type ScanProgressEvent =
   | { type: "preparing" }
@@ -39,19 +38,7 @@ const extractionSchema = {
           unit: { type: "string" as const },
           category: {
             type: "string" as const,
-            enum: [
-              "produce",
-              "meat",
-              "seafood",
-              "dairy",
-              "bakery",
-              "frozen",
-              "pantry",
-              "beverages",
-              "snacks",
-              "deli",
-              "other",
-            ],
+            enum: [...CATEGORY_ENUM],
           },
           priceNote: { type: "string" as const },
         },
@@ -148,7 +135,7 @@ const EXCLUDE_KEYWORDS = [
   "baby cereal",
 ];
 
-function filterNonMealItems(items: SaleItem[]): SaleItem[] {
+export function filterNonMealItems(items: SaleItem[]): SaleItem[] {
   return items.filter((item) => {
     const name = item.item.toLowerCase();
     return !EXCLUDE_KEYWORDS.some((kw) => name.includes(kw));
@@ -162,7 +149,7 @@ function filterNonMealItems(items: SaleItem[]): SaleItem[] {
 // misreads the year (e.g. returns 2024 for a current flyer); better to show
 // no date than a wrong one. Strings without a year are left alone — the UI
 // degrades gracefully.
-function validateValidThrough(validThrough: string | null): string | null {
+export function validateValidThrough(validThrough: string | null): string | null {
   if (!validThrough) return null;
   if (!/\b20\d{2}\b/.test(validThrough)) return validThrough;
 
@@ -196,7 +183,7 @@ function validateValidThrough(validThrough: string | null): string | null {
 
 // -- Deduplication --
 
-function deduplicateItems(items: SaleItem[]): SaleItem[] {
+export function deduplicateItems(items: SaleItem[]): SaleItem[] {
   const seen = new Map<string, SaleItem>();
   for (const item of items) {
     // Key on lowercase item name + price to catch duplicates across pages

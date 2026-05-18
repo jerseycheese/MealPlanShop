@@ -15,12 +15,15 @@ import {
   isPlanFingerprintStale,
 } from "./prefs-fingerprint";
 import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
-import type { MealPlanResult, UserPreferences } from "../types";
+import type { MealPlanResult, UserPreferences, ExtractionResult } from "../types";
+import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
+import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
 
 type ScanProgress =
   | { stage: "idle" }
   | { stage: "preparing" }
   | { stage: "scanning"; page: number; pages: number; storeName: string | null }
+  | { stage: "fetching"; merchant: string }
   | { stage: "planning" };
 
 const app = express();
@@ -31,6 +34,7 @@ const MEAL_PLAN_PATH = path.join(OUTPUT_DIR, "meal-plan.json");
 const EXTRACTION_PATH = path.join(OUTPUT_DIR, "extraction.json");
 const PREFERENCES_PATH = path.join(OUTPUT_DIR, "preferences.json");
 const SHOPPING_LIST_STATE_PATH = path.join(OUTPUT_DIR, "shopping-list-state.json");
+const FLIPP_CACHE_DIR = path.join(OUTPUT_DIR, "flipp-cache");
 const VALID_MEAL_TYPES = new Set(["breakfast", "lunch", "dinner"]);
 const VALID_DAYS_OF_WEEK = new Set([
   "monday",
@@ -59,6 +63,79 @@ let scanProgress: ScanProgress = { stage: "idle" };
 
 function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+// Shared write-extraction → generate-meal-plan → write-meal-plan path used by
+// both the PDF upload route and the Flipp fetch route. Returns the meal plan
+// item count + storeName so the route can shape its JSON response.
+async function runScanAndPlan(
+  extraction: ExtractionResult,
+): Promise<{ itemCount: number; storeName: string | null }> {
+  if (extraction.items.length === 0) {
+    const err = new Error("No sale items extracted from this circular.");
+    (err as Error & { statusCode?: number }).statusCode = 422;
+    throw err;
+  }
+  ensureOutputDir();
+  fs.writeFileSync(EXTRACTION_PATH, JSON.stringify(extraction, null, 2));
+
+  scanProgress = { stage: "planning" };
+  const prefs = loadPreferences();
+  const mealPlan = await generateMealPlan(extraction.items, prefs);
+
+  // Post-hoc join: propagate the loyalty-card flag from sale items to shopping
+  // list rows by name match. The meal plan prompt doesn't know about it; doing
+  // it here keeps the prompt unchanged.
+  const loyaltyByName = new Map<string, boolean>();
+  for (const item of extraction.items) {
+    if (item.requiresLoyaltyCard) loyaltyByName.set(item.item.toLowerCase(), true);
+  }
+  if (loyaltyByName.size && Array.isArray(mealPlan.shoppingList)) {
+    for (const row of mealPlan.shoppingList) {
+      const rowName = row.name.toLowerCase();
+      for (const [saleName] of loyaltyByName) {
+        if (rowName.includes(saleName) || saleName.includes(rowName)) {
+          row.requiresLoyaltyCard = true;
+          break;
+        }
+      }
+    }
+  }
+
+  const stamped = {
+    ...mealPlan,
+    planId: crypto.randomUUID(),
+    prefsFingerprint: computePrefsFingerprint(prefs),
+  };
+  fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
+  clearShoppingListState();
+
+  return { itemCount: extraction.items.length, storeName: extraction.storeName };
+}
+
+function readFlippCache(flyerId: number): ExtractionResult | null {
+  const file = path.join(FLIPP_CACHE_DIR, `${flyerId}.json`);
+  if (!fs.existsSync(file)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(file, "utf-8")) as ExtractionResult & {
+      _cachedAt?: number;
+    };
+    if (data.validThrough) {
+      const end = new Date(data.validThrough).getTime();
+      if (Number.isFinite(end) && Date.now() > end) return null;
+    }
+    return { items: data.items, storeName: data.storeName, validThrough: data.validThrough };
+  } catch {
+    return null;
+  }
+}
+
+function writeFlippCache(flyerId: number, result: ExtractionResult) {
+  fs.mkdirSync(FLIPP_CACHE_DIR, { recursive: true });
+  fs.writeFileSync(
+    path.join(FLIPP_CACHE_DIR, `${flyerId}.json`),
+    JSON.stringify({ ...result, _cachedAt: Date.now() }, null, 2),
+  );
 }
 
 function clearShoppingListState() {
@@ -492,25 +569,8 @@ app.post(
         return;
       }
 
-      ensureOutputDir();
-      fs.writeFileSync(EXTRACTION_PATH, JSON.stringify(extraction, null, 2));
-
-      scanProgress = { stage: "planning" };
-      const prefs = loadPreferences();
-      const mealPlan = await generateMealPlan(extraction.items, prefs);
-      const stamped = {
-        ...mealPlan,
-        planId: crypto.randomUUID(),
-        prefsFingerprint: computePrefsFingerprint(prefs),
-      };
-      fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
-      clearShoppingListState();
-
-      res.json({
-        success: true,
-        itemCount: extraction.items.length,
-        storeName: extraction.storeName,
-      });
+      const result = await runScanAndPlan(extraction);
+      res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({
         success: false,
@@ -529,6 +589,108 @@ app.post(
     }
   }
 );
+
+app.get("/api/circular/prefs", (_req, res) => {
+  res.json(loadCircularPrefs());
+});
+
+app.post("/api/circular/flipp/stores", async (req, res) => {
+  const body = req.body as { postalCode?: unknown } | undefined;
+  const postalCode = typeof body?.postalCode === "string" ? body.postalCode.trim() : "";
+  if (!/^\d{5}$/.test(postalCode)) {
+    res.status(400).json({ success: false, error: "postalCode must be a 5-digit ZIP" });
+    return;
+  }
+  try {
+    const merchants = await listFlyers(postalCode);
+    saveCircularPrefs({ postalCode });
+    res.json({ success: true, merchants });
+  } catch (err) {
+    res.status(502).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch stores",
+    });
+  }
+});
+
+app.post("/api/circular/flipp/fetch", async (req, res) => {
+  if (processing) {
+    res.status(409).json({ success: false, error: "Already processing a request" });
+    return;
+  }
+  const body = req.body as
+    | {
+        flyerId?: unknown;
+        merchantId?: unknown;
+        merchantName?: unknown;
+        validThrough?: unknown;
+      }
+    | undefined;
+  const flyerId = typeof body?.flyerId === "number" ? body.flyerId : NaN;
+  const merchantName =
+    typeof body?.merchantName === "string" && body.merchantName.trim()
+      ? body.merchantName.trim()
+      : null;
+  const validThrough =
+    typeof body?.validThrough === "string" && body.validThrough.trim()
+      ? body.validThrough.trim()
+      : null;
+  const merchantId =
+    typeof body?.merchantId === "number" && Number.isFinite(body.merchantId)
+      ? body.merchantId
+      : null;
+  if (!Number.isFinite(flyerId) || !merchantName) {
+    res.status(400).json({
+      success: false,
+      error: "flyerId (number) and merchantName (string) are required",
+    });
+    return;
+  }
+
+  processing = true;
+  try {
+    scanProgress = { stage: "fetching", merchant: merchantName };
+    let extraction = readFlippCache(flyerId);
+    if (extraction) {
+      // Carry through caller-supplied store/validThrough in case the cached
+      // metadata is missing (e.g. early cache entries).
+      extraction = {
+        items: extraction.items,
+        storeName: extraction.storeName ?? merchantName,
+        validThrough: extraction.validThrough ?? validThrough,
+      };
+      console.log(`[flipp] cache hit flyer=${flyerId} items=${extraction.items.length}`);
+    } else {
+      extraction = await fetchFlyer(flyerId, {
+        storeName: merchantName,
+        validThrough,
+      });
+      writeFlippCache(flyerId, extraction);
+    }
+
+    if (extraction.items.length === 0) {
+      res.status(422).json({
+        success: false,
+        error:
+          "This flyer doesn't appear to have grocery items we can plan meals from. Try a different store.",
+      });
+      return;
+    }
+
+    const result = await runScanAndPlan(extraction);
+    if (merchantId !== null) saveCircularPrefs({ lastMerchantId: merchantId });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const status = (err as Error & { statusCode?: number }).statusCode ?? 500;
+    res.status(status).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Fetch failed",
+    });
+  } finally {
+    processing = false;
+    scanProgress = { stage: "idle" };
+  }
+});
 
 app.use(
   (

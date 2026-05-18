@@ -18,9 +18,16 @@ interface ShoppingListProps {
   checkedKeys: Set<string>;
   onToggle: (key: string) => void;
   weeklyTotal: number;
+  loyaltyProgram?: { label: string; modifier: string } | null;
 }
 
-export function ShoppingList({ items, checkedKeys, onToggle, weeklyTotal }: ShoppingListProps) {
+export function ShoppingList({
+  items,
+  checkedKeys,
+  onToggle,
+  weeklyTotal,
+  loyaltyProgram,
+}: ShoppingListProps) {
   const grouped = new Map<string, ShoppingListItem[]>();
 
   for (const item of items) {
@@ -74,6 +81,14 @@ export function ShoppingList({ items, checkedKeys, onToggle, weeklyTotal }: Shop
                       />
                       <div className="shopping-list__item-info">
                         <span className="shopping-list__item-name" title={item.name}>{item.name}</span>
+                        {item.requiresLoyaltyCard && loyaltyProgram && (
+                          <span
+                            className={`loyalty-chip loyalty-chip--${loyaltyProgram.modifier}`}
+                            aria-label={`Requires ${loyaltyProgram.label} loyalty card`}
+                          >
+                            {loyaltyProgram.label}
+                          </span>
+                        )}
                         <span className="shopping-list__item-qty">{item.quantity}</span>
                       </div>
                       {item.onSale && item.salePrice != null && (
