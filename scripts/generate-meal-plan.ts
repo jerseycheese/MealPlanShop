@@ -286,6 +286,7 @@ Generate a meal plan covering the selected days.
         systemInstruction: systemPrompt,
         responseMimeType: "application/json",
         responseJsonSchema: mealPlanSchema,
+        httpOptions: { timeout: 120_000 },
       },
     });
     return JSON.parse(response.text ?? "{}") as MealPlanResult;
@@ -388,6 +389,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
         systemInstruction: systemPrompt,
         responseMimeType: "application/json",
         responseJsonSchema: swapSchema,
+        httpOptions: { timeout: 60_000 },
       },
     });
     return JSON.parse(response.text ?? "{}") as {

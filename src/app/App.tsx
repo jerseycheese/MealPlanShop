@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type {
   MealPlanResult,
-  Meal,
   ShoppingListItem,
   ScanProgress,
 } from "../../types";
@@ -67,6 +66,12 @@ function loyaltyProgramFor(storeName: string | null): { label: string; modifier:
   const hit = LOYALTY_PROGRAMS.find((p) => p.match.some((m) => s.includes(m)));
   if (hit) return { label: hit.label, modifier: hit.modifier };
   return { label: "Card", modifier: "generic" };
+}
+
+function isMealPlanResult(value: unknown): value is MealPlanResult {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.weekPlan) && Array.isArray(v.shoppingList);
 }
 
 function progressLabel(p: ScanProgress): string | null {
@@ -149,7 +154,10 @@ export function App() {
         setCheckedKeys(new Set());
       } else {
         const { exists: _, stale: staleFlag, ...plan } = data;
-        const planResult = plan as MealPlanResult;
+        if (!isMealPlanResult(plan)) {
+          throw new Error("meal-plan response failed validation");
+        }
+        const planResult = plan;
         setMealPlan(planResult);
         setStale(staleFlag === true);
         try {
@@ -556,10 +564,10 @@ export function App() {
           {day && (
             <main className="day-view">
               <h2 className="day-view__title">{day.day}</h2>
-              {MEAL_TYPES.filter(
-                (type) => mealsPerDay.includes(type) && day[type]
-              ).map((type, i) => {
-                const meal = day[type] as Meal;
+              {MEAL_TYPES.flatMap((type, i) => {
+                if (!mealsPerDay.includes(type)) return [];
+                const meal = day[type];
+                if (!meal) return [];
                 const key = `${day.day}-${type}`;
                 const isSwapping = swappingKey === key;
                 return (

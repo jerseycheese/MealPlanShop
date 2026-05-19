@@ -85,6 +85,7 @@ async function scanImage(
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: extractionSchema,
+      httpOptions: { timeout: 90_000 },
     },
   });
 
