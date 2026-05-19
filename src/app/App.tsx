@@ -187,7 +187,11 @@ export function App() {
         setMealsPerDay(data.preferences.mealsPerDay);
         setPantryStaples(data.preferences.pantryStaples ?? []);
       })
-      .catch(() => {});
+      .catch((err) => {
+        // Non-fatal: the user can still use the app with default meals/pantry,
+        // and the Preferences modal surfaces its own load error.
+        console.error("Failed to load preferences", err);
+      });
   }, []);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { scanCircular } from "./scan-circular";
 import { generateMealPlan, DEFAULT_PREFERENCES } from "./generate-meal-plan";
+import { requireEnv } from "./env";
 
 async function main() {
   const imagePath = process.argv[2];
@@ -22,10 +23,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("Missing GEMINI_API_KEY in .env file");
-    process.exit(1);
-  }
+  requireEnv("GEMINI_API_KEY");
 
   console.log("=== MealPlanShop Pipeline ===\n");
 

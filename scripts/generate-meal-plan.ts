@@ -13,6 +13,7 @@ import {
   matchExpandedTerm,
   type ExpandedTerm,
 } from "./excludedCategories";
+import { requireEnv } from "./env";
 export type { UserPreferences };
 
 // -- Types (script-local) --
@@ -420,10 +421,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
 // -- CLI entry point --
 
 async function main() {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("Missing GEMINI_API_KEY in .env file");
-    process.exit(1);
-  }
+  requireEnv("GEMINI_API_KEY");
 
   // Load sale items from extraction output or a provided file
   const itemsPath =
