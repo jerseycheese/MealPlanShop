@@ -120,9 +120,9 @@ export function MealCard({
           <div className="meal-card__section">
             <h4 className="meal-card__section-title">Ingredients</h4>
             <ul className="meal-card__ingredients">
-              {meal.ingredients.map((ing, i) => (
+              {meal.ingredients.map((ing) => (
                 <li
-                  key={i}
+                  key={`${ing.name}|${ing.quantity}`}
                   className={`meal-card__ingredient ${ing.onSale ? "meal-card__ingredient--sale" : ""}`}
                 >
                   <span className="meal-card__ingredient-qty">{ing.quantity}</span>
@@ -136,8 +136,8 @@ export function MealCard({
           <div className="meal-card__section">
             <h4 className="meal-card__section-title">Instructions</h4>
             <ol className="meal-card__instructions">
-              {meal.instructions.map((step, i) => (
-                <li key={i} className="meal-card__step">
+              {meal.instructions.map((step) => (
+                <li key={step} className="meal-card__step">
                   {step}
                 </li>
               ))}

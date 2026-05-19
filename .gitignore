@@ -4,3 +4,8 @@ dist/
 output/
 .pdf-tmp/
 .DS_Store
+samples/*.pdf
+samples/*.jpg
+samples/*.jpeg
+samples/*.png
+samples/*.webp
