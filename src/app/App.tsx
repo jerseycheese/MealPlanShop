@@ -141,6 +141,7 @@ export function App() {
   const fetchMealPlan = useCallback(async () => {
     try {
       const res = await fetch("/api/meal-plan");
+      if (!res.ok) throw new Error(`meal-plan request failed: ${res.status}`);
       const data = await res.json();
       if (data.exists === false) {
         setMealPlan(null);
@@ -153,6 +154,7 @@ export function App() {
         setStale(staleFlag === true);
         try {
           const stateRes = await fetch("/api/shopping-list-state");
+          if (!stateRes.ok) throw new Error(`shopping-list-state failed: ${stateRes.status}`);
           const state = await stateRes.json();
           if (
             planResult.planId &&
@@ -188,9 +190,9 @@ export function App() {
         setPantryStaples(data.preferences.pantryStaples ?? []);
       })
       .catch((err) => {
-        // Non-fatal: the user can still use the app with default meals/pantry,
-        // and the Preferences modal surfaces its own load error.
-        console.error("Failed to load preferences", err);
+        if (import.meta.env.DEV) {
+          console.error("Failed to load preferences", err);
+        }
       });
   }, []);
 

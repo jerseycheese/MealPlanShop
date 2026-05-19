@@ -412,16 +412,9 @@ app.get("/api/meal-plan", (_req, res) => {
     res.json({ exists: false });
     return;
   }
-  if (typeof data.planId !== "string" || !data.planId) {
-    data.planId = crypto.randomUUID();
-    try {
-      fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(data, null, 2));
-    } catch {
-      // best-effort; serve anyway
-    }
-  }
+  const planId = typeof data.planId === "string" && data.planId ? data.planId : null;
   const stale = isPlanFingerprintStale(data, loadPreferences());
-  res.json({ exists: true, stale, ...data });
+  res.json({ exists: true, stale, ...data, planId });
 });
 
 app.post("/api/meal-plan/generate", withSerial(async (_req, res) => {
@@ -738,7 +731,8 @@ app.use(
       });
       return;
     }
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[unhandled]", err);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 );
 

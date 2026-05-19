@@ -80,6 +80,9 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefs),
       });
+      if (!res.ok && res.status >= 500) {
+        throw new Error(`preferences save failed: ${res.status}`);
+      }
       const data = await res.json();
       if (!data.success) {
         setError(data.error || "Couldn't save");
