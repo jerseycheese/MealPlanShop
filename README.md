@@ -161,7 +161,7 @@ scripts/
   generate-meal-plan.ts     # Meal planner (sale items -> weekly plan + recipes)
   full-pipeline.ts          # End-to-end pipeline
   serve.ts                  # Express server for the web UI
-samples/                    # Sample circulars for testing
+samples/                    # Drop your own circulars here (PDFs/images gitignored)
 output/                     # Generated output (gitignored)
 ```
 

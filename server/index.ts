@@ -536,61 +536,57 @@ app.post(
       return;
     }
 
-    if (processing) {
-      res.status(409).json({ success: false, error: "Already processing a request" });
-      return;
-    }
+    const file = req.file;
+    await withSerial(async (_req, res) => {
+      const tmpPath = path.join(
+        os.tmpdir(),
+        `mealplanshop-${crypto.randomUUID()}${ext}`
+      );
 
-    processing = true;
-    const tmpPath = path.join(
-      os.tmpdir(),
-      `mealplanshop-${crypto.randomUUID()}${ext}`
-    );
+      try {
+        fs.writeFileSync(tmpPath, file.buffer);
 
-    try {
-      fs.writeFileSync(tmpPath, req.file.buffer);
-
-      scanProgress = { stage: "preparing" };
-      const extraction = await scanCircular(tmpPath, (event) => {
-        if (event.type === "preparing") {
-          scanProgress = { stage: "preparing" };
-        } else {
-          scanProgress = {
-            stage: "scanning",
-            page: event.page,
-            pages: event.pages,
-            storeName: event.storeName,
-          };
-        }
-      });
-
-      if (extraction.items.length === 0) {
-        res.status(422).json({
-          success: false,
-          error:
-            "No sale items extracted from this circular. Try a clearer image.",
+        scanProgress = { stage: "preparing" };
+        const extraction = await scanCircular(tmpPath, (event) => {
+          if (event.type === "preparing") {
+            scanProgress = { stage: "preparing" };
+          } else {
+            scanProgress = {
+              stage: "scanning",
+              page: event.page,
+              pages: event.pages,
+              storeName: event.storeName,
+            };
+          }
         });
-        return;
-      }
 
-      const result = await runScanAndPlan(extraction);
-      res.json({ success: true, ...result });
-    } catch (err) {
-      res.status(500).json({
-        success: false,
-        error: err instanceof Error ? err.message : "Processing failed",
-      });
-    } finally {
-      processing = false;
-      scanProgress = { stage: "idle" };
-      if (fs.existsSync(tmpPath)) {
-        try {
-          fs.unlinkSync(tmpPath);
-        } catch {
-          // best-effort cleanup
+        if (extraction.items.length === 0) {
+          res.status(422).json({
+            success: false,
+            error:
+              "No sale items extracted from this circular. Try a clearer image.",
+          });
+          return;
+        }
+
+        const result = await runScanAndPlan(extraction);
+        res.json({ success: true, ...result });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err instanceof Error ? err.message : "Processing failed",
+        });
+      } finally {
+        scanProgress = { stage: "idle" };
+        if (fs.existsSync(tmpPath)) {
+          try {
+            fs.unlinkSync(tmpPath);
+          } catch {
+            // best-effort cleanup
+          }
         }
       }
-    }
+    })(req, res);
   }
 );
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type {
   MealPlanResult,
   Meal,
@@ -111,6 +111,11 @@ export function App() {
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
   const [showStorePicker, setShowStorePicker] = useState(false);
+
+  // Monotonic counter to discard stale shopping-list-state PUT responses.
+  // Without this, rapid toggles race: an older request resolving after a newer
+  // one would revert (on failure) state that the newer one already replaced.
+  const shoppingListPutSeq = useRef(0);
 
   const busy = generating || uploading || swappingKey !== null;
 
@@ -326,21 +331,29 @@ export function App() {
       next.add(key);
     }
     setCheckedKeys(next);
+
+    const seq = ++shoppingListPutSeq.current;
+    const snapshot = [...next];
     fetch("/api/shopping-list-state", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId, checkedKeys: [...next] }),
-    }).catch(() => {
-      setCheckedKeys((current) => {
-        const reverted = new Set(current);
-        if (reverted.has(key)) {
-          reverted.delete(key);
-        } else {
-          reverted.add(key);
-        }
-        return reverted;
+      body: JSON.stringify({ planId, checkedKeys: snapshot }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      })
+      .catch(() => {
+        // Only revert if this is still the latest in-flight request. A newer
+        // toggle reflects the user's current intent; reverting an older one
+        // would clobber it.
+        if (seq !== shoppingListPutSeq.current) return;
+        setCheckedKeys((current) => {
+          const reverted = new Set(current);
+          if (reverted.has(key)) reverted.delete(key);
+          else reverted.add(key);
+          return reverted;
+        });
       });
-    });
   };
 
   const toggleMeal = (key: string) => {
