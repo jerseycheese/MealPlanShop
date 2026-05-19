@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import multer from "multer";
 import helmet from "helmet";
@@ -760,7 +761,9 @@ app.use(
 if (process.env.NODE_ENV === "production") {
   const clientDir = path.join(PROJECT_ROOT, "dist/client");
   app.use(express.static(clientDir));
-  app.get("*", (_req, res) => {
+  // Express 5 (path-to-regexp v8) rejects a bare "*" route, so serve the SPA
+  // fallback from a final middleware instead.
+  app.use((_req, res) => {
     res.sendFile(path.join(clientDir, "index.html"));
   });
 }
