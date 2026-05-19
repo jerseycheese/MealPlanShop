@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UploadCircular } from "./UploadCircular";
+import { API } from "./apiPaths";
 
 export interface FlippMerchant {
   flyerId: number;
@@ -46,7 +47,7 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
     setError(null);
     setActiveZip(code);
     try {
-      const res = await fetch("/api/circular/flipp/stores", {
+      const res = await fetch(API.circularFlippStores, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ postalCode: code }),
@@ -69,7 +70,7 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
   // Hydrate ZIP from saved prefs and auto-fetch if present.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/circular/prefs")
+    fetch(API.circularPrefs)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;

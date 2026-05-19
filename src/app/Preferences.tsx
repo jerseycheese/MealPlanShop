@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { UserPreferences, MealType, DayOfWeek } from "../../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../../types";
 import { findExcludedPantryConflicts } from "./preferenceConflicts";
+import { API } from "./apiPaths";
 
 interface PreferencesProps {
   onClose: () => void;
@@ -36,7 +37,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/preferences")
+    fetch(API.preferences)
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled) setPrefs(data.preferences);
@@ -75,7 +76,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
     else setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/preferences", {
+      const res = await fetch(API.preferences, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefs),
