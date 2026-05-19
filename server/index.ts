@@ -85,13 +85,28 @@ function ensureOutputDir() {
 }
 
 function readJsonOrNull<T = unknown>(filePath: string): T | null {
-  if (!fs.existsSync(filePath)) return null;
+  let raw: string;
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    console.warn(`[readJsonOrNull] failed to read ${filePath}:`, err);
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as T;
   } catch (err) {
     console.warn(`[readJsonOrNull] failed to parse ${filePath}:`, err);
     return null;
   }
+}
+
+// Write JSON via a sibling .tmp file + rename so a crash mid-write can't
+// leave a half-written plan/extraction/preferences blob on disk.
+function writeJsonAtomic(filePath: string, data: unknown): void {
+  const tmp = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, filePath);
 }
 
 // Serialize routes that mutate output/ — concurrent runs would race on file
@@ -171,7 +186,7 @@ async function runScanAndPlan(
     throw err;
   }
   ensureOutputDir();
-  fs.writeFileSync(EXTRACTION_PATH, JSON.stringify(extraction, null, 2));
+  writeJsonAtomic(EXTRACTION_PATH, extraction);
 
   scanProgress = { stage: "planning" };
   const prefs = loadPreferences();
@@ -201,7 +216,7 @@ async function runScanAndPlan(
     planId: crypto.randomUUID(),
     prefsFingerprint: computePrefsFingerprint(prefs),
   };
-  fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
+  writeJsonAtomic(MEAL_PLAN_PATH, stamped);
   clearShoppingListState();
 
   return { itemCount: extraction.items.length, storeName: extraction.storeName };
@@ -221,9 +236,9 @@ function readFlippCache(flyerId: number): ExtractionResult | null {
 
 function writeFlippCache(flyerId: number, result: ExtractionResult) {
   fs.mkdirSync(FLIPP_CACHE_DIR, { recursive: true });
-  fs.writeFileSync(
+  writeJsonAtomic(
     path.join(FLIPP_CACHE_DIR, `${flyerId}.json`),
-    JSON.stringify({ ...result, _cachedAt: Date.now() }, null, 2),
+    { ...result, _cachedAt: Date.now() },
   );
 }
 
@@ -309,7 +324,7 @@ app.put("/api/preferences", (req, res) => {
   try {
     const result = validatePreferences(req.body);
     ensureOutputDir();
-    fs.writeFileSync(PREFERENCES_PATH, JSON.stringify(result, null, 2));
+    writeJsonAtomic(PREFERENCES_PATH, result);
     res.json({ success: true, preferences: result });
   } catch (err) {
     if (err instanceof ValidationError) {
@@ -371,7 +386,7 @@ app.put("/api/shopping-list-state", (req, res) => {
   try {
     ensureOutputDir();
     const out = { planId: body.planId, checkedKeys: [...seen] };
-    fs.writeFileSync(SHOPPING_LIST_STATE_PATH, JSON.stringify(out, null, 2));
+    writeJsonAtomic(SHOPPING_LIST_STATE_PATH, out);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({
@@ -444,7 +459,7 @@ app.post("/api/meal-plan/generate", withSerial(async (_req, res) => {
     };
 
     ensureOutputDir();
-    fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(stamped, null, 2));
+    writeJsonAtomic(MEAL_PLAN_PATH, stamped);
     clearShoppingListState();
     res.json({ success: true });
   } catch (err) {
@@ -543,7 +558,7 @@ app.post("/api/meal-plan/swap", withSerial(async (req, res) => {
     plan.shoppingList = mergedShoppingList;
 
     ensureOutputDir();
-    fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(plan, null, 2));
+    writeJsonAtomic(MEAL_PLAN_PATH, plan);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({

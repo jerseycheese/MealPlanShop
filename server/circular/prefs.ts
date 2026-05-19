@@ -37,6 +37,8 @@ export function saveCircularPrefs(patch: Partial<CircularPrefs>): CircularPrefs 
       patch.lastMerchantId !== undefined ? patch.lastMerchantId : current.lastMerchantId,
   };
   fs.mkdirSync(path.dirname(PREFS_PATH), { recursive: true });
-  fs.writeFileSync(PREFS_PATH, JSON.stringify(next, null, 2));
+  const tmp = `${PREFS_PATH}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2));
+  fs.renameSync(tmp, PREFS_PATH);
   return next;
 }

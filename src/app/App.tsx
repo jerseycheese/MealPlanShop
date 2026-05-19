@@ -16,9 +16,19 @@ const SAVED_HINT_DISMISS_MS = 3500;
 const SCAN_PROGRESS_POLL_MS = 1500;
 const MEAL_CARD_STAGGER_MS = 80;
 
+const DAY_TAB_LABEL: Record<string, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+
 function dayTabLabel(day: string): string {
-  const s = day.trim().toLowerCase();
-  return s.charAt(0).toUpperCase() + s.slice(1, 3);
+  const key = day.trim().toLowerCase();
+  return DAY_TAB_LABEL[key] ?? day.slice(0, 3);
 }
 
 type CircularMeta = {
