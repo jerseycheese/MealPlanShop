@@ -88,7 +88,8 @@ function readJsonOrNull<T = unknown>(filePath: string): T | null {
   if (!fs.existsSync(filePath)) return null;
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
-  } catch {
+  } catch (err) {
+    console.warn(`[readJsonOrNull] failed to parse ${filePath}:`, err);
     return null;
   }
 }
@@ -230,8 +231,8 @@ function clearShoppingListState() {
   if (fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
     try {
       fs.unlinkSync(SHOPPING_LIST_STATE_PATH);
-    } catch {
-      // best-effort
+    } catch (err) {
+      console.warn("[clearShoppingListState] unlink failed:", err);
     }
   }
 }
@@ -612,8 +613,8 @@ app.post(
         if (fs.existsSync(tmpPath)) {
           try {
             fs.unlinkSync(tmpPath);
-          } catch {
-            // best-effort cleanup
+          } catch (err) {
+            console.warn(`[upload] failed to clean up tmp file ${tmpPath}:`, err);
           }
         }
       }
@@ -685,7 +686,6 @@ app.post("/api/circular/flipp/fetch", withSerial(async (req, res) => {
         storeName: extraction.storeName ?? merchantName,
         validThrough: extraction.validThrough ?? validThrough,
       };
-      console.log(`[flipp] cache hit flyer=${flyerId} items=${extraction.items.length}`);
     } else {
       extraction = await fetchFlyer(flyerId, {
         storeName: merchantName,

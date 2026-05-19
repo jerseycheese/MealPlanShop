@@ -11,6 +11,7 @@ import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
+import { API } from "./apiPaths";
 
 function dayTabLabel(day: string): string {
   const s = day.trim().toLowerCase();
@@ -121,7 +122,7 @@ export function App() {
 
   const fetchCircular = useCallback(async () => {
     try {
-      const res = await fetch("/api/circular");
+      const res = await fetch(API.circular);
       const data = await res.json();
       if (data.exists === false) {
         setCircular(null);
@@ -140,7 +141,7 @@ export function App() {
 
   const fetchMealPlan = useCallback(async () => {
     try {
-      const res = await fetch("/api/meal-plan");
+      const res = await fetch(API.mealPlan);
       if (!res.ok) throw new Error(`meal-plan request failed: ${res.status}`);
       const data = await res.json();
       if (data.exists === false) {
@@ -153,7 +154,7 @@ export function App() {
         setMealPlan(planResult);
         setStale(staleFlag === true);
         try {
-          const stateRes = await fetch("/api/shopping-list-state");
+          const stateRes = await fetch(API.shoppingListState);
           if (!stateRes.ok) throw new Error(`shopping-list-state failed: ${stateRes.status}`);
           const state = await stateRes.json();
           if (
@@ -183,7 +184,7 @@ export function App() {
   }, [fetchMealPlan, fetchCircular]);
 
   useEffect(() => {
-    fetch("/api/preferences")
+    fetch(API.preferences)
       .then((r) => r.json())
       .then((data) => {
         setMealsPerDay(data.preferences.mealsPerDay);
@@ -210,7 +211,7 @@ export function App() {
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch("/api/circular/progress");
+        const res = await fetch(API.circularProgress);
         const data: ScanProgress = await res.json();
         if (!cancelled) setScanProgress(data);
       } catch {
@@ -229,7 +230,7 @@ export function App() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch("/api/meal-plan/generate", { method: "POST" });
+      const res = await fetch(API.mealPlanGenerate, { method: "POST" });
       const data = await res.json();
       if (!data.success) {
         setError(data.error || "Generation failed");
@@ -252,7 +253,7 @@ export function App() {
     setSwappingKey(key);
     setSwapError(null);
     try {
-      const res = await fetch("/api/meal-plan/swap", {
+      const res = await fetch(API.mealPlanSwap, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ day: dayName, mealType }),
@@ -275,7 +276,7 @@ export function App() {
     setUploading(true);
     setError(null);
     try {
-      const res = await fetch("/api/circular/flipp/fetch", {
+      const res = await fetch(API.circularFlippFetch, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -307,7 +308,7 @@ export function App() {
     try {
       const formData = new FormData();
       formData.append("circular", file);
-      const res = await fetch("/api/circular/upload", {
+      const res = await fetch(API.circularUpload, {
         method: "POST",
         body: formData,
       });
@@ -340,7 +341,7 @@ export function App() {
 
     const seq = ++shoppingListPutSeq.current;
     const snapshot = [...next];
-    fetch("/api/shopping-list-state", {
+    fetch(API.shoppingListState, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ planId, checkedKeys: snapshot }),
