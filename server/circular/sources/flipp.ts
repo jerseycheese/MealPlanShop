@@ -74,6 +74,7 @@ export interface FlippMerchant {
 
 interface FlippFlyerRaw {
   id: number;
+  name?: string;
   merchant?: string;
   merchant_id?: string | number;
   merchant_logo?: string;

@@ -41,6 +41,7 @@ export async function categorizeItems(names: string[]): Promise<string[]> {
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: SCHEMA,
+        httpOptions: { timeout: 30_000 },
       },
     });
     const parsed = JSON.parse(response.text ?? '{"categories":[]}');
