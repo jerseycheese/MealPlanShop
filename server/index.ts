@@ -414,7 +414,13 @@ app.get("/api/meal-plan", (_req, res) => {
   }
   const planId = typeof data.planId === "string" && data.planId ? data.planId : null;
   const stale = isPlanFingerprintStale(data, loadPreferences());
-  res.json({ exists: true, stale, ...data, planId });
+  res.json({
+    exists: true,
+    stale,
+    planId,
+    weekPlan: data.weekPlan,
+    shoppingList: data.shoppingList,
+  });
 });
 
 app.post("/api/meal-plan/generate", withSerial(async (_req, res) => {
@@ -456,8 +462,8 @@ app.post("/api/meal-plan/swap", withSerial(async (req, res) => {
   }
   const day = body.day;
   const mealType = body.mealType;
-  if (typeof day !== "string" || !day.trim()) {
-    res.status(400).json({ success: false, error: "day must be a non-empty string" });
+  if (typeof day !== "string" || !VALID_DAYS_OF_WEEK.has(day.toLowerCase())) {
+    res.status(400).json({ success: false, error: "day must be a valid day of the week" });
     return;
   }
   if (typeof mealType !== "string" || !VALID_MEAL_TYPES.has(mealType)) {

@@ -12,6 +12,10 @@ import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
 
+const SAVED_HINT_DISMISS_MS = 3500;
+const SCAN_PROGRESS_POLL_MS = 1500;
+const MEAL_CARD_STAGGER_MS = 80;
+
 function dayTabLabel(day: string): string {
   const s = day.trim().toLowerCase();
   return s.charAt(0).toUpperCase() + s.slice(1, 3);
@@ -198,7 +202,7 @@ export function App() {
 
   useEffect(() => {
     if (!savedHint) return;
-    const timer = window.setTimeout(() => setSavedHint(false), 3500);
+    const timer = window.setTimeout(() => setSavedHint(false), SAVED_HINT_DISMISS_MS);
     return () => window.clearTimeout(timer);
   }, [savedHint]);
 
@@ -218,7 +222,7 @@ export function App() {
       }
     };
     poll();
-    const interval = setInterval(poll, 1500);
+    const interval = setInterval(poll, SCAN_PROGRESS_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -569,7 +573,7 @@ export function App() {
                     type={type.charAt(0).toUpperCase() + type.slice(1)}
                     expanded={expandedMeals.has(key)}
                     onToggle={() => toggleMeal(key)}
-                    animationDelay={i * 80}
+                    animationDelay={i * MEAL_CARD_STAGGER_MS}
                     onSwap={() => handleSwap(day.day, type)}
                     swapping={isSwapping}
                     swapDisabled={(busy && !isSwapping) || stale}

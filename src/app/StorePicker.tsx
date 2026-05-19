@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { UploadCircular } from "./UploadCircular";
 
 export interface FlippMerchant {
@@ -41,32 +41,7 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
   const [activeZip, setActiveZip] = useState<string | null>(null);
   const autoTriggered = useRef(false);
 
-  // Hydrate ZIP from saved prefs and auto-fetch if present.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/circular/prefs")
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
-        const code = typeof data?.postalCode === "string" ? data.postalCode : "";
-        if (code) {
-          setZip(code);
-          if (!autoTriggered.current) {
-            autoTriggered.current = true;
-            void runFetch(code);
-          }
-        }
-      })
-      .catch(() => {
-        // No prefs is fine — user will type a ZIP.
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const runFetch = async (code: string) => {
+  const runFetch = useCallback(async (code: string) => {
     setLoading(true);
     setError(null);
     setActiveZip(code);
@@ -89,7 +64,31 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Hydrate ZIP from saved prefs and auto-fetch if present.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/circular/prefs")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const code = typeof data?.postalCode === "string" ? data.postalCode : "";
+        if (code) {
+          setZip(code);
+          if (!autoTriggered.current) {
+            autoTriggered.current = true;
+            void runFetch(code);
+          }
+        }
+      })
+      .catch(() => {
+        // No prefs is fine — user will type a ZIP.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runFetch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
