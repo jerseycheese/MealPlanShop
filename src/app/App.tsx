@@ -10,7 +10,7 @@ import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
-import { API } from "./apiPaths";
+import { API } from "./endpoints";
 
 const SAVED_HINT_DISMISS_MS = 3500;
 const SCAN_PROGRESS_POLL_MS = 1500;

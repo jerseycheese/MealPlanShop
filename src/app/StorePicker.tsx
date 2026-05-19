@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UploadCircular } from "./UploadCircular";
-import { API } from "./apiPaths";
+import { API } from "./endpoints";
 
 export interface FlippMerchant {
   flyerId: number;

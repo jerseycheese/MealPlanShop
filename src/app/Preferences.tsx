@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { UserPreferences, MealType, DayOfWeek } from "../../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../../types";
 import { findExcludedPantryConflicts } from "./preferenceConflicts";
-import { API } from "./apiPaths";
+import { API } from "./endpoints";
 
 interface PreferencesProps {
   onClose: () => void;
