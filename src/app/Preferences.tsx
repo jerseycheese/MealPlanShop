@@ -1,20 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UserPreferences } from "../../types";
+import type { UserPreferences, MealType, DayOfWeek } from "../../types";
+import { MEAL_TYPES, DAYS_OF_WEEK } from "../../types";
 import { findExcludedPantryConflicts } from "./preferenceConflicts";
-
-const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
-type MealType = (typeof MEAL_TYPES)[number];
-
-const DAYS_OF_WEEK = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
-type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
 
 interface PreferencesProps {
   onClose: () => void;

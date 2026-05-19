@@ -15,16 +15,15 @@ import {
   isPlanFingerprintStale,
 } from "./prefs-fingerprint";
 import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
-import type { MealPlanResult, UserPreferences, ExtractionResult } from "../types";
+import type {
+  MealPlanResult,
+  UserPreferences,
+  ExtractionResult,
+  ScanProgress,
+} from "../types";
+import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
 import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
-
-type ScanProgress =
-  | { stage: "idle" }
-  | { stage: "preparing" }
-  | { stage: "scanning"; page: number; pages: number; storeName: string | null }
-  | { stage: "fetching"; merchant: string }
-  | { stage: "planning" };
 
 const app = express();
 const PORT = parseInt(process.env.API_PORT ?? process.env.PORT ?? "3101", 10);
@@ -35,16 +34,8 @@ const EXTRACTION_PATH = path.join(OUTPUT_DIR, "extraction.json");
 const PREFERENCES_PATH = path.join(OUTPUT_DIR, "preferences.json");
 const SHOPPING_LIST_STATE_PATH = path.join(OUTPUT_DIR, "shopping-list-state.json");
 const FLIPP_CACHE_DIR = path.join(OUTPUT_DIR, "flipp-cache");
-const VALID_MEAL_TYPES = new Set(["breakfast", "lunch", "dinner"]);
-const VALID_DAYS_OF_WEEK = new Set([
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-]);
+const VALID_MEAL_TYPES = new Set<string>(MEAL_TYPES);
+const VALID_DAYS_OF_WEEK = new Set<string>(DAYS_OF_WEEK);
 const MAX_LIST_ITEMS = 50;
 const MAX_LIST_ITEM_LEN = 40;
 const MAX_CHECKED_KEYS = 500;
@@ -63,6 +54,80 @@ let scanProgress: ScanProgress = { stage: "idle" };
 
 function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+function readJsonOrNull<T = unknown>(filePath: string): T | null {
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+// Serialize routes that mutate output/ — concurrent runs would race on file
+// writes and the shared scanProgress state.
+function withSerial(
+  handler: (req: express.Request, res: express.Response) => Promise<void>,
+): (req: express.Request, res: express.Response) => Promise<void> {
+  return async (req, res) => {
+    if (processing) {
+      res.status(409).json({ success: false, error: "Already processing a request" });
+      return;
+    }
+    processing = true;
+    try {
+      await handler(req, res);
+    } finally {
+      processing = false;
+    }
+  };
+}
+
+class ValidationError extends Error {}
+
+function validateStringArray(
+  key: string,
+  value: unknown,
+  opts: { maxItems: number; maxLen: number },
+): string[] {
+  if (!Array.isArray(value)) throw new ValidationError(`${key} must be an array`);
+  if (value.length > opts.maxItems) {
+    throw new ValidationError(`${key} can have at most ${opts.maxItems} entries`);
+  }
+  const cleaned: string[] = [];
+  for (const v of value) {
+    if (typeof v !== "string") throw new ValidationError(`${key} entries must be strings`);
+    const trimmed = v.trim();
+    if (!trimmed) throw new ValidationError(`${key} entries cannot be empty`);
+    if (trimmed.length > opts.maxLen) {
+      throw new ValidationError(`${key} entries must be ${opts.maxLen} chars or fewer`);
+    }
+    cleaned.push(trimmed);
+  }
+  return cleaned;
+}
+
+// Validates an enum array (mealsPerDay, daysOfWeek) and dedupes preserving
+// first-seen order. `normalize` lets daysOfWeek lowercase-trim before checking.
+function validateEnumArray(
+  key: string,
+  value: unknown,
+  allowed: Set<string>,
+  invalidMsg: string,
+  normalize: (s: string) => string = (s) => s,
+): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ValidationError(`${key} must include at least one entry`);
+  }
+  const out: string[] = [];
+  for (const v of value) {
+    if (typeof v !== "string") throw new ValidationError(`${key} entries must be strings`);
+    const normalized = normalize(v);
+    if (!allowed.has(normalized)) throw new ValidationError(invalidMsg);
+    if (!out.includes(normalized)) out.push(normalized);
+  }
+  return out;
 }
 
 // Shared write-extraction → generate-meal-plan → write-meal-plan path used by
@@ -114,20 +179,15 @@ async function runScanAndPlan(
 }
 
 function readFlippCache(flyerId: number): ExtractionResult | null {
-  const file = path.join(FLIPP_CACHE_DIR, `${flyerId}.json`);
-  if (!fs.existsSync(file)) return null;
-  try {
-    const data = JSON.parse(fs.readFileSync(file, "utf-8")) as ExtractionResult & {
-      _cachedAt?: number;
-    };
-    if (data.validThrough) {
-      const end = new Date(data.validThrough).getTime();
-      if (Number.isFinite(end) && Date.now() > end) return null;
-    }
-    return { items: data.items, storeName: data.storeName, validThrough: data.validThrough };
-  } catch {
-    return null;
+  const data = readJsonOrNull<ExtractionResult>(
+    path.join(FLIPP_CACHE_DIR, `${flyerId}.json`),
+  );
+  if (!data) return null;
+  if (data.validThrough) {
+    const end = new Date(data.validThrough).getTime();
+    if (Number.isFinite(end) && Date.now() > end) return null;
   }
+  return { items: data.items, storeName: data.storeName, validThrough: data.validThrough };
 }
 
 function writeFlippCache(flyerId: number, result: ExtractionResult) {
@@ -149,80 +209,48 @@ function clearShoppingListState() {
 }
 
 function loadPreferences(): UserPreferences {
-  if (!fs.existsSync(PREFERENCES_PATH)) return DEFAULT_PREFERENCES;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(PREFERENCES_PATH, "utf-8"));
-    return { ...DEFAULT_PREFERENCES, ...parsed };
-  } catch {
-    return DEFAULT_PREFERENCES;
-  }
+  const parsed = readJsonOrNull<Partial<UserPreferences>>(PREFERENCES_PATH);
+  return parsed ? { ...DEFAULT_PREFERENCES, ...parsed } : DEFAULT_PREFERENCES;
 }
 
-function validatePreferences(input: unknown): UserPreferences | string {
-  if (!input || typeof input !== "object") return "Body must be a JSON object";
+function validatePreferences(input: unknown): UserPreferences {
+  if (!input || typeof input !== "object") {
+    throw new ValidationError("Body must be a JSON object");
+  }
   const p = input as Record<string, unknown>;
 
   const size = p.householdSize;
   if (!Number.isInteger(size) || (size as number) < 1 || (size as number) > 20) {
-    return "householdSize must be an integer between 1 and 20";
+    throw new ValidationError("householdSize must be an integer between 1 and 20");
   }
 
-  const checkList = (key: string, value: unknown): string[] | string => {
-    if (!Array.isArray(value)) return `${key} must be an array`;
-    if (value.length > MAX_LIST_ITEMS) return `${key} can have at most ${MAX_LIST_ITEMS} entries`;
-    const cleaned: string[] = [];
-    for (const v of value) {
-      if (typeof v !== "string") return `${key} entries must be strings`;
-      const trimmed = v.trim();
-      if (!trimmed) return `${key} entries cannot be empty`;
-      if (trimmed.length > MAX_LIST_ITEM_LEN) {
-        return `${key} entries must be ${MAX_LIST_ITEM_LEN} chars or fewer`;
-      }
-      cleaned.push(trimmed);
-    }
-    return cleaned;
-  };
-
-  const dietary = checkList("dietaryRestrictions", p.dietaryRestrictions);
-  if (typeof dietary === "string") return dietary;
-  const cuisine = checkList("cuisinePreferences", p.cuisinePreferences);
-  if (typeof cuisine === "string") return cuisine;
-  const excluded = checkList("excludedIngredients", p.excludedIngredients);
-  if (typeof excluded === "string") return excluded;
-  const pantry = checkList("pantryStaples", p.pantryStaples);
-  if (typeof pantry === "string") return pantry;
+  const listOpts = { maxItems: MAX_LIST_ITEMS, maxLen: MAX_LIST_ITEM_LEN };
+  const dietary = validateStringArray("dietaryRestrictions", p.dietaryRestrictions, listOpts);
+  const cuisine = validateStringArray("cuisinePreferences", p.cuisinePreferences, listOpts);
+  const excluded = validateStringArray("excludedIngredients", p.excludedIngredients, listOpts);
+  const pantry = validateStringArray("pantryStaples", p.pantryStaples, listOpts);
 
   const pantryLower = new Set(pantry.map((s) => s.toLowerCase()));
   const conflicts = excluded.filter((s) => pantryLower.has(s.toLowerCase()));
   if (conflicts.length > 0) {
-    return `Cannot have the same ingredient in both excluded ingredients and pantry staples: ${conflicts.join(", ")}`;
+    throw new ValidationError(
+      `Cannot have the same ingredient in both excluded ingredients and pantry staples: ${conflicts.join(", ")}`,
+    );
   }
 
-  if (!Array.isArray(p.mealsPerDay) || p.mealsPerDay.length === 0) {
-    return "mealsPerDay must include at least one meal";
-  }
-  const meals: string[] = [];
-  for (const m of p.mealsPerDay) {
-    if (typeof m !== "string" || !VALID_MEAL_TYPES.has(m)) {
-      return "mealsPerDay entries must be 'breakfast', 'lunch', or 'dinner'";
-    }
-    if (!meals.includes(m)) meals.push(m);
-  }
-
-  if (!Array.isArray(p.daysOfWeek) || p.daysOfWeek.length === 0) {
-    return "daysOfWeek must include at least one day";
-  }
-  const days: string[] = [];
-  for (const d of p.daysOfWeek) {
-    if (typeof d !== "string") {
-      return "daysOfWeek entries must be strings";
-    }
-    const normalized = d.trim().toLowerCase();
-    if (!VALID_DAYS_OF_WEEK.has(normalized)) {
-      return "daysOfWeek entries must be lowercase day names (monday-sunday)";
-    }
-    if (!days.includes(normalized)) days.push(normalized);
-  }
+  const meals = validateEnumArray(
+    "mealsPerDay",
+    p.mealsPerDay,
+    VALID_MEAL_TYPES,
+    "mealsPerDay entries must be 'breakfast', 'lunch', or 'dinner'",
+  );
+  const days = validateEnumArray(
+    "daysOfWeek",
+    p.daysOfWeek,
+    VALID_DAYS_OF_WEEK,
+    "daysOfWeek entries must be lowercase day names (monday-sunday)",
+    (s) => s.trim().toLowerCase(),
+  );
 
   return {
     householdSize: size as number,
@@ -242,16 +270,16 @@ app.get("/api/preferences", (_req, res) => {
 });
 
 app.put("/api/preferences", (req, res) => {
-  const result = validatePreferences(req.body);
-  if (typeof result === "string") {
-    res.status(400).json({ success: false, error: result });
-    return;
-  }
   try {
+    const result = validatePreferences(req.body);
     ensureOutputDir();
     fs.writeFileSync(PREFERENCES_PATH, JSON.stringify(result, null, 2));
     res.json({ success: true, preferences: result });
   } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message });
+      return;
+    }
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : "Failed to save preferences",
@@ -260,20 +288,18 @@ app.put("/api/preferences", (req, res) => {
 });
 
 app.get("/api/shopping-list-state", (_req, res) => {
-  if (!fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
+  const parsed = readJsonOrNull<{ planId?: unknown; checkedKeys?: unknown }>(
+    SHOPPING_LIST_STATE_PATH,
+  );
+  if (!parsed) {
     res.json({ planId: null, checkedKeys: [] });
     return;
   }
-  try {
-    const parsed = JSON.parse(fs.readFileSync(SHOPPING_LIST_STATE_PATH, "utf-8"));
-    const planId = typeof parsed.planId === "string" ? parsed.planId : null;
-    const checkedKeys = Array.isArray(parsed.checkedKeys)
-      ? parsed.checkedKeys.filter((k: unknown) => typeof k === "string")
-      : [];
-    res.json({ planId, checkedKeys });
-  } catch {
-    res.json({ planId: null, checkedKeys: [] });
-  }
+  const planId = typeof parsed.planId === "string" ? parsed.planId : null;
+  const checkedKeys = Array.isArray(parsed.checkedKeys)
+    ? parsed.checkedKeys.filter((k: unknown) => typeof k === "string")
+    : [];
+  res.json({ planId, checkedKeys });
 });
 
 app.put("/api/shopping-list-state", (req, res) => {
@@ -324,67 +350,55 @@ app.get("/api/circular/progress", (_req, res) => {
 });
 
 app.get("/api/circular", (_req, res) => {
-  if (!fs.existsSync(EXTRACTION_PATH)) {
+  const data = readJsonOrNull<{
+    storeName?: unknown;
+    validThrough?: unknown;
+    items?: unknown;
+  }>(EXTRACTION_PATH);
+  if (!data) {
     res.json({ exists: false });
     return;
   }
-  try {
-    const data = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
-    const storeName =
-      typeof data.storeName === "string" && data.storeName.trim()
-        ? data.storeName.trim()
-        : null;
-    const validThrough =
-      typeof data.validThrough === "string" && data.validThrough.trim()
-        ? data.validThrough.trim()
-        : null;
-    const itemCount = Array.isArray(data.items) ? data.items.length : 0;
-    res.json({ exists: true, storeName, validThrough, itemCount });
-  } catch {
-    res.json({ exists: false });
-  }
+  const storeName =
+    typeof data.storeName === "string" && data.storeName.trim()
+      ? data.storeName.trim()
+      : null;
+  const validThrough =
+    typeof data.validThrough === "string" && data.validThrough.trim()
+      ? data.validThrough.trim()
+      : null;
+  const itemCount = Array.isArray(data.items) ? data.items.length : 0;
+  res.json({ exists: true, storeName, validThrough, itemCount });
 });
 
 app.get("/api/meal-plan", (_req, res) => {
-  if (!fs.existsSync(MEAL_PLAN_PATH)) {
+  const data = readJsonOrNull<MealPlanResult & Record<string, unknown>>(MEAL_PLAN_PATH);
+  if (!data) {
     res.json({ exists: false });
     return;
   }
-
-  try {
-    const data = JSON.parse(fs.readFileSync(MEAL_PLAN_PATH, "utf-8"));
-    if (typeof data.planId !== "string" || !data.planId) {
-      data.planId = crypto.randomUUID();
-      try {
-        fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(data, null, 2));
-      } catch {
-        // best-effort; serve anyway
-      }
+  if (typeof data.planId !== "string" || !data.planId) {
+    data.planId = crypto.randomUUID();
+    try {
+      fs.writeFileSync(MEAL_PLAN_PATH, JSON.stringify(data, null, 2));
+    } catch {
+      // best-effort; serve anyway
     }
-    const stale = isPlanFingerprintStale(data, loadPreferences());
-    res.json({ exists: true, stale, ...data });
-  } catch {
-    res.status(500).json({ error: "Failed to read meal plan" });
   }
+  const stale = isPlanFingerprintStale(data, loadPreferences());
+  res.json({ exists: true, stale, ...data });
 });
 
-app.post("/api/meal-plan/generate", async (_req, res) => {
-  if (processing) {
-    res.status(409).json({ success: false, error: "Already processing a request" });
-    return;
-  }
-
-  if (!fs.existsSync(EXTRACTION_PATH)) {
+app.post("/api/meal-plan/generate", withSerial(async (_req, res) => {
+  const extraction = readJsonOrNull<ExtractionResult & unknown[]>(EXTRACTION_PATH);
+  if (!extraction) {
     res.status(400).json({
       success: false,
       error: "No circular extracted yet. Upload a circular first.",
     });
     return;
   }
-
-  processing = true;
   try {
-    const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
     const saleItems = extraction.items || extraction;
     const prefs = loadPreferences();
     const result = await generateMealPlan(saleItems, prefs);
@@ -403,17 +417,10 @@ app.post("/api/meal-plan/generate", async (_req, res) => {
       success: false,
       error: err instanceof Error ? err.message : "Generation failed",
     });
-  } finally {
-    processing = false;
   }
-});
+}));
 
-app.post("/api/meal-plan/swap", async (req, res) => {
-  if (processing) {
-    res.status(409).json({ success: false, error: "Already processing a request" });
-    return;
-  }
-
+app.post("/api/meal-plan/swap", withSerial(async (req, res) => {
   const body = req.body as Record<string, unknown> | null | undefined;
   if (!body || typeof body !== "object") {
     res.status(400).json({ success: false, error: "Body must be a JSON object" });
@@ -433,14 +440,16 @@ app.post("/api/meal-plan/swap", async (req, res) => {
     return;
   }
 
-  if (!fs.existsSync(MEAL_PLAN_PATH)) {
+  const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
+  if (!plan) {
     res.status(400).json({
       success: false,
       error: "No meal plan exists. Generate one first.",
     });
     return;
   }
-  if (!fs.existsSync(EXTRACTION_PATH)) {
+  const extraction = readJsonOrNull<ExtractionResult & unknown[]>(EXTRACTION_PATH);
+  if (!extraction) {
     res.status(400).json({
       success: false,
       error: "No circular extracted yet. Upload a circular first.",
@@ -448,9 +457,7 @@ app.post("/api/meal-plan/swap", async (req, res) => {
     return;
   }
 
-  processing = true;
   try {
-    const plan = JSON.parse(fs.readFileSync(MEAL_PLAN_PATH, "utf-8")) as MealPlanResult;
     const dayIndex = plan.weekPlan.findIndex((d) => d.day === day);
     if (dayIndex === -1) {
       res.status(400).json({ success: false, error: `Day not found in plan: ${day}` });
@@ -485,7 +492,6 @@ app.post("/api/meal-plan/swap", async (req, res) => {
       return;
     }
 
-    const extraction = JSON.parse(fs.readFileSync(EXTRACTION_PATH, "utf-8"));
     const saleItems = extraction.items || extraction;
 
     const result = await generateMealSwap(plan, day, slotKey, saleItems, preferences);
@@ -509,10 +515,8 @@ app.post("/api/meal-plan/swap", async (req, res) => {
       success: false,
       error: err instanceof Error ? err.message : "Swap failed",
     });
-  } finally {
-    processing = false;
   }
-});
+}));
 
 app.post(
   "/api/circular/upload",
@@ -613,11 +617,7 @@ app.post("/api/circular/flipp/stores", async (req, res) => {
   }
 });
 
-app.post("/api/circular/flipp/fetch", async (req, res) => {
-  if (processing) {
-    res.status(409).json({ success: false, error: "Already processing a request" });
-    return;
-  }
+app.post("/api/circular/flipp/fetch", withSerial(async (req, res) => {
   const body = req.body as
     | {
         flyerId?: unknown;
@@ -647,7 +647,6 @@ app.post("/api/circular/flipp/fetch", async (req, res) => {
     return;
   }
 
-  processing = true;
   try {
     scanProgress = { stage: "fetching", merchant: merchantName };
     let extraction = readFlippCache(flyerId);
@@ -687,10 +686,9 @@ app.post("/api/circular/flipp/fetch", async (req, res) => {
       error: err instanceof Error ? err.message : "Fetch failed",
     });
   } finally {
-    processing = false;
     scanProgress = { stage: "idle" };
   }
-});
+}));
 
 app.use(
   (

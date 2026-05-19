@@ -1,6 +1,5 @@
 import type { DayPlan, Meal, ShoppingListItem } from "../types";
-
-const SLOTS = ["breakfast", "lunch", "dinner"] as const;
+import { MEAL_TYPES } from "../types";
 
 function normalize(s: string): string {
   return (s ?? "").trim().toLowerCase();
@@ -31,7 +30,7 @@ export function mergeShoppingListAfterSwap(args: MergeArgs): ShoppingListItem[] 
 
   const retained = new Set<string>();
   weekPlan.forEach((day, dayIndex) => {
-    for (const slot of SLOTS) {
+    for (const slot of MEAL_TYPES) {
       if (dayIndex === swappedDayIndex && slot === swappedSlot) continue;
       const meal = day[slot];
       if (!meal) continue;

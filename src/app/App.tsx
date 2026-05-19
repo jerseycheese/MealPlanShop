@@ -1,38 +1,27 @@
 import { useState, useEffect, useCallback } from "react";
-import type { MealPlanResult, Meal, ShoppingListItem } from "../../types";
+import type {
+  MealPlanResult,
+  Meal,
+  ShoppingListItem,
+  ScanProgress,
+} from "../../types";
+import { MEAL_TYPES } from "../../types";
 import { MealCard } from "./MealCard";
 import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
 
-const DAY_LABELS: Record<string, string> = {
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
-};
-
 function dayTabLabel(day: string): string {
-  return DAY_LABELS[day.trim().toLowerCase()] ?? day.slice(0, 3);
+  const s = day.trim().toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1, 3);
 }
-const ALL_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 
 type CircularMeta = {
   storeName: string | null;
   validThrough: string | null;
   itemCount: number;
 };
-
-type ScanProgress =
-  | { stage: "idle" }
-  | { stage: "preparing" }
-  | { stage: "scanning"; page: number; pages: number; storeName: string | null }
-  | { stage: "fetching"; merchant: string }
-  | { stage: "planning" };
 
 function filterPantry(
   items: ShoppingListItem[],
@@ -59,15 +48,24 @@ function formatValidThrough(raw: string | null): string | null {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+const LOYALTY_PROGRAMS: ReadonlyArray<{
+  match: readonly string[];
+  label: string;
+  modifier: string;
+}> = [
+  { match: ["food lion"], label: "MVP", modifier: "mvp" },
+  { match: ["harris teeter"], label: "VIC", modifier: "vic" },
+  { match: ["kroger"], label: "Plus", modifier: "plus" },
+  { match: ["publix"], label: "Plus", modifier: "plus" },
+  { match: ["safeway", "albertsons"], label: "Card", modifier: "generic" },
+  { match: ["shoprite"], label: "Price Plus", modifier: "plus" },
+];
+
 function loyaltyProgramFor(storeName: string | null): { label: string; modifier: string } | null {
   if (!storeName) return null;
   const s = storeName.toLowerCase();
-  if (s.includes("food lion")) return { label: "MVP", modifier: "mvp" };
-  if (s.includes("harris teeter")) return { label: "VIC", modifier: "vic" };
-  if (s.includes("kroger")) return { label: "Plus", modifier: "plus" };
-  if (s.includes("publix")) return { label: "Plus", modifier: "plus" };
-  if (s.includes("safeway") || s.includes("albertsons")) return { label: "Card", modifier: "generic" };
-  if (s.includes("shoprite")) return { label: "Price Plus", modifier: "plus" };
+  const hit = LOYALTY_PROGRAMS.find((p) => p.match.some((m) => s.includes(m)));
+  if (hit) return { label: hit.label, modifier: hit.modifier };
   return { label: "Card", modifier: "generic" };
 }
 
@@ -539,7 +537,7 @@ export function App() {
           {day && (
             <main className="day-view">
               <h2 className="day-view__title">{day.day}</h2>
-              {ALL_MEAL_TYPES.filter(
+              {MEAL_TYPES.filter(
                 (type) => mealsPerDay.includes(type) && day[type]
               ).map((type, i) => {
                 const meal = day[type] as Meal;
@@ -571,7 +569,7 @@ export function App() {
             checkedKeys={checkedKeys}
             onToggle={toggleChecked}
             weeklyTotal={mealPlan.weekPlan
-              .flatMap((d) => ALL_MEAL_TYPES.map((t) => d[t]?.estimatedCost ?? 0))
+              .flatMap((d) => MEAL_TYPES.map((t) => d[t]?.estimatedCost ?? 0))
               .reduce((a, b) => a + b, 0)}
             loyaltyProgram={loyaltyProgramFor(circular?.storeName ?? null)}
           />
