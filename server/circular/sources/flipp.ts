@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import type { SaleItem, ExtractionResult } from "../../../types";
 import {
   filterNonMealItems,
@@ -88,8 +89,10 @@ export interface FlippItemDetail {
 }
 
 export function generateSid(): string {
+  // Flipp's API only accepts numeric SIDs, so we can't use hex/UUID.
+  // randomInt is unbiased, unlike `randomBytes() % 10`.
   let s = "";
-  for (let i = 0; i < 16; i++) s += Math.floor(Math.random() * 10);
+  for (let i = 0; i < 16; i++) s += crypto.randomInt(0, 10).toString();
   return s;
 }
 

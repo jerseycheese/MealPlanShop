@@ -1,5 +1,7 @@
 import express from "express";
 import multer from "multer";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -25,6 +27,13 @@ import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
 import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
 
+// Fail fast at startup if required secrets are missing — otherwise the server
+// happily boots and only dies on the first scan/plan request.
+if (!process.env.GEMINI_API_KEY) {
+  console.error("Missing GEMINI_API_KEY in environment (.env file)");
+  process.exit(1);
+}
+
 const app = express();
 const PORT = parseInt(process.env.API_PORT ?? process.env.PORT ?? "3101", 10);
 const PROJECT_ROOT = path.join(__dirname, "..");
@@ -43,6 +52,25 @@ const MAX_KEY_LEN = 200;
 
 const ALLOWED_EXTENSIONS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".webp"]);
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// Magic-byte sniffing for the upload endpoint. Extension alone is attacker-
+// controlled (req.file.originalname). We check the actual file content before
+// handing the bytes to pdftoppm or the vision model.
+function detectFileExt(buf: Buffer): string | null {
+  if (buf.length >= 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return ".pdf";
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return ".jpg";
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) return ".png";
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) return ".webp";
+  return null;
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -263,7 +291,14 @@ function validatePreferences(input: unknown): UserPreferences {
   };
 }
 
+app.use(helmet());
 app.use(express.json());
+
+// Conservative defaults; the API is local-only today but these prevent runaway
+// loops from a buggy client and slow down brute-force attempts if exposed.
+app.use("/api/", rateLimit({ windowMs: 60_000, limit: 120 }));
+app.use("/api/circular/upload", rateLimit({ windowMs: 60_000, limit: 10 }));
+app.use("/api/circular/flipp/fetch", rateLimit({ windowMs: 60_000, limit: 20 }));
 
 app.get("/api/preferences", (_req, res) => {
   res.json({ preferences: loadPreferences() });
@@ -527,14 +562,17 @@ app.post(
       return;
     }
 
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.has(ext)) {
+    // Trust the bytes, not the filename. Detect from magic bytes and reject if
+    // the content doesn't match a supported format.
+    const detected = detectFileExt(req.file.buffer);
+    if (!detected || !ALLOWED_EXTENSIONS.has(detected)) {
       res.status(400).json({
         success: false,
-        error: `Unsupported file type: ${ext}. Allowed: PDF, JPG, PNG, WEBP.`,
+        error: "Unsupported file type. Allowed: PDF, JPG, PNG, WEBP.",
       });
       return;
     }
+    const ext = detected;
 
     const file = req.file;
     await withSerial(async (_req, res) => {
@@ -713,5 +751,5 @@ if (process.env.NODE_ENV === "production") {
 }
 
 app.listen(PORT, () => {
-  console.log(`MealPlanShop server running on http://localhost:${PORT}`);
+  console.log(`MealPlanShop server listening on port ${PORT}`);
 });

@@ -1,9 +1,10 @@
 import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { GoogleGenAI } from "@google/genai";
 import type { SaleItem, ExtractionResult } from "../types";
+import { requireEnv } from "./env";
 
 export const CATEGORY_ENUM = [
   "produce",
@@ -97,7 +98,7 @@ function convertPdfToImages(pdfPath: string): string[] {
   fs.mkdirSync(tmpDir, { recursive: true });
 
   const prefix = path.join(tmpDir, "page");
-  execSync(`pdftoppm -r 150 -jpeg "${pdfPath}" "${prefix}"`, {
+  execFileSync("pdftoppm", ["-r", "150", "-jpeg", pdfPath, prefix], {
     stdio: "pipe",
   });
 
@@ -290,11 +291,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("Missing GEMINI_API_KEY in .env file");
-    console.error("Get one at: https://aistudio.google.com/apikey");
-    process.exit(1);
-  }
+  requireEnv("GEMINI_API_KEY");
 
   const result = await scanCircular(filePath);
 
