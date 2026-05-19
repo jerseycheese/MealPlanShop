@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { UploadCircular } from "./UploadCircular";
+import { API } from "./endpoints";
 
 export interface FlippMerchant {
   flyerId: number;
@@ -41,10 +42,35 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
   const [activeZip, setActiveZip] = useState<string | null>(null);
   const autoTriggered = useRef(false);
 
+  const runFetch = useCallback(async (code: string) => {
+    setLoading(true);
+    setError(null);
+    setActiveZip(code);
+    try {
+      const res = await fetch(API.circularFlippStores, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postalCode: code }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || "Couldn't load stores");
+        setMerchants(null);
+      } else {
+        setMerchants(data.merchants ?? []);
+      }
+    } catch {
+      setError("Couldn't reach the circular service. Try again or upload a PDF.");
+      setMerchants(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Hydrate ZIP from saved prefs and auto-fetch if present.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/circular/prefs")
+    fetch(API.circularPrefs)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -63,33 +89,7 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const runFetch = async (code: string) => {
-    setLoading(true);
-    setError(null);
-    setActiveZip(code);
-    try {
-      const res = await fetch("/api/circular/flipp/stores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postalCode: code }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || "Couldn't load stores");
-        setMerchants(null);
-      } else {
-        setMerchants(data.merchants ?? []);
-      }
-    } catch {
-      setError("Couldn't reach the circular service. Try again or upload a PDF.");
-      setMerchants(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [runFetch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

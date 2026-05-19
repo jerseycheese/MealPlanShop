@@ -136,8 +136,8 @@ export function MealCard({
           <div className="meal-card__section">
             <h4 className="meal-card__section-title">Instructions</h4>
             <ol className="meal-card__instructions">
-              {meal.instructions.map((step) => (
-                <li key={step} className="meal-card__step">
+              {meal.instructions.map((step, i) => (
+                <li key={`step-${i}`} className="meal-card__step">
                   {step}
                 </li>
               ))}

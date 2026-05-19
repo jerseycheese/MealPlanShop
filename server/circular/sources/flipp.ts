@@ -9,6 +9,22 @@ import { categorizeItems } from "../categorize";
 
 const BASE = "https://flyers-ng.flippback.com/api/flipp";
 const ITEM_BATCH = 10;
+const FLIPP_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(url: string, timeoutMs = FLIPP_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`Flipp request timed out after ${timeoutMs}ms: ${url}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Many merchants surface at any given ZIP (Best Buy, Home Depot, etc).
 // Restrict the picker to grocery chains — these are the only ones whose
@@ -58,6 +74,7 @@ export interface FlippMerchant {
 
 interface FlippFlyerRaw {
   id: number;
+  name?: string;
   merchant?: string;
   merchant_id?: string | number;
   merchant_logo?: string;
@@ -127,7 +144,7 @@ function daysUntil(iso: string): number {
 export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
   const sid = generateSid();
   const url = `${BASE}/data?locale=en&postal_code=${encodeURIComponent(postalCode)}&sid=${sid}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Flipp listFlyers ${res.status}`);
   const data = (await res.json()) as { flyers?: FlippFlyerRaw[] };
   const flyers = data.flyers ?? [];
@@ -166,14 +183,14 @@ export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
 
 async function fetchItemList(flyerId: number, sid: string): Promise<FlippListItem[]> {
   const url = `${BASE}/flyers/${flyerId}/flyer_items?locale=en&sid=${sid}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Flipp fetchItemList ${res.status}`);
   return (await res.json()) as FlippListItem[];
 }
 
 async function fetchItemDetail(itemId: number, sid: string): Promise<FlippItemDetail | null> {
   const url = `${BASE}/flyer_items/${itemId}?locale=en&sid=${sid}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) return null;
   return (await res.json()) as FlippItemDetail;
 }
