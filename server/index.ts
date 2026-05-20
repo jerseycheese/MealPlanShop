@@ -762,8 +762,13 @@ if (process.env.NODE_ENV === "production") {
   const clientDir = path.join(PROJECT_ROOT, "dist/client");
   app.use(express.static(clientDir));
   // Express 5 (path-to-regexp v8) rejects a bare "*" route, so serve the SPA
-  // fallback from a final middleware instead.
-  app.use((_req, res) => {
+  // fallback from a final middleware instead. Limit it to GET/HEAD so unmatched
+  // API methods still fall through to a 404 rather than returning HTML.
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      next();
+      return;
+    }
     res.sendFile(path.join(clientDir, "index.html"));
   });
 }
