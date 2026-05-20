@@ -5,11 +5,16 @@ import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
 
 let passed = 0;
 let total = 0;
+const failures: string[] = [];
 function test(name: string, fn: () => void): void {
   total++;
-  fn();
-  passed++;
-  void name;
+  try {
+    fn();
+    passed++;
+  } catch (err) {
+    failures.push(name);
+    console.error(`  ✗ ${name}:`, err instanceof Error ? err.message : err);
+  }
 }
 
 function ing(name: string, quantity = "1"): Ingredient {
@@ -251,3 +256,6 @@ test("merged list preserves prior order then appends new in meal order", () => {
 });
 
 console.log(`mergeShoppingList: ${passed}/${total} passed`);
+if (failures.length > 0) {
+  throw new Error(`mergeShoppingList: ${failures.length} test(s) failed: ${failures.join(", ")}`);
+}

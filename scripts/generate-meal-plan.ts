@@ -5,6 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 import type {
   Meal,
   MealPlanResult,
+  SaleItem,
   ShoppingListItem,
   UserPreferences,
 } from "../types";
@@ -13,18 +14,8 @@ import {
   matchExpandedTerm,
   type ExpandedTerm,
 } from "./excludedCategories";
-import { requireEnv } from "./env";
-export type { UserPreferences };
-
-// -- Types (script-local) --
-
-export interface SaleItem {
-  item: string;
-  price: number;
-  unit: string;
-  category: string;
-  priceNote?: string;
-}
+import { requireEnv, GEMINI_MODEL } from "./env";
+export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
   "salt",
@@ -280,7 +271,7 @@ Generate a meal plan covering the selected days.
   const callModel = async (extraNote?: string): Promise<MealPlanResult> => {
     const contents = extraNote ? `${extraNote}\n\n${userPrompt}` : userPrompt;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: GEMINI_MODEL,
       contents,
       config: {
         systemInstruction: systemPrompt,
@@ -383,7 +374,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
   ): Promise<{ meal: Meal; shoppingList: ShoppingListItem[] }> => {
     const contents = extraNote ? `${extraNote}\n\n${userPrompt}` : userPrompt;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: GEMINI_MODEL,
       contents,
       config: {
         systemInstruction: systemPrompt,

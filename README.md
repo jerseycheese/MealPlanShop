@@ -154,13 +154,16 @@ For household preferences (size, dietary restrictions, cuisine preferences, whic
 prompts/
   circular-extraction.md    # Prompt for Gemini circular scanning
   meal-plan-generation.md   # Prompt for Gemini meal plan generation
-public/
-  index.html                # Standalone web UI
+  meal-swap.md              # Prompt for single-meal swaps
 scripts/
   scan-circular.ts          # Circular scanner (PDF/image -> sale items)
   generate-meal-plan.ts     # Meal planner (sale items -> weekly plan + recipes)
   full-pipeline.ts          # End-to-end pipeline
-  serve.ts                  # Express server for the web UI
+  run-tests.ts              # Test runner
+server/
+  index.ts                  # Express server for the UI + API endpoints
+  circular/sources/flipp.ts # Flipp circular fetching
+src/app/                    # React web UI (Vite)
 samples/                    # Drop your own circulars here (PDFs/images gitignored)
 output/                     # Generated output (gitignored)
 ```

@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { GoogleGenAI } from "@google/genai";
 import type { SaleItem, ExtractionResult } from "../types";
-import { requireEnv } from "./env";
+import { requireEnv, GEMINI_MODEL } from "./env";
 
 export const CATEGORY_ENUM = [
   "produce",
@@ -72,7 +72,7 @@ async function scanImage(
   const mimeType = mimeTypes[ext] || "image/jpeg";
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     contents: [
       {
         inlineData: {

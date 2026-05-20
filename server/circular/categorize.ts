@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { CATEGORY_ENUM } from "../../scripts/scan-circular";
+import { GEMINI_MODEL } from "../../scripts/env";
 
 // "skip" tells the caller to drop the item entirely (non-food/non-drink).
 // Anything else must be one of the existing CATEGORY_ENUM values; unknown
@@ -36,7 +37,7 @@ export async function categorizeItems(names: string[]): Promise<string[]> {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: GEMINI_MODEL,
       contents: [{ text: buildPrompt(names) }],
       config: {
         responseMimeType: "application/json",
