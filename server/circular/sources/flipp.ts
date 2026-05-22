@@ -1,7 +1,6 @@
 import * as crypto from "node:crypto";
 import type { SaleItem, ExtractionResult } from "../../../types";
 import {
-  filterNonMealItems,
   deduplicateItems,
   validateValidThrough,
 } from "../../../scripts/scan-circular";
@@ -146,8 +145,10 @@ export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
   const url = `${BASE}/data?locale=en&postal_code=${encodeURIComponent(postalCode)}&sid=${sid}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Flipp listFlyers ${res.status}`);
-  const data = (await res.json()) as { flyers?: FlippFlyerRaw[] };
-  const flyers = data.flyers ?? [];
+  const data = (await res.json()) as { flyers?: unknown };
+  const flyers = Array.isArray(data.flyers)
+    ? (data.flyers as FlippFlyerRaw[])
+    : [];
 
   // Group by merchant — Flipp returns multiple flyers per merchant (e.g.
   // ALDI ships an "In Store Ad" full of kitchen mats AND a "Weekly Ad" full
@@ -185,14 +186,16 @@ async function fetchItemList(flyerId: number, sid: string): Promise<FlippListIte
   const url = `${BASE}/flyers/${flyerId}/flyer_items?locale=en&sid=${sid}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Flipp fetchItemList ${res.status}`);
-  return (await res.json()) as FlippListItem[];
+  const data = await res.json();
+  return Array.isArray(data) ? (data as FlippListItem[]) : [];
 }
 
 async function fetchItemDetail(itemId: number, sid: string): Promise<FlippItemDetail | null> {
   const url = `${BASE}/flyer_items/${itemId}?locale=en&sid=${sid}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) return null;
-  return (await res.json()) as FlippItemDetail;
+  const data = await res.json();
+  return data && typeof data === "object" ? (data as FlippItemDetail) : null;
 }
 
 async function fetchDetailsBatched(
@@ -202,9 +205,14 @@ async function fetchDetailsBatched(
   const out = new Map<number, FlippItemDetail>();
   for (let i = 0; i < ids.length; i += ITEM_BATCH) {
     const chunk = ids.slice(i, i + ITEM_BATCH);
-    const results = await Promise.all(chunk.map((id) => fetchItemDetail(id, sid)));
+    // allSettled so one timed-out/failed detail fetch doesn't abort the whole
+    // flyer — we just drop that item and keep the rest.
+    const results = await Promise.allSettled(
+      chunk.map((id) => fetchItemDetail(id, sid)),
+    );
     for (let j = 0; j < chunk.length; j++) {
-      const detail = results[j];
+      const r = results[j];
+      const detail = r.status === "fulfilled" ? r.value : null;
       if (detail) out.set(chunk[j], detail);
     }
   }
@@ -330,7 +338,6 @@ export async function fetchFlyer(
     if (parsed) items.push(parsed);
   }
 
-  items = filterNonMealItems(items);
   items = deduplicateItems(items);
 
   // Categorize as a single batched Gemini call. Returns same-length array

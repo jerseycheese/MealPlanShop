@@ -1,6 +1,10 @@
 import * as assert from "node:assert/strict";
 import type { Meal, MealPlanResult } from "../types";
-import { EXCLUDED_CATEGORIES, expandExcludedTerms } from "./excludedCategories";
+import {
+  EXCLUDED_CATEGORIES,
+  containsWholeWord,
+  expandExcludedTerms,
+} from "./excludedCategories";
 import {
   filterExcludedSaleItems,
   findExcludedViolations,
@@ -107,4 +111,16 @@ assert.equal(kaleFiltered[0].item, "shrimp");
 // 14. filterExcludedSaleItems: no excluded terms -> all items pass through.
 assert.deepEqual(filterExcludedSaleItems(saleItems, []), saleItems);
 
-console.log("excludedCategories: 14/14 passed");
+// 15. containsWholeWord: matches whole words, not substrings.
+assert.equal(containsWholeWord("large eggs", "eggs"), true);
+assert.equal(containsWholeWord("eggplant parmesan", "egg"), false);
+assert.equal(containsWholeWord("graham crackers", "ham"), false);
+assert.equal(containsWholeWord("broiler chicken", "oil"), false);
+assert.equal(containsWholeWord("salted caramel ice cream", "salt"), false);
+assert.equal(containsWholeWord("kosher salt", "salt"), true);
+// 16. containsWholeWord: case-insensitive, trims, handles empty.
+assert.equal(containsWholeWord("Olive Oil", "oil"), true);
+assert.equal(containsWholeWord("anything", "  "), false);
+assert.equal(containsWholeWord("anything", ""), false);
+
+console.log("excludedCategories: 16/16 passed");
