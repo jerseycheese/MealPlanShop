@@ -176,6 +176,19 @@ output/                     # Generated output (gitignored)
 - **Web server:** Express (serves the UI + API endpoints)
 - **Config:** `dotenv` for environment variables
 
+## Limitations
+
+- **Single-user, local tool.** State is stored as shared files in `output/`
+  (`preferences.json`, `meal-plan.json`, `shopping-list-state.json`) with no
+  user accounts. There's one meal plan and one set of preferences for the whole
+  server, and requests that mutate `output/` are processed one at a time.
+  Running this for more than one concurrent user means they overwrite each
+  other — it's built to run on your own machine.
+- **Store auto-fetch uses an unofficial API.** The "find stores by ZIP" feature
+  talks to an undocumented Flipp endpoint that can change or break without
+  notice. It's a best-effort convenience; uploading a PDF/image is the reliable
+  path.
+
 ## Current status
 
 Phases 1–3 are complete. The pipeline has been tested against a real Food Lion 16-page weekly circular. It extracts sale items and generates a 7-day meal plan with per-meal cooking instructions and calorie estimates — all via Gemini, no recipe API needed. A standalone web UI lets you view and regenerate the plan without touching the CLI.

@@ -11,6 +11,7 @@ import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
 import { API } from "./endpoints";
+import { containsWholeWord } from "../../scripts/excludedCategories";
 
 const SAVED_HINT_DISMISS_MS = 3500;
 const SCAN_PROGRESS_POLL_MS = 1500;
@@ -48,7 +49,7 @@ function filterPantry(
   if (needles.length === 0) return items;
   return items.filter((item) => {
     const name = item.name.toLowerCase();
-    return !needles.some((n) => name.includes(n));
+    return !needles.some((n) => containsWholeWord(name, n));
   });
 }
 
@@ -117,6 +118,7 @@ export function App() {
     stage: "idle",
   });
   const [error, setError] = useState<string | null>(null);
+  const [prefsError, setPrefsError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
@@ -207,15 +209,23 @@ export function App() {
 
   useEffect(() => {
     fetch(API.preferences)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`preferences request failed: ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
+        if (!data?.preferences || !Array.isArray(data.preferences.mealsPerDay)) {
+          throw new Error("preferences response failed validation");
+        }
         setMealsPerDay(data.preferences.mealsPerDay);
         setPantryStaples(data.preferences.pantryStaples ?? []);
+        setPrefsError(null);
       })
       .catch((err) => {
         if (import.meta.env.DEV) {
           console.error("Failed to load preferences", err);
         }
+        setPrefsError("Couldn't load saved preferences — using defaults.");
       });
   }, []);
 
@@ -503,6 +513,7 @@ export function App() {
       )}
 
       {error && <div className="error-banner">{error}</div>}
+      {prefsError && <div className="error-banner">{prefsError}</div>}
 
       {circular && (circular.storeName || circular.validThrough) && (
         <div className="circular-banner">

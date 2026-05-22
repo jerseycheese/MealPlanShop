@@ -1,7 +1,7 @@
-// Static map mirroring the category seeds in:
-//   prompts/meal-plan-generation.md (line 6)
-//   prompts/meal-swap.md (line 6)
-// If you change one, change all three.
+// Single source of truth for category -> member expansion. Injected into the
+// meal-plan / meal-swap prompts at runtime via the {{CATEGORY_EXPANSIONS}}
+// placeholder (see scripts/generate-meal-plan.ts), and used for code-side
+// exclusion validation below.
 export const EXCLUDED_CATEGORIES: Record<string, string[]> = {
   shellfish: ["shrimp", "crab", "lobster", "scallops", "mussels", "oysters", "clams"],
   nuts: ["almonds", "walnuts", "pecans", "cashews", "hazelnuts", "pistachios"],
@@ -44,18 +44,26 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Whole-word, case-insensitive containment. Uses a unicode-aware word boundary
+// so terms with accents (acai, jalapeno) still match — JavaScript's \b is
+// ASCII-only and would fail on those. Avoids substring false positives like
+// "egg" matching "eggplant" or "oil" matching "broiler".
+export function containsWholeWord(text: string, term: string): boolean {
+  const trimmed = term.trim();
+  if (!trimmed) return false;
+  const re = new RegExp(
+    `(?<![\\p{L}\\p{N}_])${escapeRegex(trimmed)}(?![\\p{L}\\p{N}_])`,
+    "iu"
+  );
+  return re.test(text);
+}
+
 export function matchExpandedTerm(
   text: string,
   expanded: ExpandedTerm[]
 ): ExpandedTerm | null {
   for (const entry of expanded) {
-    // Unicode-aware word boundary so terms with accents (acai, jalapeno)
-    // still match. JavaScript's \b is ASCII-only and would fail on those.
-    const re = new RegExp(
-      `(?<![\\p{L}\\p{N}_])${escapeRegex(entry.term)}(?![\\p{L}\\p{N}_])`,
-      "iu"
-    );
-    if (re.test(text)) return entry;
+    if (containsWholeWord(text, entry.term)) return entry;
   }
   return null;
 }

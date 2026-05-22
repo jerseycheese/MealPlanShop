@@ -27,6 +27,7 @@ import type {
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
 import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
+import { containsWholeWord } from "../scripts/excludedCategories";
 
 // Fail fast at startup if required secrets are missing — otherwise the server
 // happily boots and only dies on the first scan/plan request.
@@ -204,7 +205,10 @@ async function runScanAndPlan(
     for (const row of mealPlan.shoppingList) {
       const rowName = row.name.toLowerCase();
       for (const [saleName] of loyaltyByName) {
-        if (rowName.includes(saleName) || saleName.includes(rowName)) {
+        if (
+          containsWholeWord(rowName, saleName) ||
+          containsWholeWord(saleName, rowName)
+        ) {
           row.requiresLoyaltyCard = true;
           break;
         }

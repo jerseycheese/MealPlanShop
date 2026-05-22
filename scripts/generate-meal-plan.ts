@@ -10,6 +10,7 @@ import type {
   UserPreferences,
 } from "../types";
 import {
+  EXCLUDED_CATEGORIES,
   expandExcludedTerms,
   matchExpandedTerm,
   type ExpandedTerm,
@@ -47,6 +48,22 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     "sunday",
   ],
 };
+
+// -- Prompt loading --
+
+// Single source of truth for category->members. The prompts carry a
+// {{CATEGORY_EXPANSIONS}} placeholder so the list lives only in
+// EXCLUDED_CATEGORIES, not hand-copied into the .md files.
+function buildCategoryExpansions(): string {
+  return Object.entries(EXCLUDED_CATEGORIES)
+    .map(([category, members]) => `"${category}" covers ${members.join(", ")}`)
+    .join("; ");
+}
+
+function loadPrompt(relPath: string): string {
+  const raw = fs.readFileSync(path.join(__dirname, relPath), "utf-8");
+  return raw.replace("{{CATEGORY_EXPANSIONS}}", buildCategoryExpansions());
+}
 
 // -- Exclusion helpers --
 
@@ -198,6 +215,34 @@ const shoppingListSchema = {
   },
 };
 
+// -- Response shape guards --
+
+// The model is asked for structured JSON, but a timeout, safety block, or empty
+// completion can yield "{}" or a wrong shape. Validate before we dereference so
+// callers get a clear error instead of "Cannot read properties of undefined".
+export function assertMealPlanShape(value: unknown): MealPlanResult {
+  const v = value as Record<string, unknown> | null;
+  if (!v || !Array.isArray(v.weekPlan) || !Array.isArray(v.shoppingList)) {
+    throw new Error(
+      "Model returned an unexpected meal-plan shape (missing weekPlan/shoppingList)."
+    );
+  }
+  return value as MealPlanResult;
+}
+
+export function assertSwapShape(value: unknown): {
+  meal: Meal;
+  shoppingList: ShoppingListItem[];
+} {
+  const v = value as Record<string, unknown> | null;
+  if (!v || !v.meal || typeof v.meal !== "object" || !Array.isArray(v.shoppingList)) {
+    throw new Error(
+      "Model returned an unexpected swap shape (missing meal/shoppingList)."
+    );
+  }
+  return value as { meal: Meal; shoppingList: ShoppingListItem[] };
+}
+
 // -- Main --
 
 export async function generateMealPlan(
@@ -206,10 +251,7 @@ export async function generateMealPlan(
 ): Promise<MealPlanResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const systemPrompt = fs.readFileSync(
-    path.join(__dirname, "../prompts/meal-plan-generation.md"),
-    "utf-8"
-  );
+  const systemPrompt = loadPrompt("../prompts/meal-plan-generation.md");
 
   const filteredSaleItems = filterExcludedSaleItems(
     saleItems,
@@ -280,7 +322,7 @@ Generate a meal plan covering the selected days.
         httpOptions: { timeout: 120_000 },
       },
     });
-    return JSON.parse(response.text ?? "{}") as MealPlanResult;
+    return assertMealPlanShape(JSON.parse(response.text ?? "{}"));
   };
 
   let result = await callModel();
@@ -316,10 +358,7 @@ export async function generateMealSwap(
 ): Promise<{ meal: Meal; shoppingList: ShoppingListItem[] }> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const systemPrompt = fs.readFileSync(
-    path.join(__dirname, "../prompts/meal-swap.md"),
-    "utf-8"
-  );
+  const systemPrompt = loadPrompt("../prompts/meal-swap.md");
 
   const filteredSaleItems = filterExcludedSaleItems(
     saleItems,
@@ -383,10 +422,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
         httpOptions: { timeout: 60_000 },
       },
     });
-    return JSON.parse(response.text ?? "{}") as {
-      meal: Meal;
-      shoppingList: ShoppingListItem[];
-    };
+    return assertSwapShape(JSON.parse(response.text ?? "{}"));
   };
 
   let parsed = await callModel();

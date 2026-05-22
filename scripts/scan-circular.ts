@@ -89,7 +89,15 @@ async function scanImage(
     },
   });
 
-  return JSON.parse(response.text ?? '{"items":[],"storeName":null,"validThrough":null}');
+  const parsed = JSON.parse(
+    response.text ?? '{"items":[],"storeName":null,"validThrough":null}'
+  ) as Partial<ExtractionResult>;
+  return {
+    items: Array.isArray(parsed.items) ? parsed.items : [],
+    storeName: typeof parsed.storeName === "string" ? parsed.storeName : null,
+    validThrough:
+      typeof parsed.validThrough === "string" ? parsed.validThrough : null,
+  };
 }
 
 // -- PDF conversion --
@@ -118,30 +126,6 @@ function cleanupTmpImages(pdfPath: string) {
   if (fs.existsSync(tmpDir)) {
     fs.rmSync(tmpDir, { recursive: true });
   }
-}
-
-// -- Filtering --
-
-const EXCLUDE_KEYWORDS = [
-  "gerber",
-  "happy tot",
-  "happy baby",
-  "plum organics",
-  "beech-nut",
-  "beech nut",
-  "earth's best",
-  "sprout organic",
-  "baby food",
-  "toddler",
-  "infant cereal",
-  "baby cereal",
-];
-
-export function filterNonMealItems(items: SaleItem[]): SaleItem[] {
-  return items.filter((item) => {
-    const name = item.item.toLowerCase();
-    return !EXCLUDE_KEYWORDS.some((kw) => name.includes(kw));
-  });
 }
 
 // -- validThrough sanity check --
@@ -226,7 +210,7 @@ export async function scanCircular(
       pages: 1,
       storeName: result.storeName,
     });
-    return { ...result, items: filterNonMealItems(result.items) };
+    return result;
   }
 
   // PDF: convert to images, scan each page, merge results
@@ -264,10 +248,9 @@ export async function scanCircular(
 
   validThrough = validateValidThrough(validThrough);
 
-  const filtered = filterNonMealItems(allItems);
-  const deduplicated = deduplicateItems(filtered);
+  const deduplicated = deduplicateItems(allItems);
   console.log(
-    `\nTotal: ${allItems.length} raw -> ${filtered.length} after filter -> ${deduplicated.length} after dedup`
+    `\nTotal: ${allItems.length} raw -> ${deduplicated.length} after dedup`
   );
   if (storeName) console.log(`Store: ${storeName}`);
   if (validThrough) console.log(`Valid through: ${validThrough}`);
