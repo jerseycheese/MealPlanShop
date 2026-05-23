@@ -42,7 +42,7 @@ sudo apt-get install poppler-utils
 npm run dev
 ```
 
-Opens a local dev server — API on `http://localhost:3101`, UI on `http://localhost:5173`. From there you can upload a circular, view the current meal plan, and hit Regenerate to rebuild from the last scan.
+Opens a local dev server — API on `http://localhost:3101`, UI on `http://localhost:5173`. From there you can pick your store to auto-fetch this week's ad, upload a circular manually, view the current meal plan, and hit Regenerate to rebuild from the last scan.
 
 If port 3101 conflicts with another local service, override with `API_PORT`:
 
@@ -52,14 +52,16 @@ API_PORT=3201 npm run dev
 
 ### Where to get your store's circular
 
-For now, circulars have to be downloaded manually from the store's site. Auto-fetch is tracked in [#19](https://github.com/jerseycheese/MealPlanShop/issues/19).
+**Auto-fetch (preferred):** hit **Change store** in the UI, enter your ZIP, and pick your store. The app pulls the current weekly ad straight from Flipp's JSON API and builds the plan in one step — no manual download. Your ZIP is remembered across sessions in `output/circular-prefs.json`. (This is a personal-use posture — see the Flipp note below.)
 
-For Food Lion:
+**Manual upload (fallback):** for stores Flipp doesn't surface, or when you want a cleaner source, download the ad yourself and use **Upload circular**. For Food Lion:
 
-- **Print view** (preferred — cleanest extraction): https://foodlion.com/savings/weekly-ad/print-view. Select your store first, then save the page as PDF.
+- **Print view** (cleanest extraction): https://foodlion.com/savings/weekly-ad/print-view. Select your store first, then save the page as PDF.
 - **Flipp viewer**: https://ad.foodlion.com/flyers/foodlion-weekly. Select your store; harder to extract since it's image tiles, but works as a fallback.
 
-To keep your store details out of git but reusable across sessions, copy `.env.example` to `.env` and fill in `STORE_NAME` / `STORE_ADDRESS` / `STORE_ZIP` / `STORE_CODE`. These keys aren't read by the app yet — they're reserved for #19.
+> Auto-fetch reads weekly ads from Flipp's unofficial JSON API. Their ToS prohibits scraping, so keep this personal-use only — don't productize without reworking the source.
+
+The `.env.example` `STORE_NAME` / `STORE_ADDRESS` / `STORE_ZIP` / `STORE_CODE` keys are not read by the app — auto-fetch uses the ZIP you enter in the picker. They're kept only as a handy place to jot your store details.
 
 ### Full pipeline (scan + plan in one step)
 
@@ -191,6 +193,6 @@ output/                     # Generated output (gitignored)
 
 ## Current status
 
-Phases 1–3 are complete. The pipeline has been tested against a real Food Lion 16-page weekly circular. It extracts sale items and generates a 7-day meal plan with per-meal cooking instructions and calorie estimates — all via Gemini, no recipe API needed. A standalone web UI lets you view and regenerate the plan without touching the CLI.
+Phases 1–3 are complete, plus circular auto-fetch. The pipeline has been tested against real Food Lion and ALDI weekly ads — both manually uploaded and auto-fetched by ZIP via Flipp's JSON API (store picker in the UI). It extracts sale items, categorizes them, and generates a meal plan with per-meal cooking instructions and calorie estimates — all via Gemini, no recipe API needed. A standalone web UI lets you fetch, view, and regenerate the plan without touching the CLI.
 
-**Next:** Polish the UI based on real usage, then integrate into JackOS Dashboard.
+**Next:** Polish the UI based on real usage, then decide the JackOS Dashboard integration path ([#16](https://github.com/jerseycheese/MealPlanShop/issues/16)).
