@@ -5,6 +5,7 @@ const SUITES = [
   "scripts/excludedCategories.test.ts",
   "scripts/mealPlanShape.test.ts",
   "server/circular/flipp.test.ts",
+  "server/circular/categorize.test.ts",
   "server/mergeShoppingList.test.ts",
   "server/prefs-fingerprint.test.ts",
   "src/app/preferenceConflicts.test.ts",
@@ -17,7 +18,12 @@ async function main() {
     const abs = path.join(root, suite);
     process.stdout.write(`▶ ${suite} ... `);
     try {
-      await import(pathToFileURL(abs).href);
+      const mod = await import(pathToFileURL(abs).href);
+      // Sync suites run their assertions at import time. Async suites export a
+      // `run()` the harness awaits, since top-level await isn't available here.
+      if (typeof (mod as { run?: unknown }).run === "function") {
+        await (mod as { run: () => Promise<void> }).run();
+      }
       process.stdout.write("ok\n");
     } catch (err) {
       failures += 1;
