@@ -2,19 +2,16 @@ function normalizeIngredient(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function findExcludedPantryConflicts(
-  excludedIngredients: string[],
-  pantryStaples: string[],
-): string[] {
-  const pantry = new Set(
-    pantryStaples.map(normalizeIngredient).filter(Boolean),
-  );
+// Returns the entries of `primary` that also appear (case-insensitively) in
+// `against`, deduped and preserving first-seen order.
+function findOverlap(primary: string[], against: string[]): string[] {
+  const againstSet = new Set(against.map(normalizeIngredient).filter(Boolean));
   const seen = new Set<string>();
   const conflicts: string[] = [];
 
-  for (const ingredient of excludedIngredients) {
+  for (const ingredient of primary) {
     const normalized = normalizeIngredient(ingredient);
-    if (!normalized || !pantry.has(normalized) || seen.has(normalized)) {
+    if (!normalized || !againstSet.has(normalized) || seen.has(normalized)) {
       continue;
     }
     seen.add(normalized);
@@ -22,4 +19,18 @@ export function findExcludedPantryConflicts(
   }
 
   return conflicts;
+}
+
+export function findExcludedPantryConflicts(
+  excludedIngredients: string[],
+  pantryStaples: string[],
+): string[] {
+  return findOverlap(excludedIngredients, pantryStaples);
+}
+
+export function findExcludedUseUpConflicts(
+  excludedIngredients: string[],
+  useUpIngredients: string[],
+): string[] {
+  return findOverlap(excludedIngredients, useUpIngredients);
 }

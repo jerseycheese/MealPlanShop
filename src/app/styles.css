@@ -928,6 +928,14 @@ body {
   margin-bottom: 14px;
 }
 
+.preferences-modal__error-line {
+  margin: 0;
+}
+
+.preferences-modal__error-line + .preferences-modal__error-line {
+  margin-top: 6px;
+}
+
 .preferences-modal__actions {
   display: flex;
   justify-content: flex-end;

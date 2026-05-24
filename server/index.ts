@@ -278,12 +278,19 @@ function validatePreferences(input: unknown): UserPreferences {
   const cuisine = validateStringArray("cuisinePreferences", p.cuisinePreferences, listOpts);
   const excluded = validateStringArray("excludedIngredients", p.excludedIngredients, listOpts);
   const pantry = validateStringArray("pantryStaples", p.pantryStaples, listOpts);
+  const useUp = validateStringArray("useUpIngredients", p.useUpIngredients, listOpts);
 
-  const pantryLower = new Set(pantry.map((s) => s.toLowerCase()));
-  const conflicts = excluded.filter((s) => pantryLower.has(s.toLowerCase()));
-  if (conflicts.length > 0) {
+  const excludedLower = new Set(excluded.map((s) => s.toLowerCase()));
+  const pantryConflicts = pantry.filter((s) => excludedLower.has(s.toLowerCase()));
+  if (pantryConflicts.length > 0) {
     throw new ValidationError(
-      `Cannot have the same ingredient in both excluded ingredients and pantry staples: ${conflicts.join(", ")}`,
+      `Cannot have the same ingredient in both excluded ingredients and pantry staples: ${pantryConflicts.join(", ")}`,
+    );
+  }
+  const useUpConflicts = useUp.filter((s) => excludedLower.has(s.toLowerCase()));
+  if (useUpConflicts.length > 0) {
+    throw new ValidationError(
+      `Cannot have the same ingredient in both excluded ingredients and use-it-up list: ${useUpConflicts.join(", ")}`,
     );
   }
 
@@ -307,6 +314,7 @@ function validatePreferences(input: unknown): UserPreferences {
     cuisinePreferences: cuisine,
     excludedIngredients: excluded,
     pantryStaples: pantry,
+    useUpIngredients: useUp,
     mealsPerDay: meals,
     daysOfWeek: days,
   };

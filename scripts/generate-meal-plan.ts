@@ -37,6 +37,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   cuisinePreferences: ["Italian", "Mexican", "Asian", "American"],
   excludedIngredients: [],
   pantryStaples: [...DEFAULT_PANTRY_STAPLES],
+  useUpIngredients: [],
   mealsPerDay: ["breakfast", "lunch", "dinner"],
   daysOfWeek: [
     "monday",
@@ -275,6 +276,7 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
 - Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
+- Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
 - Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
 
@@ -391,6 +393,7 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
 - Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
+- Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
 - Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
 
