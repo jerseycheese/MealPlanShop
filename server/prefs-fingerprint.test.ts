@@ -11,6 +11,7 @@ const base: UserPreferences = {
   cuisinePreferences: ["italian"],
   excludedIngredients: ["shellfish"],
   pantryStaples: ["olive oil", "salt"],
+  useUpIngredients: ["spinach"],
   mealsPerDay: ["breakfast", "lunch", "dinner"],
   daysOfWeek: ["monday", "tuesday", "wednesday"],
 };
@@ -25,6 +26,7 @@ assert.equal(
 const reordered: UserPreferences = {
   daysOfWeek: base.daysOfWeek,
   pantryStaples: base.pantryStaples,
+  useUpIngredients: base.useUpIngredients,
   mealsPerDay: base.mealsPerDay,
   excludedIngredients: base.excludedIngredients,
   cuisinePreferences: base.cuisinePreferences,

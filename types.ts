@@ -58,6 +58,7 @@ export interface UserPreferences {
   cuisinePreferences: string[];
   excludedIngredients: string[];
   pantryStaples: string[];
+  useUpIngredients: string[];
   mealsPerDay: string[];
   daysOfWeek: string[];
 }

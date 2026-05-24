@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UserPreferences, MealType, DayOfWeek } from "../../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../../types";
-import { findExcludedPantryConflicts } from "./preferenceConflicts";
+import {
+  findExcludedPantryConflicts,
+  findExcludedUseUpConflicts,
+} from "./preferenceConflicts";
 import { API } from "./endpoints";
 
 interface PreferencesProps {
@@ -19,7 +22,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const conflictId = "preferences-conflicts";
   const householdRef = useRef<HTMLInputElement>(null);
   const initialFocused = useRef(false);
-  const conflicts = useMemo(
+  const pantryConflicts = useMemo(
     () =>
       prefs
         ? findExcludedPantryConflicts(
@@ -29,11 +32,21 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
         : [],
     [prefs],
   );
-  const hasConflicts = conflicts.length > 0;
-  const conflictText =
-    conflicts.length === 1
-      ? `${conflicts[0]} is in both excluded ingredients and pantry staples. Remove it from one list before saving.`
-      : `${conflicts.join(", ")} are in both excluded ingredients and pantry staples. Remove them from one list before saving.`;
+  const useUpConflicts = useMemo(
+    () =>
+      prefs
+        ? findExcludedUseUpConflicts(
+            prefs.excludedIngredients,
+            prefs.useUpIngredients,
+          )
+        : [],
+    [prefs],
+  );
+  const hasConflicts = pantryConflicts.length > 0 || useUpConflicts.length > 0;
+  const conflictMessages = [
+    conflictMessage(pantryConflicts, "pantry staples"),
+    conflictMessage(useUpConflicts, "use-it-up ingredients"),
+  ].filter((m): m is string => m !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,13 +220,26 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 setPrefs({ ...prefs, pantryStaples: next })
               }
             />
+
+            <ChipField
+              label="Use these up (already on hand)"
+              hint="e.g. spinach, rotisserie chicken, zucchini — perishables to build this week's meals around"
+              values={prefs.useUpIngredients}
+              onChange={(next) =>
+                setPrefs({ ...prefs, useUpIngredients: next })
+              }
+            />
             {hasConflicts && (
               <div
                 id={conflictId}
                 className="preferences-modal__error"
                 role="alert"
               >
-                {conflictText}
+                {conflictMessages.map((m) => (
+                  <p key={m} className="preferences-modal__error-line">
+                    {m}
+                  </p>
+                ))}
               </div>
             )}
 
@@ -286,6 +312,13 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
       </div>
     </div>
   );
+}
+
+function conflictMessage(conflicts: string[], listLabel: string): string | null {
+  if (conflicts.length === 0) return null;
+  return conflicts.length === 1
+    ? `${conflicts[0]} is in both excluded ingredients and ${listLabel}. Remove it from one list before saving.`
+    : `${conflicts.join(", ")} are in both excluded ingredients and ${listLabel}. Remove them from one list before saving.`;
 }
 
 interface ChipFieldProps {
