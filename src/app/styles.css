@@ -164,15 +164,17 @@ body {
 }
 
 .meal-card__header {
-  display: block;
-  width: 100%;
+  position: relative;
   padding: 18px 20px;
+}
+
+.meal-card__toggle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   border: none;
   background: none;
   cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  color: inherit;
 }
 
 .meal-card__header-top {
@@ -195,15 +197,26 @@ body {
   font-size: 10px;
   color: var(--color-text-muted);
   transition: transform 0.2s;
+  /* Decorative: state is announced via aria-expanded on the toggle, and
+     clicks fall through to the toggle beneath so the chevron still expands. */
+  pointer-events: none;
 }
 
 .meal-card__header-actions {
+  /* Sits above the full-bleed toggle so the Swap button stays clickable, but
+     stays click-transparent itself so the chevron and surrounding gaps fall
+     through to the toggle and still expand the card. */
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .meal-card__swap {
+  border: none;
+  pointer-events: auto;
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
@@ -469,9 +482,10 @@ body {
 
 .shopping-list__item-name {
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wrap rather than truncate: the full item name should always be readable,
+     including on touch where a title-attribute tooltip never fires. */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .shopping-list__item-qty {
@@ -1033,11 +1047,11 @@ body {
     align-items: baseline;
   }
 
-  .shopping-list__item-name {
-    overflow: visible;
-    text-overflow: clip;
-    white-space: normal;
-    word-break: break-word;
+  .shopping-list__header {
+    /* Stack so the count doesn't crowd the title into a mid-phrase wrap. */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 
   .upload-circular__dropzone {
