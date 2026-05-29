@@ -49,41 +49,42 @@ export function MealCard({
       className={`meal-card ${expanded ? "meal-card--expanded" : ""}`}
       style={{ animationDelay: `${animationDelay}ms` }}
     >
-      <button
-        className="meal-card__header"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
+      <div className="meal-card__header">
+        {/*
+          The toggle covers the whole header so the entire card title area is
+          clickable, but it stays empty (labeled via aria-label) so the SWAP
+          button and the meal heading aren't nested inside another interactive
+          element — that nesting is invalid HTML and confuses screen readers.
+        */}
+        <button
+          type="button"
+          className="meal-card__toggle"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${type}: ${meal.name}`}
+        />
         <div className="meal-card__header-top">
           <span className="meal-card__type">{type}</span>
           <div className="meal-card__header-actions">
             {onSwap && (
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 aria-label={`Swap ${type}`}
                 aria-busy={swapping}
+                aria-disabled={swapping || swapDisabled}
                 title={swapDisabled && swapDisabledReason ? swapDisabledReason : undefined}
                 className={`meal-card__swap ${swapping ? "meal-card__swap--loading" : ""}`}
-                aria-disabled={swapping || swapDisabled}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   if (swapping || swapDisabled) return;
                   onSwap();
                 }}
-                onKeyDown={(e) => {
-                  if (swapping || swapDisabled) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onSwap();
-                  }
-                }}
               >
                 {swapping ? "Swapping..." : "Swap"}
-              </span>
+              </button>
             )}
-            <span className="meal-card__chevron">{expanded ? "▲" : "▼"}</span>
+            <span className="meal-card__chevron" aria-hidden="true">
+              {expanded ? "▲" : "▼"}
+            </span>
           </div>
         </div>
         <h3 className="meal-card__name">{meal.name}</h3>
@@ -103,7 +104,7 @@ export function MealCard({
             </span>
           )}
         </div>
-      </button>
+      </div>
 
       {swapError && (
         <div className="meal-card__swap-error" role="alert">
