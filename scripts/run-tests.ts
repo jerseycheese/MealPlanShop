@@ -4,10 +4,12 @@ import { pathToFileURL } from "node:url";
 const SUITES = [
   "scripts/excludedCategories.test.ts",
   "scripts/mealPlanShape.test.ts",
+  "scripts/buildMealPlanUserPrompt.test.ts",
   "server/circular/flipp.test.ts",
   "server/circular/categorize.test.ts",
   "server/mergeShoppingList.test.ts",
   "server/prefs-fingerprint.test.ts",
+  "server/validatePreferences.test.ts",
   "src/app/preferenceConflicts.test.ts",
 ];
 

@@ -54,6 +54,8 @@ export interface MealPlanResult {
 
 export interface UserPreferences {
   householdSize: number;
+  // Household-wide cap on a meal's hands-on (active) minutes. Unset or 0 = no cap.
+  maxActiveTime?: number;
   dietaryRestrictions: string[];
   cuisinePreferences: string[];
   excludedIngredients: string[];

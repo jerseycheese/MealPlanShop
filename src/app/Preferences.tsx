@@ -185,6 +185,34 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               />
             </div>
 
+            <div className="preferences-modal__field preferences-modal__field--active-time">
+              <label
+                htmlFor="pref-active-time"
+                className="preferences-modal__label"
+              >
+                Max active time per meal (min)
+              </label>
+              <input
+                id="pref-active-time"
+                type="number"
+                min={0}
+                max={240}
+                placeholder="No limit"
+                value={prefs.maxActiveTime ?? ""}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setPrefs({
+                    ...prefs,
+                    maxActiveTime: Number.isFinite(v) && v > 0 ? v : undefined,
+                  });
+                }}
+                className="preferences-modal__number preferences-modal__number--active-time"
+              />
+              <p className="preferences-modal__hint">
+                Caps each meal's hands-on time. Leave blank for no limit.
+              </p>
+            </div>
+
             <ChipField
               label="Dietary preferences"
               hint="e.g. low carb, organic, gluten-free, vegetarian"
