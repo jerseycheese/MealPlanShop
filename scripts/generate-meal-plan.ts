@@ -244,6 +244,39 @@ export function assertSwapShape(value: unknown): {
   return value as { meal: Meal; shoppingList: ShoppingListItem[] };
 }
 
+// -- Prompt building --
+
+// Pure builder for the meal-plan user prompt. Extracted so the constraint wiring
+// (e.g. the active-time cap) can be unit-tested without an API key or network.
+export function buildMealPlanUserPrompt(
+  filteredSaleItems: SaleItem[],
+  preferences: UserPreferences
+): string {
+  const capLine =
+    preferences.maxActiveTime && preferences.maxActiveTime > 0
+      ? `\n- Maximum active (hands-on) time per meal: ${preferences.maxActiveTime} minutes — every meal's activeTime must be at or under this.`
+      : "";
+
+  return `
+## Current Sale Items
+
+${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [${i.category}]`).join("\n")}
+
+## User Preferences
+
+- Household size: ${preferences.householdSize}
+- Dietary preferences: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
+- Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
+- Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
+- Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
+- Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
+- Meals to plan: ${preferences.mealsPerDay.join(", ")}
+- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}${capLine}
+
+Generate a meal plan covering the selected days.
+`;
+}
+
 // -- Main --
 
 export async function generateMealPlan(
@@ -264,24 +297,7 @@ export async function generateMealPlan(
     );
   }
 
-  const userPrompt = `
-## Current Sale Items
-
-${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [${i.category}]`).join("\n")}
-
-## User Preferences
-
-- Household size: ${preferences.householdSize}
-- Dietary preferences: ${preferences.dietaryRestrictions.length > 0 ? preferences.dietaryRestrictions.join(", ") : "None"}
-- Cuisine preferences: ${preferences.cuisinePreferences.join(", ")}
-- Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
-- Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
-- Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
-- Meals to plan: ${preferences.mealsPerDay.join(", ")}
-- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
-
-Generate a meal plan covering the selected days.
-`;
+  const userPrompt = buildMealPlanUserPrompt(filteredSaleItems, preferences);
 
   const validMeals = ["breakfast", "lunch", "dinner"];
   const requestedMeals = preferences.mealsPerDay.filter((m) =>
@@ -395,7 +411,11 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
 - Meals to plan: ${preferences.mealsPerDay.join(", ")}
-- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
+- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}${
+    preferences.maxActiveTime && preferences.maxActiveTime > 0
+      ? `\n- Maximum active (hands-on) time per meal: ${preferences.maxActiveTime} minutes — the replacement meal's activeTime must be at or under this.`
+      : ""
+  }
 
 Generate one replacement meal for the slot above, plus the regenerated full-week shopping list.
 `;
