@@ -1,9 +1,6 @@
 import type { DayPlan, Meal, ShoppingListItem } from "../types";
 import { MEAL_TYPES } from "../types";
-
-function normalize(s: string): string {
-  return (s ?? "").trim().toLowerCase();
-}
+import { normalize } from "../normalize";
 
 export interface MergeArgs {
   weekPlan: DayPlan[];
