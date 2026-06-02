@@ -11,6 +11,7 @@ import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
 import { API } from "./endpoints";
+import { fetchJson } from "./fetchJson";
 import { containsWholeWord } from "../../scripts/excludedCategories";
 
 const SAVED_HINT_DISMISS_MS = 3500;
@@ -143,8 +144,12 @@ export function App() {
 
   const fetchCircular = useCallback(async () => {
     try {
-      const res = await fetch(API.circular);
-      const data = await res.json();
+      const data = await fetchJson<{
+        exists?: boolean;
+        storeName?: unknown;
+        validThrough?: unknown;
+        itemCount?: unknown;
+      }>(API.circular);
       if (data.exists === false) {
         setCircular(null);
         return;
@@ -162,9 +167,7 @@ export function App() {
 
   const fetchMealPlan = useCallback(async () => {
     try {
-      const res = await fetch(API.mealPlan);
-      if (!res.ok) throw new Error(`meal-plan request failed: ${res.status}`);
-      const data = await res.json();
+      const data = await fetchJson<Record<string, unknown>>(API.mealPlan);
       if (data.exists === false) {
         setMealPlan(null);
         setStale(false);
@@ -178,9 +181,9 @@ export function App() {
         setMealPlan(planResult);
         setStale(staleFlag === true);
         try {
-          const stateRes = await fetch(API.shoppingListState);
-          if (!stateRes.ok) throw new Error(`shopping-list-state failed: ${stateRes.status}`);
-          const state = await stateRes.json();
+          const state = await fetchJson<{ planId?: unknown; checkedKeys?: unknown }>(
+            API.shoppingListState,
+          );
           if (
             planResult.planId &&
             state.planId === planResult.planId &&
@@ -208,17 +211,19 @@ export function App() {
   }, [fetchMealPlan, fetchCircular]);
 
   useEffect(() => {
-    fetch(API.preferences)
-      .then((r) => {
-        if (!r.ok) throw new Error(`preferences request failed: ${r.status}`);
-        return r.json();
-      })
+    fetchJson<{ preferences?: { mealsPerDay?: unknown; pantryStaples?: unknown } }>(
+      API.preferences,
+    )
       .then((data) => {
         if (!data?.preferences || !Array.isArray(data.preferences.mealsPerDay)) {
           throw new Error("preferences response failed validation");
         }
         setMealsPerDay(data.preferences.mealsPerDay);
-        setPantryStaples(data.preferences.pantryStaples ?? []);
+        setPantryStaples(
+          Array.isArray(data.preferences.pantryStaples)
+            ? data.preferences.pantryStaples
+            : [],
+        );
         setPrefsError(null);
       })
       .catch((err) => {
