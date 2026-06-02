@@ -6,6 +6,7 @@ import {
   findExcludedUseUpConflicts,
 } from "./preferenceConflicts";
 import { API } from "./endpoints";
+import { fetchJson } from "./fetchJson";
 
 interface PreferencesProps {
   onClose: () => void;
@@ -50,8 +51,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
 
   useEffect(() => {
     let cancelled = false;
-    fetch(API.preferences)
-      .then((r) => r.json())
+    fetchJson<{ preferences: UserPreferences }>(API.preferences)
       .then((data) => {
         if (!cancelled) setPrefs(data.preferences);
       })
