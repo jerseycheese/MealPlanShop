@@ -1,5 +1,6 @@
 import type { UserPreferences } from "../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
+import { normalize } from "../normalize";
 
 // Extracted from index.ts so the validation can be unit-tested without booting
 // the Express server (index.ts hard-exits without GEMINI_API_KEY and calls
@@ -113,7 +114,7 @@ export function validatePreferences(input: unknown): UserPreferences {
     p.daysOfWeek,
     VALID_DAYS_OF_WEEK,
     "daysOfWeek entries must be lowercase day names (monday-sunday)",
-    (s) => s.trim().toLowerCase(),
+    normalize,
   );
 
   return {

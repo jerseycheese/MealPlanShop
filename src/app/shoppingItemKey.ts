@@ -1,8 +1,9 @@
 import type { ShoppingListItem } from "../../types";
+import { normalize } from "../../normalize";
 
 export function shoppingItemKey(item: ShoppingListItem): string {
-  const cat = item.category.trim().toLowerCase();
-  const name = item.name.trim().toLowerCase();
-  const qty = item.quantity.trim().toLowerCase();
+  const cat = normalize(item.category);
+  const name = normalize(item.name);
+  const qty = normalize(item.quantity);
   return `${cat}::${name}::${qty}`;
 }
