@@ -163,6 +163,33 @@ function formatViolationsForRetry(violations: ExcludedViolation[]): string {
   return `Your previous response violated the excluded-ingredients constraint. Forbidden terms detected: ${terms.join(", ")}. Examples: ${examples}. Regenerate the response with zero occurrences of any excluded term in any meal name or ingredient.`;
 }
 
+// Call the model, and if the result contains excluded-ingredient violations,
+// retry exactly once with a correction note. The plan and swap paths shared this
+// call → check → retry-once → log flow verbatim; only the model call and the
+// violation finder differ, so they're passed in. `label` tags the warning.
+async function callModelWithExclusionRetry<T>(
+  callModel: (extraNote?: string) => Promise<T>,
+  findViolations: (result: T) => ExcludedViolation[],
+  label: string,
+): Promise<T> {
+  let result = await callModel();
+  let violations = findViolations(result);
+  if (violations.length > 0) {
+    console.warn(
+      `${label} had ${violations.length} excluded-ingredient violations; retrying once.`,
+    );
+    result = await callModel(formatViolationsForRetry(violations));
+    violations = findViolations(result);
+    if (violations.length > 0) {
+      console.warn(
+        `Retry still produced ${violations.length} violations:`,
+        violations.slice(0, 5),
+      );
+    }
+  }
+  return result;
+}
+
 // -- Schema for structured output --
 
 const mealSchema = {
@@ -343,21 +370,11 @@ export async function generateMealPlan(
     return assertMealPlanShape(JSON.parse(response.text ?? "{}"));
   };
 
-  let result = await callModel();
-  let violations = findExcludedViolations(result, preferences.excludedIngredients);
-  if (violations.length > 0) {
-    console.warn(
-      `Plan had ${violations.length} excluded-ingredient violations; retrying once.`
-    );
-    result = await callModel(formatViolationsForRetry(violations));
-    violations = findExcludedViolations(result, preferences.excludedIngredients);
-    if (violations.length > 0) {
-      console.warn(
-        `Retry still produced ${violations.length} violations:`,
-        violations.slice(0, 5)
-      );
-    }
-  }
+  const result = await callModelWithExclusionRetry(
+    callModel,
+    (r) => findExcludedViolations(r, preferences.excludedIngredients),
+    "Plan",
+  );
 
   console.log(`Generated plan with ${result.weekPlan.length} days`);
   console.log(`Shopping list: ${result.shoppingList.length} items`);
@@ -448,21 +465,11 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
     return assertSwapShape(JSON.parse(response.text ?? "{}"));
   };
 
-  let parsed = await callModel();
-  let violations = findMealViolations(parsed.meal, preferences.excludedIngredients);
-  if (violations.length > 0) {
-    console.warn(
-      `Swap had ${violations.length} excluded-ingredient violations; retrying once.`
-    );
-    parsed = await callModel(formatViolationsForRetry(violations));
-    violations = findMealViolations(parsed.meal, preferences.excludedIngredients);
-    if (violations.length > 0) {
-      console.warn(
-        `Retry still produced ${violations.length} violations:`,
-        violations.slice(0, 5)
-      );
-    }
-  }
+  const parsed = await callModelWithExclusionRetry(
+    callModel,
+    (r) => findMealViolations(r.meal, preferences.excludedIngredients),
+    "Swap",
+  );
 
   console.log(`Replacement: ${parsed.meal.name}`);
   console.log(`Shopping list: ${parsed.shoppingList.length} items`);

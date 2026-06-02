@@ -29,6 +29,7 @@ import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
 import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
 import { containsWholeWord } from "../scripts/excludedCategories";
+import { readJsonOrNull, writeJsonAtomic } from "./lib/jsonStore";
 
 // Fail fast at startup if required secrets are missing — otherwise the server
 // happily boots and only dies on the first scan/plan request.
@@ -85,29 +86,24 @@ function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
-function readJsonOrNull<T = unknown>(filePath: string): T | null {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    console.warn(`[readJsonOrNull] failed to read ${filePath}:`, err);
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as T;
-  } catch (err) {
-    console.warn(`[readJsonOrNull] failed to parse ${filePath}:`, err);
-    return null;
+// Throw this from a route to send a specific HTTP status; the error middleware
+// at the bottom serializes it. Replaces the per-route `res.status(n).json({
+// success:false, error })` + `return` guards that were copy-pasted everywhere.
+class HttpError extends Error {
+  constructor(public statusCode: number, message: string) {
+    super(message);
   }
 }
 
-// Write JSON via a sibling .tmp file + rename so a crash mid-write can't
-// leave a half-written plan/extraction/preferences blob on disk.
-function writeJsonAtomic(filePath: string, data: unknown): void {
-  const tmp = `${filePath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, filePath);
+// Wrap an async route handler so a thrown error (HttpError or otherwise) is
+// forwarded to the error middleware instead of every handler carrying its own
+// try/catch. Composes in front of withSerial.
+function asyncRoute(
+  handler: (req: express.Request, res: express.Response) => Promise<void> | void,
+): express.RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res)).catch(next);
+  };
 }
 
 // Serialize routes that mutate output/ — concurrent runs would race on file
@@ -228,23 +224,13 @@ app.get("/api/preferences", (_req, res) => {
   res.json({ preferences: loadPreferences() });
 });
 
-app.put("/api/preferences", (req, res) => {
-  try {
-    const result = validatePreferences(req.body);
-    ensureOutputDir();
-    writeJsonAtomic(PREFERENCES_PATH, result);
-    res.json({ success: true, preferences: result });
-  } catch (err) {
-    if (err instanceof ValidationError) {
-      res.status(400).json({ success: false, error: err.message });
-      return;
-    }
-    res.status(500).json({
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to save preferences",
-    });
-  }
-});
+app.put("/api/preferences", asyncRoute((req, res) => {
+  // validatePreferences throws ValidationError → 400 via the error middleware.
+  const result = validatePreferences(req.body);
+  ensureOutputDir();
+  writeJsonAtomic(PREFERENCES_PATH, result);
+  res.json({ success: true, preferences: result });
+}));
 
 app.get("/api/shopping-list-state", (_req, res) => {
   const parsed = readJsonOrNull<{ planId?: unknown; checkedKeys?: unknown }>(
@@ -261,48 +247,34 @@ app.get("/api/shopping-list-state", (_req, res) => {
   res.json({ planId, checkedKeys });
 });
 
-app.put("/api/shopping-list-state", (req, res) => {
+app.put("/api/shopping-list-state", asyncRoute((req, res) => {
   const body = req.body as Record<string, unknown> | null | undefined;
   if (!body || typeof body !== "object") {
-    res.status(400).json({ success: false, error: "Body must be a JSON object" });
-    return;
+    throw new HttpError(400, "Body must be a JSON object");
   }
   if (typeof body.planId !== "string" || !body.planId) {
-    res.status(400).json({ success: false, error: "planId must be a non-empty string" });
-    return;
+    throw new HttpError(400, "planId must be a non-empty string");
   }
   if (!Array.isArray(body.checkedKeys)) {
-    res.status(400).json({ success: false, error: "checkedKeys must be an array" });
-    return;
+    throw new HttpError(400, "checkedKeys must be an array");
   }
   const seen = new Set<string>();
   for (const k of body.checkedKeys) {
     if (typeof k !== "string") {
-      res.status(400).json({ success: false, error: "checkedKeys entries must be strings" });
-      return;
+      throw new HttpError(400, "checkedKeys entries must be strings");
     }
     if (k.length > MAX_KEY_LEN) {
-      res.status(400).json({ success: false, error: `checkedKeys entries must be ${MAX_KEY_LEN} chars or fewer` });
-      return;
+      throw new HttpError(400, `checkedKeys entries must be ${MAX_KEY_LEN} chars or fewer`);
     }
     seen.add(k);
     if (seen.size > MAX_CHECKED_KEYS) {
-      res.status(400).json({ success: false, error: `checkedKeys can have at most ${MAX_CHECKED_KEYS} entries` });
-      return;
+      throw new HttpError(400, `checkedKeys can have at most ${MAX_CHECKED_KEYS} entries`);
     }
   }
-  try {
-    ensureOutputDir();
-    const out = { planId: body.planId, checkedKeys: [...seen] };
-    writeJsonAtomic(SHOPPING_LIST_STATE_PATH, out);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to save shopping list state",
-    });
-  }
-});
+  ensureOutputDir();
+  writeJsonAtomic(SHOPPING_LIST_STATE_PATH, { planId: body.planId, checkedKeys: [...seen] });
+  res.json({ success: true });
+}));
 
 app.get("/api/circular/progress", (_req, res) => {
   res.json(scanProgress);
@@ -347,153 +319,106 @@ app.get("/api/meal-plan", (_req, res) => {
   });
 });
 
-app.post("/api/meal-plan/generate", withSerial(async (_req, res) => {
+app.post("/api/meal-plan/generate", asyncRoute(withSerial(async (_req, res) => {
   const extraction = readJsonOrNull<ExtractionResult & unknown[]>(EXTRACTION_PATH);
   if (!extraction) {
-    res.status(400).json({
-      success: false,
-      error: "No circular extracted yet. Upload a circular first.",
-    });
-    return;
+    throw new HttpError(400, "No circular extracted yet. Upload a circular first.");
   }
-  try {
-    const saleItems = extraction.items || extraction;
-    const prefs = loadPreferences();
-    const result = await generateMealPlan(saleItems, prefs);
-    const stamped = {
-      ...result,
-      planId: crypto.randomUUID(),
-      prefsFingerprint: computePrefsFingerprint(prefs),
-    };
+  const saleItems = extraction.items || extraction;
+  const prefs = loadPreferences();
+  const result = await generateMealPlan(saleItems, prefs);
+  const stamped = {
+    ...result,
+    planId: crypto.randomUUID(),
+    prefsFingerprint: computePrefsFingerprint(prefs),
+  };
 
-    ensureOutputDir();
-    writeJsonAtomic(MEAL_PLAN_PATH, stamped);
-    clearShoppingListState();
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err instanceof Error ? err.message : "Generation failed",
-    });
-  }
-}));
+  ensureOutputDir();
+  writeJsonAtomic(MEAL_PLAN_PATH, stamped);
+  clearShoppingListState();
+  res.json({ success: true });
+})));
 
-app.post("/api/meal-plan/swap", withSerial(async (req, res) => {
+app.post("/api/meal-plan/swap", asyncRoute(withSerial(async (req, res) => {
   const body = req.body as Record<string, unknown> | null | undefined;
   if (!body || typeof body !== "object") {
-    res.status(400).json({ success: false, error: "Body must be a JSON object" });
-    return;
+    throw new HttpError(400, "Body must be a JSON object");
   }
   const day = body.day;
   const mealType = body.mealType;
   if (typeof day !== "string" || !VALID_DAYS_OF_WEEK.has(day.toLowerCase())) {
-    res.status(400).json({ success: false, error: "day must be a valid day of the week" });
-    return;
+    throw new HttpError(400, "day must be a valid day of the week");
   }
   if (typeof mealType !== "string" || !VALID_MEAL_TYPES.has(mealType)) {
-    res.status(400).json({
-      success: false,
-      error: "mealType must be 'breakfast', 'lunch', or 'dinner'",
-    });
-    return;
+    throw new HttpError(400, "mealType must be 'breakfast', 'lunch', or 'dinner'");
   }
 
   const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
   if (!plan) {
-    res.status(400).json({
-      success: false,
-      error: "No meal plan exists. Generate one first.",
-    });
-    return;
+    throw new HttpError(400, "No meal plan exists. Generate one first.");
   }
   const extraction = readJsonOrNull<ExtractionResult & unknown[]>(EXTRACTION_PATH);
   if (!extraction) {
-    res.status(400).json({
-      success: false,
-      error: "No circular extracted yet. Upload a circular first.",
-    });
-    return;
+    throw new HttpError(400, "No circular extracted yet. Upload a circular first.");
   }
 
-  try {
-    const dayIndex = plan.weekPlan.findIndex((d) => d.day === day);
-    if (dayIndex === -1) {
-      res.status(400).json({ success: false, error: `Day not found in plan: ${day}` });
-      return;
-    }
-    const slotKey = mealType as "breakfast" | "lunch" | "dinner";
-    if (!plan.weekPlan[dayIndex][slotKey]) {
-      res.status(400).json({
-        success: false,
-        error: `No ${mealType} in current plan for ${day}`,
-      });
-      return;
-    }
-
-    const preferences = loadPreferences();
-    if (!preferences.mealsPerDay.includes(slotKey)) {
-      res.status(400).json({
-        success: false,
-        error: `${mealType} is not enabled in current preferences`,
-      });
-      return;
-    }
-
-    // Defense in depth: the UI disables Swap on a stale plan, but a direct API
-    // call or stale tab could still swap against outdated preferences and mix
-    // two pref versions into one plan. Reject before the expensive LLM call.
-    if (isPlanFingerprintStale(plan, preferences)) {
-      res.status(409).json({
-        success: false,
-        error: "Plan is out of sync with current preferences. Regenerate first.",
-      });
-      return;
-    }
-
-    const saleItems = extraction.items || extraction;
-
-    const result = await generateMealSwap(plan, day, slotKey, saleItems, preferences);
-
-    const mergedShoppingList = mergeShoppingListAfterSwap({
-      weekPlan: plan.weekPlan,
-      swappedDayIndex: dayIndex,
-      swappedSlot: slotKey,
-      newMeal: result.meal,
-      priorList: plan.shoppingList,
-      regeneratedList: result.shoppingList,
-    });
-    plan.weekPlan[dayIndex][slotKey] = result.meal;
-    plan.shoppingList = mergedShoppingList;
-
-    ensureOutputDir();
-    writeJsonAtomic(MEAL_PLAN_PATH, plan);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err instanceof Error ? err.message : "Swap failed",
-    });
+  const dayIndex = plan.weekPlan.findIndex((d) => d.day === day);
+  if (dayIndex === -1) {
+    throw new HttpError(400, `Day not found in plan: ${day}`);
   }
-}));
+  const slotKey = mealType as "breakfast" | "lunch" | "dinner";
+  if (!plan.weekPlan[dayIndex][slotKey]) {
+    throw new HttpError(400, `No ${mealType} in current plan for ${day}`);
+  }
+
+  const preferences = loadPreferences();
+  if (!preferences.mealsPerDay.includes(slotKey)) {
+    throw new HttpError(400, `${mealType} is not enabled in current preferences`);
+  }
+
+  // Defense in depth: the UI disables Swap on a stale plan, but a direct API
+  // call or stale tab could still swap against outdated preferences and mix
+  // two pref versions into one plan. Reject before the expensive LLM call.
+  if (isPlanFingerprintStale(plan, preferences)) {
+    throw new HttpError(
+      409,
+      "Plan is out of sync with current preferences. Regenerate first.",
+    );
+  }
+
+  const saleItems = extraction.items || extraction;
+
+  const result = await generateMealSwap(plan, day, slotKey, saleItems, preferences);
+
+  const mergedShoppingList = mergeShoppingListAfterSwap({
+    weekPlan: plan.weekPlan,
+    swappedDayIndex: dayIndex,
+    swappedSlot: slotKey,
+    newMeal: result.meal,
+    priorList: plan.shoppingList,
+    regeneratedList: result.shoppingList,
+  });
+  plan.weekPlan[dayIndex][slotKey] = result.meal;
+  plan.shoppingList = mergedShoppingList;
+
+  ensureOutputDir();
+  writeJsonAtomic(MEAL_PLAN_PATH, plan);
+  res.json({ success: true });
+})));
 
 app.post(
   "/api/circular/upload",
   upload.single("circular"),
-  async (req, res) => {
+  asyncRoute(async (req, res) => {
     if (!req.file) {
-      res.status(400).json({ success: false, error: "No file uploaded" });
-      return;
+      throw new HttpError(400, "No file uploaded");
     }
 
     // Trust the bytes, not the filename. Detect from magic bytes and reject if
     // the content doesn't match a supported format.
     const detected = detectFileExt(req.file.buffer);
     if (!detected || !ALLOWED_EXTENSIONS.has(detected)) {
-      res.status(400).json({
-        success: false,
-        error: "Unsupported file type. Allowed: PDF, JPG, PNG, WEBP.",
-      });
-      return;
+      throw new HttpError(400, "Unsupported file type. Allowed: PDF, JPG, PNG, WEBP.");
     }
     const ext = detected;
 
@@ -522,21 +447,14 @@ app.post(
         });
 
         if (extraction.items.length === 0) {
-          res.status(422).json({
-            success: false,
-            error:
-              "No sale items extracted from this circular. Try a clearer image.",
-          });
-          return;
+          throw new HttpError(
+            422,
+            "No sale items extracted from this circular. Try a clearer image.",
+          );
         }
 
         const result = await runScanAndPlan(extraction);
         res.json({ success: true, ...result });
-      } catch (err) {
-        res.status(500).json({
-          success: false,
-          error: err instanceof Error ? err.message : "Processing failed",
-        });
       } finally {
         scanProgress = { stage: "idle" };
         if (fs.existsSync(tmpPath)) {
@@ -548,33 +466,31 @@ app.post(
         }
       }
     })(req, res);
-  }
+  })
 );
 
 app.get("/api/circular/prefs", (_req, res) => {
   res.json(loadCircularPrefs());
 });
 
-app.post("/api/circular/flipp/stores", async (req, res) => {
+app.post("/api/circular/flipp/stores", asyncRoute(async (req, res) => {
   const body = req.body as { postalCode?: unknown } | undefined;
   const postalCode = typeof body?.postalCode === "string" ? body.postalCode.trim() : "";
   if (!/^\d{5}$/.test(postalCode)) {
-    res.status(400).json({ success: false, error: "postalCode must be a 5-digit ZIP" });
-    return;
+    throw new HttpError(400, "postalCode must be a 5-digit ZIP");
   }
+  let merchants;
   try {
-    const merchants = await listFlyers(postalCode);
-    saveCircularPrefs({ postalCode });
-    res.json({ success: true, merchants });
+    merchants = await listFlyers(postalCode);
   } catch (err) {
-    res.status(502).json({
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to fetch stores",
-    });
+    // An upstream Flipp failure is a bad gateway, not our 500.
+    throw new HttpError(502, err instanceof Error ? err.message : "Failed to fetch stores");
   }
-});
+  saveCircularPrefs({ postalCode });
+  res.json({ success: true, merchants });
+}));
 
-app.post("/api/circular/flipp/fetch", withSerial(async (req, res) => {
+app.post("/api/circular/flipp/fetch", asyncRoute(withSerial(async (req, res) => {
   const body = req.body as
     | {
         flyerId?: unknown;
@@ -597,11 +513,7 @@ app.post("/api/circular/flipp/fetch", withSerial(async (req, res) => {
       ? body.merchantId
       : null;
   if (!Number.isFinite(flyerId) || !merchantName) {
-    res.status(400).json({
-      success: false,
-      error: "flyerId (number) and merchantName (string) are required",
-    });
-    return;
+    throw new HttpError(400, "flyerId (number) and merchantName (string) are required");
   }
 
   try {
@@ -624,27 +536,19 @@ app.post("/api/circular/flipp/fetch", withSerial(async (req, res) => {
     }
 
     if (extraction.items.length === 0) {
-      res.status(422).json({
-        success: false,
-        error:
-          "This flyer doesn't appear to have grocery items we can plan meals from. Try a different store.",
-      });
-      return;
+      throw new HttpError(
+        422,
+        "This flyer doesn't appear to have grocery items we can plan meals from. Try a different store.",
+      );
     }
 
     const result = await runScanAndPlan(extraction);
     if (merchantId !== null) saveCircularPrefs({ lastMerchantId: merchantId });
     res.json({ success: true, ...result });
-  } catch (err) {
-    const status = (err as Error & { statusCode?: number }).statusCode ?? 500;
-    res.status(status).json({
-      success: false,
-      error: err instanceof Error ? err.message : "Fetch failed",
-    });
   } finally {
     scanProgress = { stage: "idle" };
   }
-}));
+})));
 
 app.use(
   (
@@ -660,8 +564,17 @@ app.use(
       });
       return;
     }
-    console.error("[unhandled]", err);
-    res.status(500).json({ success: false, error: "Internal server error" });
+    // Resolve a status: explicit statusCode wins (HttpError + errors tagged by
+    // runScanAndPlan/fetchFlyer), ValidationError maps to 400, everything else
+    // is an unexpected 500.
+    const status =
+      (err as { statusCode?: number }).statusCode ??
+      (err instanceof ValidationError ? 400 : 500);
+    if (status >= 500) console.error("[unhandled]", err);
+    res.status(status).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Internal server error",
+    });
   }
 );
 
