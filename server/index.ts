@@ -24,6 +24,7 @@ import type {
   UserPreferences,
   ExtractionResult,
   ScanProgress,
+  DayOfWeek,
 } from "../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
@@ -372,8 +373,9 @@ app.post("/api/meal-plan/swap", asyncRoute(withSerial(async (req, res) => {
   }
 
   const preferences = loadPreferences();
-  if (!preferences.mealsPerDay.includes(slotKey)) {
-    throw new HttpError(400, `${mealType} is not enabled in current preferences`);
+  const mealsForDay = preferences.mealsByDay[day.toLowerCase() as DayOfWeek] ?? [];
+  if (!mealsForDay.includes(slotKey)) {
+    throw new HttpError(400, `${mealType} is not enabled for ${day} in current preferences`);
   }
 
   // Defense in depth: the UI disables Swap on a stale plan, but a direct API

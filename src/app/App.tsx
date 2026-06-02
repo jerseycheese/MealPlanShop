@@ -123,11 +123,6 @@ export function App() {
   const [loaded, setLoaded] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
-  const [mealsPerDay, setMealsPerDay] = useState<string[]>([
-    "breakfast",
-    "lunch",
-    "dinner",
-  ]);
   const [pantryStaples, setPantryStaples] = useState<string[]>([]);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
   const [circular, setCircular] = useState<CircularMeta | null>(null);
@@ -211,14 +206,11 @@ export function App() {
   }, [fetchMealPlan, fetchCircular]);
 
   useEffect(() => {
-    fetchJson<{ preferences?: { mealsPerDay?: unknown; pantryStaples?: unknown } }>(
-      API.preferences,
-    )
+    fetchJson<{ preferences?: { pantryStaples?: unknown } }>(API.preferences)
       .then((data) => {
-        if (!data?.preferences || !Array.isArray(data.preferences.mealsPerDay)) {
+        if (!data?.preferences) {
           throw new Error("preferences response failed validation");
         }
-        setMealsPerDay(data.preferences.mealsPerDay);
         setPantryStaples(
           Array.isArray(data.preferences.pantryStaples)
             ? data.preferences.pantryStaples
@@ -463,7 +455,6 @@ export function App() {
           canRegenerate={!!mealPlan}
           onClose={() => setShowPrefs(false)}
           onSaved={(prefs, opts) => {
-            setMealsPerDay(prefs.mealsPerDay);
             setPantryStaples(prefs.pantryStaples);
             setShowPrefs(false);
             if (opts?.regenerate) {
@@ -596,7 +587,6 @@ export function App() {
             <main className="day-view">
               <h2 className="day-view__title">{day.day}</h2>
               {MEAL_TYPES.flatMap((type, i) => {
-                if (!mealsPerDay.includes(type)) return [];
                 const meal = day[type];
                 if (!meal) return [];
                 const key = `${day.day}-${type}`;

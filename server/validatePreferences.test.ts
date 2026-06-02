@@ -9,8 +9,10 @@ const base = {
   excludedIngredients: ["shellfish"],
   pantryStaples: ["olive oil", "salt"],
   useUpIngredients: ["spinach"],
-  mealsPerDay: ["breakfast", "lunch", "dinner"],
-  daysOfWeek: ["monday", "tuesday", "wednesday"],
+  mealsByDay: {
+    monday: ["breakfast", "lunch", "dinner"],
+    wednesday: ["dinner"],
+  },
 };
 
 // Absent cap is valid and omitted from the result.
@@ -43,4 +45,49 @@ assert.throws(
   ValidationError,
 );
 
-console.log("validatePreferences: 6/6 passed");
+// --- mealsByDay ---
+
+// A valid map round-trips in canonical order: days in week order, meals in
+// breakfast/lunch/dinner order, regardless of the order sent.
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    mealsByDay: { wednesday: ["dinner", "breakfast"], monday: ["dinner"] },
+  }).mealsByDay,
+  { monday: ["dinner"], wednesday: ["breakfast", "dinner"] },
+);
+
+// Day keys are normalized (trim + lowercase), meals deduped, empty days dropped.
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    mealsByDay: { " Monday ": ["dinner", "dinner"], friday: [] },
+  }).mealsByDay,
+  { monday: ["dinner"] },
+);
+
+// An unknown day name is rejected.
+assert.throws(
+  () => validatePreferences({ ...base, mealsByDay: { funday: ["dinner"] } }),
+  ValidationError,
+);
+
+// An unknown meal type is rejected.
+assert.throws(
+  () => validatePreferences({ ...base, mealsByDay: { monday: ["brunch"] } }),
+  ValidationError,
+);
+
+// A map with no planned days (every list empty) is rejected.
+assert.throws(
+  () => validatePreferences({ ...base, mealsByDay: { monday: [] } }),
+  ValidationError,
+);
+
+// A non-object mealsByDay is rejected.
+assert.throws(
+  () => validatePreferences({ ...base, mealsByDay: ["monday"] }),
+  ValidationError,
+);
+
+console.log("validatePreferences: 12/12 passed");

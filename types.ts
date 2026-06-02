@@ -61,8 +61,10 @@ export interface UserPreferences {
   excludedIngredients: string[];
   pantryStaples: string[];
   useUpIngredients: string[];
-  mealsPerDay: string[];
-  daysOfWeek: string[];
+  // Per-day meal selection. A day present with a non-empty list is planned; the
+  // list says which meals. Days absent (or empty) are not planned. Canonical
+  // stored form: keys in DAYS_OF_WEEK order, each list in MEAL_TYPES order.
+  mealsByDay: Partial<Record<DayOfWeek, MealType[]>>;
 }
 
 export const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;

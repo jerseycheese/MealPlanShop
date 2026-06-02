@@ -8,7 +8,10 @@ import type {
   SaleItem,
   ShoppingListItem,
   UserPreferences,
+  DayOfWeek,
+  MealType,
 } from "../types";
+import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import {
   EXCLUDED_CATEGORIES,
   expandExcludedTerms,
@@ -38,16 +41,10 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   excludedIngredients: [],
   pantryStaples: [...DEFAULT_PANTRY_STAPLES],
   useUpIngredients: [],
-  mealsPerDay: ["breakfast", "lunch", "dinner"],
-  daysOfWeek: [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ],
+  // Every day, all three meals — preserves the prior all-or-nothing default.
+  mealsByDay: Object.fromEntries(
+    DAYS_OF_WEEK.map((d) => [d, [...MEAL_TYPES]]),
+  ) as Record<DayOfWeek, MealType[]>,
 };
 
 // -- Prompt loading --
@@ -273,6 +270,17 @@ export function assertSwapShape(value: unknown): {
 
 // -- Prompt building --
 
+// Renders the per-day meal selection as prompt lines, one per planned day in week
+// order: "  - Sunday: breakfast, dinner". Days with no meals are omitted. Shared
+// by the plan and swap prompts.
+export function formatMealsByDay(
+  mealsByDay: Partial<Record<DayOfWeek, MealType[]>>
+): string {
+  return DAYS_OF_WEEK.filter((d) => mealsByDay[d]?.length)
+    .map((d) => `  - ${d.charAt(0).toUpperCase() + d.slice(1)}: ${mealsByDay[d]!.join(", ")}`)
+    .join("\n");
+}
+
 // Pure builder for the meal-plan user prompt. Extracted so the constraint wiring
 // (e.g. the active-time cap) can be unit-tested without an API key or network.
 export function buildMealPlanUserPrompt(
@@ -297,10 +305,10 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
-- Meals to plan: ${preferences.mealsPerDay.join(", ")}
-- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}${capLine}
+- Meals to plan, per day (generate exactly these meals for each day listed, and only these days):
+${formatMealsByDay(preferences.mealsByDay)}${capLine}
 
-Generate a meal plan covering the selected days.
+Generate a meal plan covering exactly the days and meals listed above.
 `;
 }
 
@@ -326,12 +334,15 @@ export async function generateMealPlan(
 
   const userPrompt = buildMealPlanUserPrompt(filteredSaleItems, preferences);
 
-  const validMeals = ["breakfast", "lunch", "dinner"];
-  const requestedMeals = preferences.mealsPerDay.filter((m) =>
-    validMeals.includes(m)
+  // The array-items schema is uniform across days, but per-day selection means
+  // different days carry different meals. So every meal used on ANY planned day is
+  // an optional property (required is just ["day"]); the prompt states exactly
+  // which meals each specific day must have.
+  const usedMeals = MEAL_TYPES.filter((m) =>
+    DAYS_OF_WEEK.some((d) => preferences.mealsByDay[d]?.includes(m))
   );
   const dayProperties: Record<string, unknown> = { day: { type: "string" } };
-  for (const meal of requestedMeals) {
+  for (const meal of usedMeals) {
     dayProperties[meal] = mealSchema;
   }
   const mealPlanSchema = {
@@ -342,7 +353,7 @@ export async function generateMealPlan(
         items: {
           type: "object" as const,
           properties: dayProperties,
-          required: ["day", ...requestedMeals],
+          required: ["day"],
         },
       },
       shoppingList: shoppingListSchema,
@@ -427,8 +438,8 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Excluded ingredients (must NOT appear in any meal): ${preferences.excludedIngredients.length > 0 ? preferences.excludedIngredients.join(", ") : "None"}
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
-- Meals to plan: ${preferences.mealsPerDay.join(", ")}
-- Days to plan: ${preferences.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}${
+- Meals to plan, per day:
+${formatMealsByDay(preferences.mealsByDay)}${
     preferences.maxActiveTime && preferences.maxActiveTime > 0
       ? `\n- Maximum active (hands-on) time per meal: ${preferences.maxActiveTime} minutes — the replacement meal's activeTime must be at or under this.`
       : ""

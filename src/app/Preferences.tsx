@@ -114,27 +114,18 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const handleSave = () => persistAnd({ regenerate: false });
   const handleSaveAndRegenerate = () => persistAnd({ regenerate: true });
 
-  const toggleMeal = (meal: MealType) => {
+  // Toggle one meal for one day. Keeps each day's list in MEAL_TYPES order, and
+  // drops the day key entirely once its last meal is unchecked (empty = unplanned).
+  const toggleDayMeal = (day: DayOfWeek, meal: MealType) => {
     if (!prefs) return;
-    const has = prefs.mealsPerDay.includes(meal);
-    setPrefs({
-      ...prefs,
-      mealsPerDay: has
-        ? prefs.mealsPerDay.filter((m) => m !== meal)
-        : [...prefs.mealsPerDay, meal],
-    });
-  };
-
-  const toggleDay = (day: DayOfWeek) => {
-    if (!prefs) return;
-    const has = prefs.daysOfWeek.includes(day);
-    const next = has
-      ? prefs.daysOfWeek.filter((d) => d !== day)
-      : [...prefs.daysOfWeek, day];
-    next.sort(
-      (a, b) => DAYS_OF_WEEK.indexOf(a as DayOfWeek) - DAYS_OF_WEEK.indexOf(b as DayOfWeek)
-    );
-    setPrefs({ ...prefs, daysOfWeek: next });
+    const current = prefs.mealsByDay[day] ?? [];
+    const nextMeals = current.includes(meal)
+      ? current.filter((m) => m !== meal)
+      : MEAL_TYPES.filter((m) => m === meal || current.includes(m));
+    const nextMap = { ...prefs.mealsByDay };
+    if (nextMeals.length > 0) nextMap[day] = nextMeals;
+    else delete nextMap[day];
+    setPrefs({ ...prefs, mealsByDay: nextMap });
   };
 
   return (
@@ -271,35 +262,29 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               </div>
             )}
 
-            <fieldset className="preferences-modal__field">
+            <fieldset className="preferences-modal__field preferences-modal__field--daymeals">
               <legend className="preferences-modal__label">Meals per day</legend>
-              <div className="preferences-modal__checkrow">
-                {MEAL_TYPES.map((meal) => (
-                  <label key={meal} className="preferences-modal__check">
-                    <input
-                      type="checkbox"
-                      checked={prefs.mealsPerDay.includes(meal)}
-                      onChange={() => toggleMeal(meal)}
-                    />
-                    {meal}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="preferences-modal__field preferences-modal__field--days">
-              <legend className="preferences-modal__label">Days to plan</legend>
-              <div className="preferences-modal__checkrow">
-                {DAYS_OF_WEEK.map((day) => (
-                  <label key={day} className="preferences-modal__check">
-                    <input
-                      type="checkbox"
-                      checked={prefs.daysOfWeek.includes(day)}
-                      onChange={() => toggleDay(day)}
-                    />
-                    {day}
-                  </label>
-                ))}
+              <div className="day-meals">
+                {DAYS_OF_WEEK.map((day) => {
+                  const meals = prefs.mealsByDay[day] ?? [];
+                  return (
+                    <div key={day} className="day-meals__row">
+                      <span className="day-meals__day">{day}</span>
+                      <div className="preferences-modal__checkrow day-meals__meals">
+                        {MEAL_TYPES.map((meal) => (
+                          <label key={meal} className="preferences-modal__check">
+                            <input
+                              type="checkbox"
+                              checked={meals.includes(meal)}
+                              onChange={() => toggleDayMeal(day, meal)}
+                            />
+                            {meal}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </fieldset>
           </>
