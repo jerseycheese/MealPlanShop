@@ -8,6 +8,7 @@ const SUITES = [
   "server/circular/flipp.test.ts",
   "server/circular/categorize.test.ts",
   "server/mergeShoppingList.test.ts",
+  "server/moveMeal.test.ts",
   "server/prefs-fingerprint.test.ts",
   "server/validatePreferences.test.ts",
   "src/app/preferenceConflicts.test.ts",
