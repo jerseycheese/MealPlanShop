@@ -13,8 +13,10 @@ const base: UserPreferences = {
   excludedIngredients: [],
   pantryStaples: [],
   useUpIngredients: [],
-  mealsPerDay: ["breakfast", "lunch", "dinner"],
-  daysOfWeek: ["monday", "tuesday"],
+  mealsByDay: {
+    sunday: ["breakfast", "dinner"],
+    wednesday: ["dinner"],
+  },
 };
 
 // With a cap set, the prompt carries the active-time constraint to the model.
@@ -31,4 +33,19 @@ assert.ok(
   "expected no active-time line when the cap is unset",
 );
 
-console.log("buildMealPlanUserPrompt: 2/2 passed");
+// Each planned day is listed with exactly its own meals.
+assert.ok(
+  noCap.includes("Sunday: breakfast, dinner"),
+  "expected Sunday's two meals in the prompt",
+);
+assert.ok(
+  noCap.includes("Wednesday: dinner"),
+  "expected Wednesday's single meal in the prompt",
+);
+// Unselected days never appear.
+assert.ok(
+  !noCap.includes("Monday:"),
+  "expected unselected days to be absent from the prompt",
+);
+
+console.log("buildMealPlanUserPrompt: 5/5 passed");

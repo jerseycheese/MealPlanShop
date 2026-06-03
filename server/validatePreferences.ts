@@ -1,4 +1,4 @@
-import type { UserPreferences } from "../types";
+import type { UserPreferences, DayOfWeek, MealType } from "../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { normalize } from "../normalize";
 
@@ -38,24 +38,44 @@ function validateStringArray(
   return cleaned;
 }
 
-// Validates an enum array (mealsPerDay, daysOfWeek) and dedupes preserving
-// first-seen order. `normalize` lets daysOfWeek lowercase-trim before checking.
-function validateEnumArray(
-  key: string,
-  value: unknown,
-  allowed: Set<string>,
-  invalidMsg: string,
-  normalize: (s: string) => string = (s) => s,
-): string[] {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new ValidationError(`${key} must include at least one entry`);
+// Validates the per-day meal map. Keys must be day names (lowercase-trimmed via
+// `normalize`), values non-empty lists of valid meal types. Days with an empty
+// list are dropped (a day is "planned" only if it has meals). Returns canonical
+// form — days in DAYS_OF_WEEK order, meals in MEAL_TYPES order — so the fingerprint
+// is stable regardless of the order the client sent.
+function validateMealsByDay(value: unknown): Partial<Record<DayOfWeek, MealType[]>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ValidationError("mealsByDay must be an object mapping days to meal lists");
   }
-  const out: string[] = [];
-  for (const v of value) {
-    if (typeof v !== "string") throw new ValidationError(`${key} entries must be strings`);
-    const normalized = normalize(v);
-    if (!allowed.has(normalized)) throw new ValidationError(invalidMsg);
-    if (!out.includes(normalized)) out.push(normalized);
+  const collected = new Map<string, Set<string>>();
+  for (const [dayKey, meals] of Object.entries(value as Record<string, unknown>)) {
+    const day = normalize(dayKey);
+    if (!VALID_DAYS_OF_WEEK.has(day)) {
+      throw new ValidationError("mealsByDay keys must be day names (monday-sunday)");
+    }
+    if (!Array.isArray(meals)) {
+      throw new ValidationError("mealsByDay entries must be arrays of meal types");
+    }
+    const set = new Set<string>();
+    for (const m of meals) {
+      if (typeof m !== "string" || !VALID_MEAL_TYPES.has(m)) {
+        throw new ValidationError(
+          "mealsByDay meals must be 'breakfast', 'lunch', or 'dinner'",
+        );
+      }
+      set.add(m);
+    }
+    if (set.size > 0) collected.set(day, set);
+  }
+  if (collected.size === 0) {
+    throw new ValidationError(
+      "mealsByDay must include at least one day with at least one meal",
+    );
+  }
+  const out: Partial<Record<DayOfWeek, MealType[]>> = {};
+  for (const day of DAYS_OF_WEEK) {
+    const set = collected.get(day);
+    if (set) out[day] = MEAL_TYPES.filter((m) => set.has(m));
   }
   return out;
 }
@@ -103,19 +123,7 @@ export function validatePreferences(input: unknown): UserPreferences {
     );
   }
 
-  const meals = validateEnumArray(
-    "mealsPerDay",
-    p.mealsPerDay,
-    VALID_MEAL_TYPES,
-    "mealsPerDay entries must be 'breakfast', 'lunch', or 'dinner'",
-  );
-  const days = validateEnumArray(
-    "daysOfWeek",
-    p.daysOfWeek,
-    VALID_DAYS_OF_WEEK,
-    "daysOfWeek entries must be lowercase day names (monday-sunday)",
-    normalize,
-  );
+  const mealsByDay = validateMealsByDay(p.mealsByDay);
 
   return {
     householdSize: size as number,
@@ -124,8 +132,7 @@ export function validatePreferences(input: unknown): UserPreferences {
     excludedIngredients: excluded,
     pantryStaples: pantry,
     useUpIngredients: useUp,
-    mealsPerDay: meals,
-    daysOfWeek: days,
+    mealsByDay,
     ...(typeof cap === "number" && cap > 0 ? { maxActiveTime: cap } : {}),
   };
 }

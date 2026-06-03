@@ -12,8 +12,10 @@ const base: UserPreferences = {
   excludedIngredients: ["shellfish"],
   pantryStaples: ["olive oil", "salt"],
   useUpIngredients: ["spinach"],
-  mealsPerDay: ["breakfast", "lunch", "dinner"],
-  daysOfWeek: ["monday", "tuesday", "wednesday"],
+  mealsByDay: {
+    monday: ["breakfast", "lunch", "dinner"],
+    wednesday: ["dinner"],
+  },
 };
 
 // Same prefs in same order produce the same hash.
@@ -24,10 +26,9 @@ assert.equal(
 
 // Re-ordered top-level keys produce the same hash (canonical sort).
 const reordered: UserPreferences = {
-  daysOfWeek: base.daysOfWeek,
+  mealsByDay: base.mealsByDay,
   pantryStaples: base.pantryStaples,
   useUpIngredients: base.useUpIngredients,
-  mealsPerDay: base.mealsPerDay,
   excludedIngredients: base.excludedIngredients,
   cuisinePreferences: base.cuisinePreferences,
   dietaryRestrictions: base.dietaryRestrictions,
@@ -38,8 +39,25 @@ assert.equal(
   computePrefsFingerprint(reordered),
 );
 
-// Changing any field produces a different hash.
-const changed: UserPreferences = { ...base, daysOfWeek: ["monday", "friday"] };
+// Re-ordered day keys inside mealsByDay also hash the same — the canonical sort
+// reaches nested objects, which a top-level key allow-list would have stripped.
+const reorderedDays: UserPreferences = {
+  ...base,
+  mealsByDay: {
+    wednesday: ["dinner"],
+    monday: ["breakfast", "lunch", "dinner"],
+  },
+};
+assert.equal(
+  computePrefsFingerprint(base),
+  computePrefsFingerprint(reorderedDays),
+);
+
+// Changing a single day's meals produces a different hash.
+const changed: UserPreferences = {
+  ...base,
+  mealsByDay: { ...base.mealsByDay, wednesday: ["breakfast", "dinner"] },
+};
 assert.notEqual(
   computePrefsFingerprint(base),
   computePrefsFingerprint(changed),
@@ -66,4 +84,4 @@ assert.equal(
   true,
 );
 
-console.log("prefs-fingerprint: 7/7 passed");
+console.log("prefs-fingerprint: 8/8 passed");

@@ -939,6 +939,37 @@ body {
   cursor: pointer;
 }
 
+/* Per-day meal picker: one row per day (day label + the three meal checkboxes). */
+.day-meals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.day-meals__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.day-meals__row:last-child {
+  border-bottom: none;
+}
+
+.day-meals__day {
+  flex: 0 0 84px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--color-text);
+}
+
+.day-meals__meals {
+  flex: 1;
+}
+
 .preferences-modal__error {
   background: var(--color-accent-light);
   color: var(--color-accent);
@@ -1046,6 +1077,16 @@ body {
 
   .preferences-modal__actions {
     flex-wrap: wrap;
+  }
+
+  /* Stack the meal checkboxes under the day label on narrow screens. */
+  .day-meals__row {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .day-meals__day {
+    flex-basis: 100%;
   }
 
   .shopping-list__item {
