@@ -10,6 +10,7 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite --config vite.config.ts",
     "build:client": "vite build --config vite.config.ts",
+    "prestart": "npm run build:client",
     "start": "NODE_ENV=production tsx server/index.ts",
     "test": "tsx scripts/run-tests.ts"
   },

@@ -663,15 +663,34 @@ app.use(
 
 if (process.env.NODE_ENV === "production") {
   const clientDir = path.join(PROJECT_ROOT, "dist/client");
-  app.use(express.static(clientDir));
+  // Content-hashed assets can cache forever, but index.html must always be
+  // revalidated — otherwise a browser holding an old index.html keeps requesting
+  // a hashed bundle that a rebuild has since deleted.
+  app.use(
+    express.static(clientDir, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html")) {
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      },
+    }),
+  );
   // Express 5 (path-to-regexp v8) rejects a bare "*" route, so serve the SPA
   // fallback from a final middleware instead. Limit it to GET/HEAD so unmatched
-  // API methods still fall through to a 404 rather than returning HTML.
+  // API methods still fall through to a 404 rather than returning HTML. Requests
+  // with a file extension (e.g. a stale hashed bundle the browser still points
+  // at) must 404 too, not get index.html back — returning HTML where JS/CSS is
+  // expected white-screens the app with a confusing "Unexpected token '<'".
   app.use((req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") {
       next();
       return;
     }
+    if (path.extname(req.path)) {
+      next();
+      return;
+    }
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(clientDir, "index.html"));
   });
 }
