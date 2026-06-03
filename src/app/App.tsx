@@ -3,6 +3,7 @@ import type {
   MealPlanResult,
   ShoppingListItem,
   ScanProgress,
+  MealType,
 } from "../../types";
 import { MEAL_TYPES } from "../../types";
 import { MealCard } from "./MealCard";
@@ -10,6 +11,7 @@ import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
+import { WeekView } from "./WeekView";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
 import { containsWholeWord } from "../../scripts/excludedCategories";
@@ -129,13 +131,17 @@ export function App() {
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
   const [showStorePicker, setShowStorePicker] = useState(false);
+  const [viewMode, setViewMode] = useState<"day" | "week">("day");
+  const [pickedUp, setPickedUp] = useState<{ day: string; mealType: MealType } | null>(null);
+  const [movingPair, setMovingPair] = useState<{ from: string; to: string; mealType: MealType } | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   // Monotonic counter to discard stale shopping-list-state PUT responses.
   // Without this, rapid toggles race: an older request resolving after a newer
   // one would revert (on failure) state that the newer one already replaced.
   const shoppingListPutSeq = useRef(0);
 
-  const busy = generating || uploading || swappingKey !== null;
+  const busy = generating || uploading || swappingKey !== null || movingPair !== null;
 
   const fetchCircular = useCallback(async () => {
     try {
@@ -232,6 +238,16 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [savedHint]);
 
+  // Escape drops a picked-up meal (tap-to-move cancel).
+  useEffect(() => {
+    if (!pickedUp) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickedUp(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickedUp]);
+
   useEffect(() => {
     if (!uploading) {
       setScanProgress({ stage: "idle" });
@@ -297,6 +313,72 @@ export function App() {
       setSwapError({ key, message: "Failed to swap meal" });
     } finally {
       setSwappingKey(null);
+    }
+  };
+
+  const doMove = async (
+    from: { day: string; mealType: MealType },
+    to: { day: string; mealType: MealType },
+  ) => {
+    if (from.day === to.day && from.mealType === to.mealType) {
+      setPickedUp(null);
+      return;
+    }
+    setMovingPair({ from: from.day, to: to.day, mealType: from.mealType });
+    setMoveError(null);
+    try {
+      const res = await fetch(API.mealPlanMove, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setMoveError(data.error || "Move failed");
+      } else {
+        await fetchMealPlan();
+        // A moved meal's `${day}-${type}` key no longer points at the same slot,
+        // so reset Day-view expansion the same way generate/upload do.
+        setExpandedMeals(new Set());
+      }
+    } catch {
+      setMoveError("Failed to move meal");
+    } finally {
+      setMovingPair(null);
+      setPickedUp(null);
+    }
+  };
+
+  // Pick a meal up for moving. Cells render read-only when busy/stale, so this is
+  // only reached when a move is actually allowed; the guard is belt-and-suspenders.
+  const handleCellPick = (day: string, mealType: MealType) => {
+    if (busy || stale) return;
+    setPickedUp({ day, mealType });
+  };
+
+  // Tap / click / keyboard: pick up, drop on a valid same-type target, or cancel.
+  const handleCellActivate = (day: string, mealType: MealType) => {
+    if (busy || stale) return;
+    if (!pickedUp) {
+      const meal = mealPlan?.weekPlan.find((d) => d.day === day)?.[mealType];
+      if (meal) setPickedUp({ day, mealType });
+      return;
+    }
+    if (pickedUp.day === day && pickedUp.mealType === mealType) {
+      setPickedUp(null); // tapped the picked meal again -> cancel
+      return;
+    }
+    if (pickedUp.mealType === mealType) {
+      doMove(pickedUp, { day, mealType }); // same type, different day -> move/swap
+    }
+    // different meal type -> not a valid target, ignore
+  };
+
+  // Native drag dropped on a cell — source is whatever we picked up on dragstart.
+  const handleCellDrop = (day: string, mealType: MealType) => {
+    if (!pickedUp) return;
+    if (pickedUp.mealType === mealType && pickedUp.day !== day) {
+      doMove(pickedUp, { day, mealType });
     }
   };
 
@@ -571,45 +653,90 @@ export function App() {
             </div>
           )}
 
-          <nav className="day-tabs">
-            {mealPlan.weekPlan.map((d, i) => (
-              <button
-                key={d.day}
-                className={`day-tabs__tab ${i === selectedDay ? "day-tabs__tab--active" : ""}`}
-                onClick={() => setSelectedDay(i)}
-              >
-                {dayTabLabel(d.day)}
-              </button>
-            ))}
-          </nav>
+          <div className="view-toggle" role="group" aria-label="Choose plan layout">
+            <button
+              type="button"
+              className={`view-toggle__btn ${viewMode === "day" ? "view-toggle__btn--active" : ""}`}
+              aria-pressed={viewMode === "day"}
+              onClick={() => {
+                setViewMode("day");
+                setPickedUp(null);
+              }}
+            >
+              Day
+            </button>
+            <button
+              type="button"
+              className={`view-toggle__btn ${viewMode === "week" ? "view-toggle__btn--active" : ""}`}
+              aria-pressed={viewMode === "week"}
+              onClick={() => setViewMode("week")}
+            >
+              Week
+            </button>
+          </div>
 
-          {day && (
-            <main className="day-view">
-              <h2 className="day-view__title">{day.day}</h2>
-              {MEAL_TYPES.flatMap((type, i) => {
-                const meal = day[type];
-                if (!meal) return [];
-                const key = `${day.day}-${type}`;
-                const isSwapping = swappingKey === key;
-                return (
-                  <MealCard
-                    key={key}
-                    meal={meal}
-                    type={type.charAt(0).toUpperCase() + type.slice(1)}
-                    expanded={expandedMeals.has(key)}
-                    onToggle={() => toggleMeal(key)}
-                    animationDelay={i * MEAL_CARD_STAGGER_MS}
-                    onSwap={() => handleSwap(day.day, type)}
-                    swapping={isSwapping}
-                    swapDisabled={(busy && !isSwapping) || stale}
-                    swapDisabledReason={
-                      stale ? "Regenerate first to apply preference changes" : null
-                    }
-                    swapError={swapError?.key === key ? swapError.message : null}
-                  />
-                );
-              })}
-            </main>
+          {viewMode === "day" ? (
+            <>
+              <nav className="day-tabs">
+                {mealPlan.weekPlan.map((d, i) => (
+                  <button
+                    key={d.day}
+                    className={`day-tabs__tab ${i === selectedDay ? "day-tabs__tab--active" : ""}`}
+                    onClick={() => setSelectedDay(i)}
+                  >
+                    {dayTabLabel(d.day)}
+                  </button>
+                ))}
+              </nav>
+
+              {day && (
+                <main className="day-view">
+                  <h2 className="day-view__title">{day.day}</h2>
+                  {MEAL_TYPES.flatMap((type, i) => {
+                    const meal = day[type];
+                    if (!meal) return [];
+                    const key = `${day.day}-${type}`;
+                    const isSwapping = swappingKey === key;
+                    return (
+                      <MealCard
+                        key={key}
+                        meal={meal}
+                        type={type.charAt(0).toUpperCase() + type.slice(1)}
+                        expanded={expandedMeals.has(key)}
+                        onToggle={() => toggleMeal(key)}
+                        animationDelay={i * MEAL_CARD_STAGGER_MS}
+                        onSwap={() => handleSwap(day.day, type)}
+                        swapping={isSwapping}
+                        swapDisabled={(busy && !isSwapping) || stale}
+                        swapDisabledReason={
+                          stale ? "Regenerate first to apply preference changes" : null
+                        }
+                        swapError={swapError?.key === key ? swapError.message : null}
+                      />
+                    );
+                  })}
+                </main>
+              )}
+            </>
+          ) : (
+            <WeekView
+              weekPlan={mealPlan.weekPlan}
+              pickedUp={pickedUp}
+              movingPair={movingPair}
+              interactionDisabled={busy || stale}
+              statusMessage={
+                movingPair
+                  ? "Moving meal..."
+                  : pickedUp
+                    ? `Picked up the ${pickedUp.mealType} on ${pickedUp.day}. Choose where to move it, or press Escape to cancel.`
+                    : null
+              }
+              moveError={moveError}
+              onCellActivate={handleCellActivate}
+              onCellPick={handleCellPick}
+              onCellDrop={handleCellDrop}
+              onCellDragEnd={() => setPickedUp(null)}
+            />
           )}
 
           <ShoppingList

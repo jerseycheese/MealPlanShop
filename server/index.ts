@@ -18,6 +18,7 @@ import {
   isPlanFingerprintStale,
 } from "./prefs-fingerprint";
 import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
+import { moveMealInWeekPlan } from "./moveMeal";
 import { validatePreferences, ValidationError } from "./validatePreferences";
 import type {
   MealPlanResult,
@@ -25,6 +26,7 @@ import type {
   ExtractionResult,
   ScanProgress,
   DayOfWeek,
+  MealType,
 } from "../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
@@ -406,6 +408,85 @@ app.post("/api/meal-plan/swap", asyncRoute(withSerial(async (req, res) => {
   ensureOutputDir();
   writeJsonAtomic(MEAL_PLAN_PATH, plan);
   res.json({ success: true });
+})));
+
+app.post("/api/meal-plan/move", asyncRoute(withSerial(async (req, res) => {
+  const body = req.body as Record<string, unknown> | null | undefined;
+  if (!body || typeof body !== "object") {
+    throw new HttpError(400, "Body must be a JSON object");
+  }
+  const from = body.from as Record<string, unknown> | null | undefined;
+  const to = body.to as Record<string, unknown> | null | undefined;
+  if (!from || typeof from !== "object" || !to || typeof to !== "object") {
+    throw new HttpError(400, "from and to must be objects with day and mealType");
+  }
+
+  const fromDay = from.day;
+  const toDay = to.day;
+  const fromType = from.mealType;
+  const toType = to.mealType;
+  if (typeof fromDay !== "string" || !VALID_DAYS_OF_WEEK.has(fromDay.toLowerCase())) {
+    throw new HttpError(400, "from.day must be a valid day of the week");
+  }
+  if (typeof toDay !== "string" || !VALID_DAYS_OF_WEEK.has(toDay.toLowerCase())) {
+    throw new HttpError(400, "to.day must be a valid day of the week");
+  }
+  if (typeof fromType !== "string" || !VALID_MEAL_TYPES.has(fromType)) {
+    throw new HttpError(400, "from.mealType must be 'breakfast', 'lunch', or 'dinner'");
+  }
+  if (typeof toType !== "string" || !VALID_MEAL_TYPES.has(toType)) {
+    throw new HttpError(400, "to.mealType must be 'breakfast', 'lunch', or 'dinner'");
+  }
+  // Same-meal-type-only (locked decision): a dinner can only move to another
+  // day's dinner. Enforced here too, not just in the UI.
+  if (fromType !== toType) {
+    throw new HttpError(400, "Meals can only move to the same meal type on another day");
+  }
+
+  const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
+  if (!plan) {
+    throw new HttpError(400, "No meal plan exists. Generate one first.");
+  }
+
+  // Defense in depth: don't rearrange a plan that's already out of sync with the
+  // saved preferences — it's about to be regenerated anyway. Same guard as swap.
+  if (isPlanFingerprintStale(plan, loadPreferences())) {
+    throw new HttpError(
+      409,
+      "Plan is out of sync with current preferences. Regenerate first.",
+    );
+  }
+
+  const result = moveMealInWeekPlan(plan.weekPlan, {
+    from: { day: fromDay, mealType: fromType as MealType },
+    to: { day: toDay, mealType: toType as MealType },
+  });
+
+  if (!result.ok) {
+    // A no-op move is harmless — report success without rewriting the file.
+    if (result.code === "SAME_SLOT") {
+      res.json({ success: true, swapped: false });
+      return;
+    }
+    const message =
+      result.code === "CROSS_TYPE"
+        ? "Meals can only move to the same meal type on another day"
+        : result.code === "FROM_DAY_MISSING"
+          ? `Day not found in plan: ${fromDay}`
+          : result.code === "TO_DAY_MISSING"
+            ? `Day not found in plan: ${toDay}`
+            : `No ${fromType} to move from ${fromDay}`;
+    throw new HttpError(400, message);
+  }
+
+  // A pure relocation: reorder weekPlan slots only. The shopping list is the
+  // day-agnostic union of all meal ingredients and a move neither adds nor
+  // removes a meal, so it stays byte-identical. planId/prefsFingerprint unchanged.
+  plan.weekPlan = result.weekPlan;
+
+  ensureOutputDir();
+  writeJsonAtomic(MEAL_PLAN_PATH, plan);
+  res.json({ success: true, swapped: result.swapped });
 })));
 
 app.post(

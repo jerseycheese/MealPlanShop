@@ -9,5 +9,6 @@ export const API = {
   mealPlan: "/api/meal-plan",
   mealPlanGenerate: "/api/meal-plan/generate",
   mealPlanSwap: "/api/meal-plan/swap",
+  mealPlanMove: "/api/meal-plan/move",
   shoppingListState: "/api/shopping-list-state",
 } as const;
