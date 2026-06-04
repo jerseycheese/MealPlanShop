@@ -441,6 +441,7 @@ export function App() {
   };
 
   const handlePlanWithoutCircular = async (storeName: string) => {
+    setShowStorePicker(false);
     setGenerating(true);
     setError(null);
     try {
@@ -604,6 +605,13 @@ export function App() {
             <StorePicker
               onFetch={handleFlippFetch}
               onUploadFile={handleUpload}
+              disabled={busy}
+            />
+            <div className="empty-state__divider" role="separator">
+              <span className="empty-state__divider-text">or</span>
+            </div>
+            <PlanWithoutCircular
+              onSubmit={handlePlanWithoutCircular}
               disabled={busy}
             />
           </div>
