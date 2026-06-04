@@ -11,6 +11,7 @@ import { ShoppingList } from "./ShoppingList";
 import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
+import { PlanWithoutCircular } from "./PlanWithoutCircular";
 import { WeekView } from "./WeekView";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
@@ -439,6 +440,32 @@ export function App() {
     }
   };
 
+  const handlePlanWithoutCircular = async (storeName: string) => {
+    setShowStorePicker(false);
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(API.mealPlanGenerateNoCircular, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeName: storeName.trim() || null }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || "Generation failed");
+      } else {
+        await fetchMealPlan();
+        await fetchCircular();
+        setExpandedMeals(new Set());
+        setSelectedDay(0);
+      }
+    } catch {
+      setError("Failed to generate meal plan from preferences");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const toggleChecked = (key: string) => {
     if (!mealPlan?.planId) return;
     const planId = mealPlan.planId;
@@ -580,6 +607,13 @@ export function App() {
               onUploadFile={handleUpload}
               disabled={busy}
             />
+            <div className="empty-state__divider" role="separator">
+              <span className="empty-state__divider-text">or</span>
+            </div>
+            <PlanWithoutCircular
+              onSubmit={handlePlanWithoutCircular}
+              disabled={busy}
+            />
           </div>
         </div>
       )}
@@ -635,6 +669,13 @@ export function App() {
               disabled={busy}
             />
           </div>
+          <div className="empty-state__divider" role="separator">
+            <span className="empty-state__divider-text">or</span>
+          </div>
+          <PlanWithoutCircular
+            onSubmit={handlePlanWithoutCircular}
+            disabled={busy}
+          />
         </div>
       ) : (
         <>

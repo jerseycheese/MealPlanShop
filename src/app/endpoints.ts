@@ -8,6 +8,7 @@ export const API = {
   circularFlippFetch: "/api/circular/flipp/fetch",
   mealPlan: "/api/meal-plan",
   mealPlanGenerate: "/api/meal-plan/generate",
+  mealPlanGenerateNoCircular: "/api/meal-plan/generate-no-circular",
   mealPlanSwap: "/api/meal-plan/swap",
   mealPlanMove: "/api/meal-plan/move",
   shoppingListState: "/api/shopping-list-state",

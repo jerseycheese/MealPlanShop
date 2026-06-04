@@ -51,7 +51,9 @@ export function ShoppingList({
       <div className="shopping-list__header">
         <h2 className="shopping-list__title">Shopping List</h2>
         <span className="shopping-list__count">
-          {items.length} items ({saleCount} on sale) · ~${weeklyTotal.toFixed(2)} this week
+          {items.length} items
+          {saleCount > 0 &&
+            ` (${saleCount} on sale) · ~$${weeklyTotal.toFixed(2)} this week`}
         </span>
       </div>
 

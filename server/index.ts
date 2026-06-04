@@ -133,8 +133,9 @@ function withSerial(
 // item count + storeName so the route can shape its JSON response.
 async function runScanAndPlan(
   extraction: ExtractionResult,
+  opts: { allowEmpty?: boolean } = {},
 ): Promise<{ itemCount: number; storeName: string | null }> {
-  if (extraction.items.length === 0) {
+  if (!opts.allowEmpty && extraction.items.length === 0) {
     const err = new Error("No sale items extracted from this circular.");
     (err as Error & { statusCode?: number }).statusCode = 422;
     throw err;
@@ -340,6 +341,21 @@ app.post("/api/meal-plan/generate", asyncRoute(withSerial(async (_req, res) => {
   writeJsonAtomic(MEAL_PLAN_PATH, stamped);
   clearShoppingListState();
   res.json({ success: true });
+})));
+
+// Plan from preferences alone, no sale circular — for stores that don't publish
+// one (e.g. Trader Joe's). Writes a synthesized empty extraction so the rest of
+// the app stays coherent: a later regenerate re-plans from prefs, and
+// GET /api/circular reports the store with itemCount 0.
+app.post("/api/meal-plan/generate-no-circular", asyncRoute(withSerial(async (req, res) => {
+  const body = req.body as { storeName?: unknown } | null | undefined;
+  const raw = typeof body?.storeName === "string" ? body.storeName.trim() : "";
+  const storeName = raw ? raw.slice(0, 100) : null;
+  const result = await runScanAndPlan(
+    { items: [], storeName, validThrough: null },
+    { allowEmpty: true },
+  );
+  res.json({ success: true, ...result });
 })));
 
 app.post("/api/meal-plan/swap", asyncRoute(withSerial(async (req, res) => {

@@ -1569,6 +1569,101 @@ body {
   justify-content: center;
 }
 
+/* Empty state — "or plan without a circular" ───── */
+
+.empty-state__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  margin: 28px auto;
+  color: var(--color-text-muted);
+}
+
+.empty-state__divider::before,
+.empty-state__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.empty-state__divider-text {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.plan-without-circular {
+  max-width: 360px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.plan-without-circular__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.plan-without-circular__hint {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+.plan-without-circular__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.plan-without-circular__label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.plan-without-circular__input {
+  display: block;
+  font: inherit;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 180px;
+}
+
+.plan-without-circular__input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.plan-without-circular__submit {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-bg);
+  cursor: pointer;
+}
+
+.plan-without-circular__submit:hover:not(:disabled) {
+  background: #2f4630;
+}
+
+.plan-without-circular__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Loyalty chip ─────────────────────────────────── */
 
 .loyalty-chip {
