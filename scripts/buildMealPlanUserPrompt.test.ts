@@ -48,4 +48,16 @@ assert.ok(
   "expected unselected days to be absent from the prompt",
 );
 
-console.log("buildMealPlanUserPrompt: 5/5 passed");
+// No-circular mode: empty sale items still build a valid prompt that carries
+// the preferences (the planner falls back to prefs alone).
+const noSales = buildMealPlanUserPrompt([], base);
+assert.ok(
+  noSales.includes("## Current Sale Items") && noSales.includes("## User Preferences"),
+  "expected both sections present even with no sale items",
+);
+assert.ok(
+  noSales.includes("Household size: 2"),
+  "expected preferences to drive the prompt when there are no sale items",
+);
+
+console.log("buildMealPlanUserPrompt: 7/7 passed");

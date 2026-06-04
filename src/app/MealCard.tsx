@@ -95,9 +95,11 @@ export function MealCard({
           <span className="meal-card__pill">
             {meal.estimatedCalories} cal
           </span>
-          <span className="meal-card__pill">
-            ~${(meal.estimatedCost ?? 0).toFixed(2)}
-          </span>
+          {saleCount > 0 && (
+            <span className="meal-card__pill">
+              ~${(meal.estimatedCost ?? 0).toFixed(2)}
+            </span>
+          )}
           {saleCount > 0 && (
             <span className="meal-card__pill meal-card__pill--sale">
               {saleCount} on sale
