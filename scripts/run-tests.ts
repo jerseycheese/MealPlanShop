@@ -13,6 +13,7 @@ const SUITES = [
   "server/validatePreferences.test.ts",
   "server/dataDir.test.ts",
   "src/app/preferenceConflicts.test.ts",
+  "src/app/formatValidThrough.test.ts",
 ];
 
 async function main() {
