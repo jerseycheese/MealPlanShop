@@ -22,6 +22,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const titleId = "preferences-title";
   const conflictId = "preferences-conflicts";
   const householdRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const initialFocused = useRef(false);
   const pantryConflicts = useMemo(
     () =>
@@ -113,6 +114,53 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
 
   const handleSave = () => persistAnd({ regenerate: false });
   const handleSaveAndRegenerate = () => persistAnd({ regenerate: true });
+
+  // Download the current preferences as JSON — a portable backup that survives
+  // checkout churn and seeds a fresh machine (issue #91).
+  const handleExport = () => {
+    if (!prefs) return;
+    const blob = new Blob([JSON.stringify(prefs, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mealplanshop-preferences.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Restore preferences from an uploaded JSON file. Routed through the same
+  // PUT /api/preferences as Save, so the server validates it and a bad file
+  // surfaces the same way a bad form would.
+  const handleImportFile = async (file: File) => {
+    setError(null);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      setError("That file isn't valid JSON.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(API.preferences, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setError(data.error || "Couldn't import those preferences.");
+        return;
+      }
+      onSaved(data.preferences);
+    } catch {
+      setError("Couldn't import those preferences.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Toggle one meal for one day. Keeps each day's list in MEAL_TYPES order, and
   // drops the day key entirely once its last meal is unchecked (empty = unplanned).
@@ -287,6 +335,37 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 })}
               </div>
             </fieldset>
+
+            <div className="preferences-modal__backup">
+              <span className="preferences-modal__backup-label">Backup</span>
+              <button
+                type="button"
+                className="preferences-modal__backup-btn"
+                onClick={handleExport}
+                disabled={!prefs || saving || regenerating}
+              >
+                Export
+              </button>
+              <button
+                type="button"
+                className="preferences-modal__backup-btn"
+                onClick={() => importInputRef.current?.click()}
+                disabled={saving || regenerating}
+              >
+                Import
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="preferences-modal__import-input"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
           </>
         )}
 

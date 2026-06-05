@@ -91,7 +91,9 @@ npm run plan
 
 Reads from `output/extraction.json` and writes to `output/meal-plan.json`.
 
-For household preferences (size, dietary restrictions, cuisine preferences, which meals to plan), use the **Preferences** button in the web UI header. Saved values live in `output/preferences.json` and apply to the next Regenerate or Upload. Defaults: household 2, low carb + low sodium, Italian/Mexican/Asian/American.
+For household preferences (size, dietary restrictions, cuisine preferences, which meals to plan), use the **Preferences** button in the web UI header. They apply to the next Regenerate or Upload. Defaults: household 2, low carb + low sodium, Italian/Mexican/Asian/American.
+
+Saved values live in `~/.config/mealplanshop/preferences.json` — outside the gitignored, per-checkout `output/`, so every git worktree and the main tree share one set instead of each forking its own copy. Override the location with `MEALPLANSHOP_DATA_DIR` (e.g. point it at a synced folder). The Preferences modal also has **Export** / **Import** buttons to download your prefs as JSON and restore them later — a portable backup that seeds a fresh machine.
 
 ## Output format
 
@@ -180,12 +182,15 @@ output/                     # Generated output (gitignored)
 
 ## Limitations
 
-- **Single-user, local tool.** State is stored as shared files in `output/`
-  (`preferences.json`, `meal-plan.json`, `shopping-list-state.json`) with no
-  user accounts. There's one meal plan and one set of preferences for the whole
-  server, and requests that mutate `output/` are processed one at a time.
-  Running this for more than one concurrent user means they overwrite each
-  other — it's built to run on your own machine.
+- **Single-user, local tool.** State is stored as shared files with no user
+  accounts: the meal plan and shopping-list state live in the gitignored,
+  per-checkout `output/` (`meal-plan.json`, `shopping-list-state.json`), while
+  preferences live in `~/.config/mealplanshop/preferences.json` (override with
+  `MEALPLANSHOP_DATA_DIR`) so they're shared across worktrees rather than forked
+  per checkout. There's one meal plan and one set of preferences for the whole
+  server, and mutating requests are processed one at a time. Running this for
+  more than one concurrent user means they overwrite each other — it's built to
+  run on your own machine.
 - **Store auto-fetch uses an unofficial API.** The "find stores by ZIP" feature
   talks to an undocumented Flipp endpoint that can change or break without
   notice. It's a best-effort convenience; uploading a PDF/image is the reliable

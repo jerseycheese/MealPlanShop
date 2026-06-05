@@ -1158,6 +1158,50 @@ body {
   margin-top: 6px;
 }
 
+.preferences-modal__backup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.preferences-modal__backup-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-right: auto;
+}
+
+.preferences-modal__backup-btn {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.preferences-modal__backup-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.preferences-modal__backup-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.preferences-modal__import-input {
+  display: none;
+}
+
 .preferences-modal__actions {
   display: flex;
   justify-content: flex-end;
