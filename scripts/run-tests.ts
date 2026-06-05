@@ -11,6 +11,7 @@ const SUITES = [
   "server/moveMeal.test.ts",
   "server/prefs-fingerprint.test.ts",
   "server/validatePreferences.test.ts",
+  "server/dataDir.test.ts",
   "src/app/preferenceConflicts.test.ts",
 ];
 

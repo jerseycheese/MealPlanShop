@@ -20,6 +20,7 @@ import {
 import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
 import { moveMealInWeekPlan } from "./moveMeal";
 import { validatePreferences, ValidationError } from "./validatePreferences";
+import { resolveDataDir } from "./dataDir";
 import type {
   MealPlanResult,
   UserPreferences,
@@ -47,7 +48,11 @@ const PROJECT_ROOT = path.join(__dirname, "..");
 const OUTPUT_DIR = path.join(PROJECT_ROOT, "output");
 const MEAL_PLAN_PATH = path.join(OUTPUT_DIR, "meal-plan.json");
 const EXTRACTION_PATH = path.join(OUTPUT_DIR, "extraction.json");
-const PREFERENCES_PATH = path.join(OUTPUT_DIR, "preferences.json");
+// Preferences live outside the gitignored, per-checkout output/ so every
+// worktree and the main tree share one set (issue #91). Override the location
+// with MEALPLANSHOP_DATA_DIR.
+const DATA_DIR = resolveDataDir();
+const PREFERENCES_PATH = path.join(DATA_DIR, "preferences.json");
 const SHOPPING_LIST_STATE_PATH = path.join(OUTPUT_DIR, "shopping-list-state.json");
 const FLIPP_CACHE_DIR = path.join(OUTPUT_DIR, "flipp-cache");
 const VALID_MEAL_TYPES = new Set<string>(MEAL_TYPES);
@@ -87,6 +92,10 @@ let scanProgress: ScanProgress = { stage: "idle" };
 
 function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+function ensureDataDir() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 // Throw this from a route to send a specific HTTP status; the error middleware
@@ -231,7 +240,7 @@ app.get("/api/preferences", (_req, res) => {
 app.put("/api/preferences", asyncRoute((req, res) => {
   // validatePreferences throws ValidationError → 400 via the error middleware.
   const result = validatePreferences(req.body);
-  ensureOutputDir();
+  ensureDataDir();
   writeJsonAtomic(PREFERENCES_PATH, result);
   res.json({ success: true, preferences: result });
 }));
