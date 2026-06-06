@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { UploadCircular } from "./UploadCircular";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
+import { formatDateRange } from "./formatDateRange";
 
 export interface FlippMerchant {
   flyerId: number;
@@ -17,15 +18,6 @@ interface StorePickerProps {
   onFetch: (m: FlippMerchant) => void;
   onUploadFile?: (file: File) => void;
   disabled?: boolean;
-}
-
-function formatDateRange(from: string, to: string): string {
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  const a = new Date(from);
-  const b = new Date(to);
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return "";
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, opts);
-  return `${fmt(a)} - ${fmt(b)}`;
 }
 
 function expiryLabel(daysLeft: number): string {
