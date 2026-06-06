@@ -4,6 +4,7 @@ import {
   parseItem,
   effectivePrice,
   parseUnit,
+  daysUntil,
   type FlippItemDetail,
 } from "./sources/flipp";
 
@@ -86,5 +87,19 @@ const noPrice = parseItem(
   { id: 3, name: "Digital Coupons" },
 );
 assert.equal(noPrice, null, "items with null price are dropped");
+
+// daysUntil — calendar days to a date-only valid_to, counted in local time.
+// A fixed local "now" (mid-morning June 5) keeps these deterministic, and a
+// late-evening "now" on the same day proves the count no longer drifts with the
+// time of day the way the old UTC-instant version did.
+const morning = new Date(2026, 5, 5, 10, 0); // Jun 5 2026, 10:00 local
+const lateNight = new Date(2026, 5, 5, 23, 30); // same day, 23:30 local
+assert.equal(daysUntil("2026-06-18", morning), 13, "13 days out");
+assert.equal(daysUntil("2026-06-18", lateNight), 13, "stable through the day");
+assert.equal(daysUntil("2026-06-05", morning), 0, "ends today");
+assert.equal(daysUntil("2026-06-06", morning), 1, "ends tomorrow");
+assert.equal(daysUntil("2026-06-07", morning), 2, "expiring soon (<=2)");
+assert.equal(daysUntil("2026-06-01", morning), 0, "already expired clamps to 0");
+assert.equal(daysUntil("", morning), 0, "unparseable clamps to 0");
 
 console.log("flipp.test.ts: all assertions passed");

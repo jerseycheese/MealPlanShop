@@ -5,6 +5,7 @@ import {
   validateValidThrough,
 } from "../../../scripts/scan-circular";
 import { categorizeItems } from "../categorize";
+import { parseLocalDate } from "../../../parseLocalDate";
 
 const BASE = "https://flyers-ng.flippback.com/api/flipp";
 const ITEM_BATCH = 10;
@@ -133,11 +134,18 @@ function flyerScore(f: FlippFlyerRaw): number {
   return score;
 }
 
-function daysUntil(iso: string): number {
-  const end = new Date(iso).getTime();
-  if (Number.isNaN(end)) return 0;
-  const diff = end - Date.now();
-  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+// Whole calendar days from today until a date-only "valid_to" (e.g.
+// "2026-06-18"), counted in local time. 0 means it ends today (or already
+// passed). Parsing valid_to as local — not UTC — midnight keeps the count
+// stable through the day and correct west of UTC, where `new Date("2026-06-18")`
+// lands the evening before. Both ends sit at local midnight, so the only
+// sub-day wobble is a DST hour, which round() absorbs.
+export function daysUntil(dateOnly: string, now: Date = new Date()): number {
+  const end = parseLocalDate(dateOnly);
+  if (!end) return 0;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = end.getTime() - today.getTime();
+  return Math.max(0, Math.round(diff / (24 * 60 * 60 * 1000)));
 }
 
 export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
