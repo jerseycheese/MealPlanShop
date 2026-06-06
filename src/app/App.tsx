@@ -15,7 +15,7 @@ import { PlanWithoutCircular } from "./PlanWithoutCircular";
 import { WeekView } from "./WeekView";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
-import { parseLocalDate } from "../../parseLocalDate";
+import { formatValidThrough } from "./formatValidThrough";
 import { containsWholeWord } from "../../scripts/excludedCategories";
 
 const SAVED_HINT_DISMISS_MS = 3500;
@@ -56,15 +56,6 @@ function filterPantry(
     const name = item.name.toLowerCase();
     return !needles.some((n) => containsWholeWord(name, n));
   });
-}
-
-function formatValidThrough(raw: string | null): string | null {
-  if (!raw) return null;
-  // PDF flow stores a free-form string like "May 19, 2026" — pass through.
-  // Flipp flow stores a date-only string we render as a friendly date.
-  const d = parseLocalDate(raw);
-  if (!d) return raw;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 const LOYALTY_PROGRAMS: ReadonlyArray<{
