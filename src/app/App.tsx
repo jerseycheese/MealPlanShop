@@ -16,6 +16,7 @@ import { WeekView } from "./WeekView";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
 import { formatValidThrough } from "./formatValidThrough";
+import { parseExtraItems } from "./formatShoppingListText";
 import { containsWholeWord } from "../../scripts/excludedCategories";
 
 const SAVED_HINT_DISMISS_MS = 3500;
@@ -119,6 +120,9 @@ export function App() {
   const [savedHint, setSavedHint] = useState(false);
   const [pantryStaples, setPantryStaples] = useState<string[]>([]);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  // Non-meal-plan items the user adds (milk, paper towels). Plan-independent —
+  // they survive a regenerate — and ride into the copied list. One per line.
+  const [extraItemsText, setExtraItemsText] = useState<string>("");
   const [circular, setCircular] = useState<CircularMeta | null>(null);
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
@@ -174,9 +178,11 @@ export function App() {
         setMealPlan(planResult);
         setStale(staleFlag === true);
         try {
-          const state = await fetchJson<{ planId?: unknown; checkedKeys?: unknown }>(
-            API.shoppingListState,
-          );
+          const state = await fetchJson<{
+            planId?: unknown;
+            checkedKeys?: unknown;
+            extraItems?: unknown;
+          }>(API.shoppingListState);
           if (
             planResult.planId &&
             state.planId === planResult.planId &&
@@ -186,6 +192,12 @@ export function App() {
           } else {
             setCheckedKeys(new Set());
           }
+          // Extra items aren't tied to a plan — keep them across regenerates.
+          setExtraItemsText(
+            Array.isArray(state.extraItems)
+              ? state.extraItems.filter((s): s is string => typeof s === "string").join("\n")
+              : "",
+          );
         } catch {
           setCheckedKeys(new Set());
         }
@@ -470,10 +482,16 @@ export function App() {
 
     const seq = ++shoppingListPutSeq.current;
     const snapshot = [...next];
+    // Every write carries the full state (checked + extras) so the two paths
+    // can't clobber each other — last write wins with everything intact.
     fetch(API.shoppingListState, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId, checkedKeys: snapshot }),
+      body: JSON.stringify({
+        planId,
+        checkedKeys: snapshot,
+        extraItems: parseExtraItems(extraItemsText),
+      }),
     })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -490,6 +508,24 @@ export function App() {
           return reverted;
         });
       });
+  };
+
+  // Persist the extra-items field on blur. Fire-and-forget: no rapid-toggle race
+  // like the checkboxes, and a dropped save just means re-typing, so a failed
+  // PUT doesn't need to revert anything.
+  const commitExtraItems = () => {
+    if (!mealPlan?.planId) return;
+    fetch(API.shoppingListState, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        planId: mealPlan.planId,
+        checkedKeys: [...checkedKeys],
+        extraItems: parseExtraItems(extraItemsText),
+      }),
+    }).catch(() => {
+      /* best-effort; the text stays in the field either way */
+    });
   };
 
   const toggleMeal = (key: string) => {
@@ -779,6 +815,9 @@ export function App() {
               .flatMap((d) => MEAL_TYPES.map((t) => d[t]?.estimatedCost ?? 0))
               .reduce((a, b) => a + b, 0)}
             loyaltyProgram={loyaltyProgramFor(circular?.storeName ?? null)}
+            extraItemsText={extraItemsText}
+            onExtraItemsChange={setExtraItemsText}
+            onExtraItemsCommit={commitExtraItems}
           />
         </>
       )}
