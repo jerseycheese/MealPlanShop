@@ -336,6 +336,24 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               </div>
             </fieldset>
 
+            <div className="preferences-modal__field preferences-modal__field--notes">
+              <label htmlFor="pref-notes" className="preferences-modal__label">
+                Notes / special instructions
+              </label>
+              <textarea
+                id="pref-notes"
+                className="preferences-modal__notes"
+                rows={3}
+                placeholder="e.g. cook dinners double for leftovers; keep lunches mild"
+                value={prefs.notes ?? ""}
+                onChange={(e) => setPrefs({ ...prefs, notes: e.target.value })}
+              />
+              <p className="preferences-modal__hint">
+                Free-form. Gets added to the plan so one-off requests the fields
+                above can't capture still get honored.
+              </p>
+            </div>
+
             <div className="preferences-modal__backup">
               <span className="preferences-modal__backup-label">Backup</span>
               <button

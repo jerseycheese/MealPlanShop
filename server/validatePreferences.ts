@@ -15,6 +15,8 @@ const MAX_LIST_ITEMS = 50;
 const MAX_LIST_ITEM_LEN = 40;
 // Sanity ceiling for the active-time cap; nothing weeknight-realistic needs more.
 const MAX_ACTIVE_TIME = 240;
+// Ceiling for the free-text notes field — a few sentences of instructions, not an essay.
+const MAX_NOTES_LEN = 1000;
 
 function validateStringArray(
   key: string,
@@ -125,6 +127,20 @@ export function validatePreferences(input: unknown): UserPreferences {
 
   const mealsByDay = validateMealsByDay(p.mealsByDay);
 
+  // Optional free-text notes. Trim and drop when blank so empty/absent both mean
+  // "no instructions" and never reach the prompt as a stray empty line.
+  let notes: string | undefined;
+  if (p.notes !== undefined && p.notes !== null) {
+    if (typeof p.notes !== "string") {
+      throw new ValidationError("notes must be a string");
+    }
+    if (p.notes.length > MAX_NOTES_LEN) {
+      throw new ValidationError(`notes must be ${MAX_NOTES_LEN} chars or fewer`);
+    }
+    const trimmed = p.notes.trim();
+    if (trimmed) notes = trimmed;
+  }
+
   return {
     householdSize: size as number,
     dietaryRestrictions: dietary,
@@ -134,5 +150,6 @@ export function validatePreferences(input: unknown): UserPreferences {
     useUpIngredients: useUp,
     mealsByDay,
     ...(typeof cap === "number" && cap > 0 ? { maxActiveTime: cap } : {}),
+    ...(notes ? { notes } : {}),
   };
 }

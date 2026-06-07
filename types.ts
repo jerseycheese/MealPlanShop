@@ -65,6 +65,10 @@ export interface UserPreferences {
   // list says which meals. Days absent (or empty) are not planned. Canonical
   // stored form: keys in DAYS_OF_WEEK order, each list in MEAL_TYPES order.
   mealsByDay: Partial<Record<DayOfWeek, MealType[]>>;
+  // Free-text special instructions appended verbatim to the generation and swap
+  // prompts — covers what the structured fields can't ("cook dinners double for
+  // leftovers", "keep lunches mild"). Empty/absent = no change to behavior.
+  notes?: string;
 }
 
 export const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
