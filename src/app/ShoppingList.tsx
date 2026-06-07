@@ -1,17 +1,7 @@
+import { useState } from "react";
 import type { ShoppingListItem } from "../../types";
 import { shoppingItemKey } from "./shoppingItemKey";
-
-const CATEGORY_ORDER = [
-  "produce",
-  "meat",
-  "seafood",
-  "deli",
-  "dairy",
-  "bakery",
-  "pantry",
-  "snacks",
-  "beverages",
-];
+import { CATEGORY_ORDER, formatShoppingListText } from "./formatShoppingListText";
 
 interface ShoppingListProps {
   items: ShoppingListItem[];
@@ -19,6 +9,9 @@ interface ShoppingListProps {
   onToggle: (key: string) => void;
   weeklyTotal: number;
   loyaltyProgram?: { label: string; modifier: string } | null;
+  extraItemsText: string;
+  onExtraItemsChange: (text: string) => void;
+  onExtraItemsCommit: () => void;
 }
 
 export function ShoppingList({
@@ -27,7 +20,11 @@ export function ShoppingList({
   onToggle,
   weeklyTotal,
   loyaltyProgram,
+  extraItemsText,
+  onExtraItemsChange,
+  onExtraItemsCommit,
 }: ShoppingListProps) {
+  const [copied, setCopied] = useState(false);
   const grouped = new Map<string, ShoppingListItem[]>();
 
   for (const item of items) {
@@ -45,16 +42,42 @@ export function ShoppingList({
   });
 
   const saleCount = items.filter((i) => i.onSale).length;
+  const copyText = formatShoppingListText(items, extraItemsText);
+
+  // Copy the whole list (meal items + extras) as plaintext so it pastes into
+  // Reminders one-line-per-item. Clipboard API needs a secure context; localhost
+  // counts, so this works for the local-first setup. Swallow failures and just
+  // skip the confirmation rather than throwing at the user.
+  const handleCopy = async () => {
+    if (!copyText) return;
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <section className="shopping-list">
       <div className="shopping-list__header">
-        <h2 className="shopping-list__title">Shopping List</h2>
-        <span className="shopping-list__count">
-          {items.length} items
-          {saleCount > 0 &&
-            ` (${saleCount} on sale) · ~$${weeklyTotal.toFixed(2)} this week`}
-        </span>
+        <div className="shopping-list__heading">
+          <h2 className="shopping-list__title">Shopping List</h2>
+          <span className="shopping-list__count">
+            {items.length} items
+            {saleCount > 0 &&
+              ` (${saleCount} on sale) · ~$${weeklyTotal.toFixed(2)} this week`}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="shopping-list__copy"
+          onClick={handleCopy}
+          disabled={!copyText}
+        >
+          {copied ? "Copied" : "Copy list"}
+        </button>
       </div>
 
       <div className="shopping-list__grid">
@@ -105,6 +128,21 @@ export function ShoppingList({
             </ul>
           </div>
         ))}
+      </div>
+
+      <div className="shopping-list__extra">
+        <label className="shopping-list__extra-label" htmlFor="shopping-list-extra">
+          Extra items (milk, paper towels, anything not from the plan)
+        </label>
+        <textarea
+          id="shopping-list-extra"
+          className="shopping-list__extra-input"
+          rows={4}
+          placeholder={"One per line — these get added to the copied list"}
+          value={extraItemsText}
+          onChange={(e) => onExtraItemsChange(e.target.value)}
+          onBlur={onExtraItemsCommit}
+        />
       </div>
     </section>
   );

@@ -59,6 +59,8 @@ const VALID_MEAL_TYPES = new Set<string>(MEAL_TYPES);
 const VALID_DAYS_OF_WEEK = new Set<string>(DAYS_OF_WEEK);
 const MAX_CHECKED_KEYS = 500;
 const MAX_KEY_LEN = 200;
+const MAX_EXTRA_ITEMS = 100;
+const MAX_EXTRA_ITEM_LEN = 200;
 
 const ALLOWED_EXTENSIONS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".webp"]);
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -209,13 +211,34 @@ function writeFlippCache(flyerId: number, result: ExtractionResult) {
   );
 }
 
+// A new plan invalidates the checked-off items (they key off the old plan's
+// ingredients), so reset those. Extra items are plan-independent household stuff
+// (milk, paper towels) — preserve them across the regenerate instead of wiping
+// the file outright.
 function clearShoppingListState() {
-  if (fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
-    try {
-      fs.unlinkSync(SHOPPING_LIST_STATE_PATH);
-    } catch (err) {
-      console.warn("[clearShoppingListState] unlink failed:", err);
+  const existing = readJsonOrNull<{ extraItems?: unknown }>(SHOPPING_LIST_STATE_PATH);
+  const extraItems = Array.isArray(existing?.extraItems)
+    ? existing!.extraItems.filter((k: unknown): k is string => typeof k === "string")
+    : [];
+  if (extraItems.length === 0) {
+    if (fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
+      try {
+        fs.unlinkSync(SHOPPING_LIST_STATE_PATH);
+      } catch (err) {
+        console.warn("[clearShoppingListState] unlink failed:", err);
+      }
     }
+    return;
+  }
+  try {
+    ensureOutputDir();
+    writeJsonAtomic(SHOPPING_LIST_STATE_PATH, {
+      planId: null,
+      checkedKeys: [],
+      extraItems,
+    });
+  } catch (err) {
+    console.warn("[clearShoppingListState] rewrite failed:", err);
   }
 }
 
@@ -246,18 +269,25 @@ app.put("/api/preferences", asyncRoute((req, res) => {
 }));
 
 app.get("/api/shopping-list-state", (_req, res) => {
-  const parsed = readJsonOrNull<{ planId?: unknown; checkedKeys?: unknown }>(
-    SHOPPING_LIST_STATE_PATH,
-  );
+  const parsed = readJsonOrNull<{
+    planId?: unknown;
+    checkedKeys?: unknown;
+    extraItems?: unknown;
+  }>(SHOPPING_LIST_STATE_PATH);
   if (!parsed) {
-    res.json({ planId: null, checkedKeys: [] });
+    res.json({ planId: null, checkedKeys: [], extraItems: [] });
     return;
   }
   const planId = typeof parsed.planId === "string" ? parsed.planId : null;
   const checkedKeys = Array.isArray(parsed.checkedKeys)
     ? parsed.checkedKeys.filter((k: unknown) => typeof k === "string")
     : [];
-  res.json({ planId, checkedKeys });
+  // Extra items are plan-independent — returned as-is regardless of planId so
+  // they survive a regenerate. Absent in older files → default [], no migration.
+  const extraItems = Array.isArray(parsed.extraItems)
+    ? parsed.extraItems.filter((k: unknown) => typeof k === "string")
+    : [];
+  res.json({ planId, checkedKeys, extraItems });
 });
 
 app.put("/api/shopping-list-state", asyncRoute((req, res) => {
@@ -284,8 +314,43 @@ app.put("/api/shopping-list-state", asyncRoute((req, res) => {
       throw new HttpError(400, `checkedKeys can have at most ${MAX_CHECKED_KEYS} entries`);
     }
   }
+  // Optional, plan-independent extra items. Absent = leave existing ones; an
+  // explicit array replaces them. Trim and drop blanks so the stored list stays
+  // paste-clean.
+  let extraItems: string[] | undefined;
+  if (body.extraItems !== undefined) {
+    if (!Array.isArray(body.extraItems)) {
+      throw new HttpError(400, "extraItems must be an array");
+    }
+    if (body.extraItems.length > MAX_EXTRA_ITEMS) {
+      throw new HttpError(400, `extraItems can have at most ${MAX_EXTRA_ITEMS} entries`);
+    }
+    extraItems = [];
+    for (const e of body.extraItems) {
+      if (typeof e !== "string") {
+        throw new HttpError(400, "extraItems entries must be strings");
+      }
+      if (e.length > MAX_EXTRA_ITEM_LEN) {
+        throw new HttpError(400, `extraItems entries must be ${MAX_EXTRA_ITEM_LEN} chars or fewer`);
+      }
+      const trimmed = e.trim();
+      if (trimmed) extraItems.push(trimmed);
+    }
+  }
   ensureOutputDir();
-  writeJsonAtomic(SHOPPING_LIST_STATE_PATH, { planId: body.planId, checkedKeys: [...seen] });
+  // When extraItems isn't sent, preserve whatever's on disk rather than wiping it.
+  const existing = extraItems === undefined
+    ? readJsonOrNull<{ extraItems?: unknown }>(SHOPPING_LIST_STATE_PATH)
+    : null;
+  const persistedExtras = extraItems
+    ?? (Array.isArray(existing?.extraItems)
+      ? existing!.extraItems.filter((k: unknown): k is string => typeof k === "string")
+      : []);
+  writeJsonAtomic(SHOPPING_LIST_STATE_PATH, {
+    planId: body.planId,
+    checkedKeys: [...seen],
+    extraItems: persistedExtras,
+  });
   res.json({ success: true });
 }));
 

@@ -15,6 +15,7 @@ const SUITES = [
   "src/app/preferenceConflicts.test.ts",
   "src/app/formatValidThrough.test.ts",
   "src/app/formatDateRange.test.ts",
+  "src/app/formatShoppingListText.test.ts",
 ];
 
 async function main() {
