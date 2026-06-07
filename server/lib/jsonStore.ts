@@ -33,3 +33,20 @@ export function writeJsonAtomic(filePath: string, data: unknown): void {
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, filePath);
 }
+
+// Like writeJsonAtomic, but first snapshots the existing file to a sibling .bak.
+// Use for hand-curated, non-regenerable data (preferences, and secrets once the
+// key UI lands) so a bad write or import always leaves a last-known-good copy to
+// restore from. The backup is best-effort: a missing source is the first-ever
+// write (nothing to back up), and any other copy failure is logged but must not
+// block the actual write.
+export function writeJsonAtomicWithBackup(filePath: string, data: unknown): void {
+  try {
+    fs.copyFileSync(filePath, `${filePath}.bak`);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.warn(`[writeJsonAtomicWithBackup] backup of ${filePath} failed:`, err);
+    }
+  }
+  writeJsonAtomic(filePath, data);
+}
