@@ -296,7 +296,11 @@ app.put("/api/secrets", asyncRoute((req, res) => {
 
 app.delete("/api/secrets", asyncRoute((_req, res) => {
   clearGeminiKey();
-  res.json({ success: true, hasKey: false, masked: null });
+  // Clearing only drops the stored override — a GEMINI_API_KEY in the env is
+  // still in effect. Re-resolve so the response reports the real status (same as
+  // GET status) instead of claiming there's no key when scan/plan still work.
+  const key = resolveGeminiKey();
+  res.json({ success: true, hasKey: !!key, masked: key ? maskKey(key) : null });
 }));
 
 app.get("/api/shopping-list-state", (_req, res) => {

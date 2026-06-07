@@ -80,8 +80,10 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
         setError(data.error || "Couldn't clear the key.");
         return;
       }
-      setMasked(null);
-      onChange?.(false);
+      // The server reports the effective status after clearing — a GEMINI_API_KEY
+      // in the env stays in effect, so don't assume the key is gone.
+      setMasked(typeof data.masked === "string" ? data.masked : null);
+      onChange?.(!!data.hasKey);
     } catch {
       setError("Couldn't clear the key.");
     } finally {
