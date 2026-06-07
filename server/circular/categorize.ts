@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { CATEGORY_ENUM } from "../../scripts/scan-circular";
 import { GEMINI_MODEL } from "../../scripts/env";
+import { requireGeminiKey } from "../secrets";
 
 // "skip" tells the caller to drop the item entirely (non-food/non-drink).
 // Anything else must be one of the existing CATEGORY_ENUM values; unknown
@@ -77,7 +78,7 @@ export async function categorizeInBatches(
 }
 
 async function classifyBatchViaGemini(names: string[]): Promise<unknown> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
     contents: [{ text: buildPrompt(names) }],

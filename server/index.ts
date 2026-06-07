@@ -21,6 +21,12 @@ import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
 import { moveMealInWeekPlan } from "./moveMeal";
 import { validatePreferences, ValidationError } from "./validatePreferences";
 import { resolveDataDir } from "./dataDir";
+import {
+  resolveGeminiKey,
+  saveGeminiKey,
+  clearGeminiKey,
+  maskKey,
+} from "./secrets";
 import type {
   MealPlanResult,
   UserPreferences,
@@ -35,12 +41,9 @@ import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
 import { containsWholeWord } from "../scripts/excludedCategories";
 import { readJsonOrNull, writeJsonAtomic, writeJsonAtomicWithBackup } from "./lib/jsonStore";
 
-// Fail fast at startup if required secrets are missing — otherwise the server
-// happily boots and only dies on the first scan/plan request.
-if (!process.env.GEMINI_API_KEY) {
-  console.error("Missing GEMINI_API_KEY in environment (.env file)");
-  process.exit(1);
-}
+// No startup key guard: the server boots without a Gemini key so a first-run
+// user reaches the UI and can paste one in (issue #96). A missing key surfaces
+// as a readable error at request time via requireGeminiKey() in the call sites.
 
 const app = express();
 const PORT = parseInt(process.env.API_PORT ?? process.env.PORT ?? "3101", 10);
@@ -268,6 +271,32 @@ app.put("/api/preferences", asyncRoute((req, res) => {
   // not regenerable, so a bad save or import shouldn't be able to lose them.
   writeJsonAtomicWithBackup(PREFERENCES_PATH, result);
   res.json({ success: true, preferences: result });
+}));
+
+// Gemini API key, stored in secrets.json (separate from preferences so it never
+// rides the export). The status endpoint only ever returns a masked key — the
+// raw value never leaves the server.
+app.get("/api/secrets/status", (_req, res) => {
+  const key = resolveGeminiKey();
+  res.json({ hasKey: !!key, masked: key ? maskKey(key) : null });
+});
+
+app.put("/api/secrets", asyncRoute((req, res) => {
+  const body = req.body as { geminiApiKey?: unknown } | null | undefined;
+  const key = typeof body?.geminiApiKey === "string" ? body.geminiApiKey.trim() : "";
+  if (!key) {
+    throw new HttpError(400, "geminiApiKey must be a non-empty string");
+  }
+  if (key.length > MAX_KEY_LEN) {
+    throw new HttpError(400, `geminiApiKey must be ${MAX_KEY_LEN} chars or fewer`);
+  }
+  saveGeminiKey(key);
+  res.json({ success: true, hasKey: true, masked: maskKey(key) });
+}));
+
+app.delete("/api/secrets", asyncRoute((_req, res) => {
+  clearGeminiKey();
+  res.json({ success: true, hasKey: false, masked: null });
 }));
 
 app.get("/api/shopping-list-state", (_req, res) => {

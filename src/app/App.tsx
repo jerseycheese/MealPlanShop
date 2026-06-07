@@ -12,6 +12,7 @@ import { UploadCircular } from "./UploadCircular";
 import { Preferences } from "./Preferences";
 import { StorePicker, type FlippMerchant } from "./StorePicker";
 import { PlanWithoutCircular } from "./PlanWithoutCircular";
+import { ApiKeyEntry } from "./ApiKeyEntry";
 import { WeekView } from "./WeekView";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
@@ -116,6 +117,9 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [prefsError, setPrefsError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // null = status not yet known; gate the app on it so we don't flash the empty
+  // state before learning whether a Gemini key is configured.
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [showPrefs, setShowPrefs] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
   const [pantryStaples, setPantryStaples] = useState<string[]>([]);
@@ -214,6 +218,15 @@ export function App() {
     fetchMealPlan();
     fetchCircular();
   }, [fetchMealPlan, fetchCircular]);
+
+  // Is a Gemini key configured? Drives the first-run gate. On a failed status
+  // check, assume yes rather than trapping the user behind the gate — a real
+  // missing key still surfaces as a readable error when they generate a plan.
+  useEffect(() => {
+    fetchJson<{ hasKey?: boolean }>(API.secretsStatus)
+      .then((data) => setHasKey(!!data.hasKey))
+      .catch(() => setHasKey(true));
+  }, []);
 
   useEffect(() => {
     fetchJson<{ preferences?: { pantryStaples?: unknown } }>(API.preferences)
@@ -540,10 +553,31 @@ export function App() {
     });
   };
 
-  if (!loaded) {
+  if (!loaded || hasKey === null) {
     return (
       <div className="app">
         <div className="loading-state">Loading...</div>
+      </div>
+    );
+  }
+
+  // First-run gate: no Gemini key anywhere (data dir or .env), so nothing the app
+  // does can work yet. Ask for one before showing the planner.
+  if (!hasKey) {
+    return (
+      <div className="app">
+        <header className="header">
+          <h1 className="header__title">MealPlanShop</h1>
+        </header>
+        <div className="api-key-gate">
+          <h2 className="api-key-gate__title">Add your Gemini API key</h2>
+          <p className="api-key-gate__text">
+            MealPlanShop uses Google's Gemini to read circulars and build your
+            meal plans. Paste a free key to get started — it stays on this
+            machine.
+          </p>
+          <ApiKeyEntry onChange={setHasKey} />
+        </div>
       </div>
     );
   }

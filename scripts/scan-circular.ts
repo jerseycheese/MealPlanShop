@@ -4,7 +4,8 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { GoogleGenAI } from "@google/genai";
 import type { SaleItem, ExtractionResult } from "../types";
-import { requireEnv, GEMINI_MODEL } from "./env";
+import { GEMINI_MODEL } from "./env";
+import { requireGeminiKey } from "../server/secrets";
 
 export const CATEGORY_ENUM = [
   "produce",
@@ -187,7 +188,7 @@ export async function scanCircular(
   filePath: string,
   onProgress?: (event: ScanProgressEvent) => void
 ): Promise<ExtractionResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
   const prompt = fs.readFileSync(
     path.join(__dirname, "../prompts/circular-extraction.md"),
     "utf-8"
@@ -274,8 +275,6 @@ async function main() {
     console.error(`File not found: ${filePath}`);
     process.exit(1);
   }
-
-  requireEnv("GEMINI_API_KEY");
 
   const result = await scanCircular(filePath);
 

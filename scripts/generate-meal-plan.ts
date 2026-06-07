@@ -18,7 +18,8 @@ import {
   matchExpandedTerm,
   type ExpandedTerm,
 } from "./excludedCategories";
-import { requireEnv, GEMINI_MODEL } from "./env";
+import { GEMINI_MODEL } from "./env";
+import { requireGeminiKey } from "../server/secrets";
 export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
@@ -321,7 +322,7 @@ export async function generateMealPlan(
   saleItems: SaleItem[],
   preferences: UserPreferences
 ): Promise<MealPlanResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
 
   const systemPrompt = loadPrompt("../prompts/meal-plan-generation.md");
 
@@ -405,7 +406,7 @@ export async function generateMealSwap(
   saleItems: SaleItem[],
   preferences: UserPreferences
 ): Promise<{ meal: Meal; shoppingList: ShoppingListItem[] }> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
 
   const systemPrompt = loadPrompt("../prompts/meal-swap.md");
 
@@ -498,8 +499,6 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
 // -- CLI entry point --
 
 async function main() {
-  requireEnv("GEMINI_API_KEY");
-
   // Load sale items from extraction output or a provided file
   const itemsPath =
     process.argv[2] || path.join(__dirname, "../output/extraction.json");
