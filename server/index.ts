@@ -33,7 +33,7 @@ import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { listFlyers, fetchFlyer } from "./circular/sources/flipp";
 import { loadCircularPrefs, saveCircularPrefs } from "./circular/prefs";
 import { containsWholeWord } from "../scripts/excludedCategories";
-import { readJsonOrNull, writeJsonAtomic } from "./lib/jsonStore";
+import { readJsonOrNull, writeJsonAtomic, writeJsonAtomicWithBackup } from "./lib/jsonStore";
 
 // Fail fast at startup if required secrets are missing — otherwise the server
 // happily boots and only dies on the first scan/plan request.
@@ -264,7 +264,9 @@ app.put("/api/preferences", asyncRoute((req, res) => {
   // validatePreferences throws ValidationError → 400 via the error middleware.
   const result = validatePreferences(req.body);
   ensureDataDir();
-  writeJsonAtomic(PREFERENCES_PATH, result);
+  // Snapshot the prior prefs to a .bak first — preferences are hand-curated and
+  // not regenerable, so a bad save or import shouldn't be able to lose them.
+  writeJsonAtomicWithBackup(PREFERENCES_PATH, result);
   res.json({ success: true, preferences: result });
 }));
 

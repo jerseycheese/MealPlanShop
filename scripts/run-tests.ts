@@ -12,6 +12,7 @@ const SUITES = [
   "server/prefs-fingerprint.test.ts",
   "server/validatePreferences.test.ts",
   "server/dataDir.test.ts",
+  "server/lib/jsonStore.test.ts",
   "src/app/preferenceConflicts.test.ts",
   "src/app/formatValidThrough.test.ts",
   "src/app/formatDateRange.test.ts",
