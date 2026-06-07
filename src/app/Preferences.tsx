@@ -7,6 +7,7 @@ import {
 } from "./preferenceConflicts";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
+import { ApiKeyEntry } from "./ApiKeyEntry";
 
 interface PreferencesProps {
   onClose: () => void;
@@ -352,6 +353,11 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 Free-form. Gets added to the plan so one-off requests the fields
                 above can't capture still get honored.
               </p>
+            </div>
+
+            <div className="preferences-modal__field preferences-modal__field--apikey">
+              <span className="preferences-modal__label">Gemini API key</span>
+              <ApiKeyEntry />
             </div>
 
             <div className="preferences-modal__backup">
