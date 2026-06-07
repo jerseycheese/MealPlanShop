@@ -48,6 +48,23 @@ assert.ok(
   "expected unselected days to be absent from the prompt",
 );
 
+// Free-text notes ride into the prompt verbatim so the model honors them.
+const withNotes = buildMealPlanUserPrompt(saleItems, {
+  ...base,
+  notes: "cook dinners double for leftovers",
+});
+assert.ok(
+  withNotes.includes("Special instructions") &&
+    withNotes.includes("cook dinners double for leftovers"),
+  "expected the notes to appear in the prompt",
+);
+
+// No notes → no special-instructions line at all.
+assert.ok(
+  !noCap.includes("Special instructions"),
+  "expected no special-instructions line when notes are unset",
+);
+
 // No-circular mode: empty sale items still build a valid prompt that carries
 // the preferences (the planner falls back to prefs alone).
 const noSales = buildMealPlanUserPrompt([], base);
@@ -60,4 +77,4 @@ assert.ok(
   "expected preferences to drive the prompt when there are no sale items",
 );
 
-console.log("buildMealPlanUserPrompt: 7/7 passed");
+console.log("buildMealPlanUserPrompt: 9/9 passed");

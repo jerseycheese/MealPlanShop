@@ -291,6 +291,9 @@ export function buildMealPlanUserPrompt(
     preferences.maxActiveTime && preferences.maxActiveTime > 0
       ? `\n- Maximum active (hands-on) time per meal: ${preferences.maxActiveTime} minutes — every meal's activeTime must be at or under this.`
       : "";
+  const notesLine = preferences.notes
+    ? `\n- Special instructions (honor these): ${preferences.notes}`
+    : "";
 
   return `
 ## Current Sale Items
@@ -306,7 +309,7 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
 - Meals to plan, per day (generate exactly these meals for each day listed, and only these days):
-${formatMealsByDay(preferences.mealsByDay)}${capLine}
+${formatMealsByDay(preferences.mealsByDay)}${capLine}${notesLine}
 
 Generate a meal plan covering exactly the days and meals listed above.
 `;
@@ -442,6 +445,10 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 ${formatMealsByDay(preferences.mealsByDay)}${
     preferences.maxActiveTime && preferences.maxActiveTime > 0
       ? `\n- Maximum active (hands-on) time per meal: ${preferences.maxActiveTime} minutes — the replacement meal's activeTime must be at or under this.`
+      : ""
+  }${
+    preferences.notes
+      ? `\n- Special instructions (honor these): ${preferences.notes}`
       : ""
   }
 

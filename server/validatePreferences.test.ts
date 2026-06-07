@@ -90,4 +90,30 @@ assert.throws(
   ValidationError,
 );
 
-console.log("validatePreferences: 12/12 passed");
+// --- notes ---
+
+// Absent notes are valid and omitted from the result.
+assert.equal(validatePreferences(base).notes, undefined);
+
+// A valid note round-trips, trimmed.
+assert.equal(
+  validatePreferences({ ...base, notes: "  cook double for leftovers  " }).notes,
+  "cook double for leftovers",
+);
+
+// Empty / whitespace-only notes are dropped, not stored as "".
+assert.equal(validatePreferences({ ...base, notes: "   " }).notes, undefined);
+
+// A non-string note is rejected.
+assert.throws(
+  () => validatePreferences({ ...base, notes: 42 }),
+  ValidationError,
+);
+
+// An over-length note is rejected.
+assert.throws(
+  () => validatePreferences({ ...base, notes: "x".repeat(1001) }),
+  ValidationError,
+);
+
+console.log("validatePreferences: 17/17 passed");
