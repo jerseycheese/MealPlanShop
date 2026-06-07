@@ -1786,7 +1786,7 @@ body {
 
 .store-picker-modal__dialog {
   position: relative;
-  background: var(--color-bg);
+  background: var(--color-surface);
   border-radius: var(--radius-md);
   padding: 20px;
   max-width: var(--max-width);
