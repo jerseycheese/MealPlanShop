@@ -1869,9 +1869,8 @@ body {
 }
 
 .plan-without-circular {
-  max-width: 360px;
-  margin: 0 auto;
-  text-align: center;
+  width: 100%;
+  max-width: var(--max-width);
 }
 
 .plan-without-circular__title {
@@ -1892,7 +1891,7 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .plan-without-circular__label {
