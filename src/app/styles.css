@@ -457,12 +457,18 @@ body {
 /* ─── Meal Card Details (expandable) ────────────── */
 
 .meal-card__details {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.meal-card--expanded .meal-card__details {
+  grid-template-rows: 1fr;
 }
 
 .meal-card__details-inner {
+  overflow: hidden;
+  min-height: 0;
   padding: 16px 20px 20px;
   border-top: 1px solid var(--color-border);
 }
@@ -1720,7 +1726,7 @@ body {
 }
 
 .merchant-card--expiring {
-  border-left: 3px solid #d97706;
+  border-color: var(--color-accent);
 }
 
 .merchant-card__name {
