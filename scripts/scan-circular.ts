@@ -7,6 +7,7 @@ import type { SaleItem, ExtractionResult } from "../types";
 import { GEMINI_MODEL } from "./env";
 import { requireGeminiKey } from "../server/secrets";
 import { toReadableGeminiError } from "../server/geminiErrors";
+import { hasPoppler, popplerRequiredError } from "../server/poppler";
 
 export const CATEGORY_ENUM = [
   "produce",
@@ -219,7 +220,10 @@ export async function scanCircular(
     return result;
   }
 
-  // PDF: convert to images, scan each page, merge results
+  // PDF: convert to images, scan each page, merge results. Needs poppler
+  // (pdftoppm) — fail readable instead of an opaque ENOENT when it's missing.
+  // The guard is here (not the route) so the CLI gets the same message.
+  if (!hasPoppler()) throw popplerRequiredError();
   console.log(`Scanning PDF circular: ${filePath}`);
   onProgress?.({ type: "preparing" });
   const pageImages = convertPdfToImages(filePath);

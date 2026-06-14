@@ -18,6 +18,7 @@ interface StorePickerProps {
   onFetch: (m: FlippMerchant) => void;
   onUploadFile?: (file: File) => void;
   disabled?: boolean;
+  pdfSupported?: boolean;
 }
 
 function expiryLabel(daysLeft: number): string {
@@ -26,7 +27,12 @@ function expiryLabel(daysLeft: number): string {
   return `Ends in ${daysLeft} days`;
 }
 
-export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProps) {
+export function StorePicker({
+  onFetch,
+  onUploadFile,
+  disabled,
+  pdfSupported = true,
+}: StorePickerProps) {
   const [zip, setZip] = useState("");
   const [merchants, setMerchants] = useState<FlippMerchant[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -173,11 +179,16 @@ export function StorePicker({ onFetch, onUploadFile, disabled }: StorePickerProp
             onClick={() => setShowFallback(true)}
             disabled={disabled}
           >
-            Or upload a PDF instead
+            {pdfSupported ? "Or upload a PDF instead" : "Or upload an image instead"}
           </button>
         ) : (
           onUploadFile && (
-            <UploadCircular variant="empty" onFile={onUploadFile} disabled={disabled} />
+            <UploadCircular
+              variant="empty"
+              onFile={onUploadFile}
+              disabled={disabled}
+              pdfSupported={pdfSupported}
+            />
           )
         )}
       </div>

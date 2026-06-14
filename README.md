@@ -10,6 +10,34 @@ The pipeline has two stages, each powered by Google's Gemini vision model:
 
 2. **Meal plan generation** — Takes the extracted sale items plus household preferences (size, dietary restrictions, cuisine preferences) and generates a 7-day breakfast/lunch/dinner plan that prioritizes on-sale ingredients. Each meal includes step-by-step cooking instructions and a per-serving calorie estimate. Also produces a consolidated shopping list grouped by store section.
 
+## Quickstart
+
+Two ways to run it — Docker if you just want to use it, npm if you're developing.
+
+### Docker (recommended)
+
+```bash
+docker compose up -d
+```
+
+Open http://localhost:3101 and paste a Gemini key in Settings (get one free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)). Your key and preferences persist in the `mealplanshop-data` volume across restarts, and poppler is bundled so PDF scanning works out of the box.
+
+Prefer plain `docker run`?
+
+```bash
+docker build -t mealplanshop .
+docker run -d -p 3101:3101 -v mealplanshop-data:/data --name mealplanshop mealplanshop
+```
+
+### From source (Node 20+)
+
+```bash
+npm install
+npm start          # builds the UI, then serves it + the API on http://localhost:3101
+```
+
+Add a Gemini key in Settings, or set `GEMINI_API_KEY` in `.env`. PDF scanning is optional here — without poppler, PDF upload is hidden and image upload + store auto-fetch still work (see Setup to enable it). For the two-port dev server with hot reload, use `npm run dev` (see Usage).
+
 ## Setup
 
 ```bash
@@ -24,7 +52,7 @@ GEMINI_API_KEY=your_key_here
 
 Get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
-PDF scanning requires `pdftoppm` (part of poppler):
+PDF scanning (optional — bundled in the Docker image) needs `pdftoppm` (part of poppler). Without it, image upload and store auto-fetch still work; PDF upload is hidden.
 
 ```bash
 # macOS

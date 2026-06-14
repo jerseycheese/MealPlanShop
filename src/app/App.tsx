@@ -120,6 +120,7 @@ export function App() {
   // null = status not yet known; gate the app on it so we don't flash the empty
   // state before learning whether a Gemini key is configured.
   const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [pdfSupported, setPdfSupported] = useState(true);
   const [showPrefs, setShowPrefs] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
   const [pantryStaples, setPantryStaples] = useState<string[]>([]);
@@ -226,6 +227,15 @@ export function App() {
     fetchJson<{ hasKey?: boolean }>(API.secretsStatus)
       .then((data) => setHasKey(!!data.hasKey))
       .catch(() => setHasKey(true));
+  }, []);
+
+  // Is poppler (pdftoppm) installed? Drives whether PDF upload is offered. Fail
+  // open — a failed check shouldn't hide a working feature, and the server still
+  // guards PDF scanning with a readable 422.
+  useEffect(() => {
+    fetchJson<{ pdf?: boolean }>(API.capabilities)
+      .then((data) => setPdfSupported(data.pdf !== false))
+      .catch(() => setPdfSupported(true));
   }, []);
 
   useEffect(() => {
@@ -614,6 +624,7 @@ export function App() {
                 variant="header"
                 onFile={handleUpload}
                 disabled={busy}
+                pdfSupported={pdfSupported}
               />
             </>
           )}
@@ -667,6 +678,7 @@ export function App() {
               onFetch={handleFlippFetch}
               onUploadFile={handleUpload}
               disabled={busy}
+              pdfSupported={pdfSupported}
             />
             <div className="empty-state__divider" role="separator">
               <span className="empty-state__divider-text">or</span>
@@ -728,6 +740,7 @@ export function App() {
               onFetch={handleFlippFetch}
               onUploadFile={handleUpload}
               disabled={busy}
+              pdfSupported={pdfSupported}
             />
           </div>
           <div className="empty-state__divider" role="separator">

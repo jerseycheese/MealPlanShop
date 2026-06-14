@@ -4,6 +4,7 @@ export const API = {
   circularPrefs: "/api/circular/prefs",
   circularProgress: "/api/circular/progress",
   circularUpload: "/api/circular/upload",
+  capabilities: "/api/capabilities",
   circularFlippStores: "/api/circular/flipp/stores",
   circularFlippFetch: "/api/circular/flipp/fetch",
   mealPlan: "/api/meal-plan",

@@ -14,6 +14,7 @@ const SUITES = [
   "server/dataDir.test.ts",
   "server/secrets.test.ts",
   "server/geminiErrors.test.ts",
+  "server/poppler.test.ts",
   "server/lib/jsonStore.test.ts",
   "src/app/preferenceConflicts.test.ts",
   "src/app/formatValidThrough.test.ts",
