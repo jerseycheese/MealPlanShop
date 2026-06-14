@@ -175,7 +175,7 @@ output/                     # Generated output (gitignored)
 ## Tech stack
 
 - **Runtime:** Node.js + TypeScript, run via `tsx`
-- **AI:** Google Gemini (`gemini-3-flash-preview`) via `@google/genai` SDK
+- **AI:** Google Gemini (`gemini-3.5-flash`) via `@google/genai` SDK
 - **PDF processing:** `pdftoppm` (poppler) for PDF-to-image conversion
 - **Web server:** Express (serves the UI + API endpoints)
 - **Config:** `dotenv` for environment variables

@@ -1,1 +1,1 @@
-export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3-flash-preview";
+export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash";

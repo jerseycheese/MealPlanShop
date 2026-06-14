@@ -20,6 +20,7 @@ import {
 } from "./excludedCategories";
 import { GEMINI_MODEL } from "./env";
 import { requireGeminiKey } from "../server/secrets";
+import { toReadableGeminiError } from "../server/geminiErrors";
 export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
@@ -389,7 +390,9 @@ export async function generateMealPlan(
     callModel,
     (r) => findExcludedViolations(r, preferences.excludedIngredients),
     "Plan",
-  );
+  ).catch((err: unknown) => {
+    throw toReadableGeminiError(err, GEMINI_MODEL);
+  });
 
   console.log(`Generated plan with ${result.weekPlan.length} days`);
   console.log(`Shopping list: ${result.shoppingList.length} items`);
@@ -488,7 +491,9 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
     callModel,
     (r) => findMealViolations(r.meal, preferences.excludedIngredients),
     "Swap",
-  );
+  ).catch((err: unknown) => {
+    throw toReadableGeminiError(err, GEMINI_MODEL);
+  });
 
   console.log(`Replacement: ${parsed.meal.name}`);
   console.log(`Shopping list: ${parsed.shoppingList.length} items`);
