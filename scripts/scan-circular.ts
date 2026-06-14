@@ -6,6 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { SaleItem, ExtractionResult } from "../types";
 import { GEMINI_MODEL } from "./env";
 import { requireGeminiKey } from "../server/secrets";
+import { toReadableGeminiError } from "../server/geminiErrors";
 
 export const CATEGORY_ENUM = [
   "produce",
@@ -72,23 +73,27 @@ async function scanImage(
   };
   const mimeType = mimeTypes[ext] || "image/jpeg";
 
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [
-      {
-        inlineData: {
-          mimeType,
-          data: base64Image,
+  const response = await ai.models
+    .generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        {
+          inlineData: {
+            mimeType,
+            data: base64Image,
+          },
         },
+        { text: prompt },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: extractionSchema,
+        httpOptions: { timeout: 90_000 },
       },
-      { text: prompt },
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseJsonSchema: extractionSchema,
-      httpOptions: { timeout: 90_000 },
-    },
-  });
+    })
+    .catch((err: unknown) => {
+      throw toReadableGeminiError(err, GEMINI_MODEL);
+    });
 
   const parsed = JSON.parse(
     response.text ?? '{"items":[],"storeName":null,"validThrough":null}'
