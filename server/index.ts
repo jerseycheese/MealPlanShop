@@ -21,6 +21,7 @@ import { mergeShoppingListAfterSwap } from "./mergeShoppingList";
 import { moveMealInWeekPlan } from "./moveMeal";
 import { validatePreferences, ValidationError } from "./validatePreferences";
 import { resolveDataDir } from "./dataDir";
+import { hasPoppler } from "./poppler";
 import {
   resolveGeminiKey,
   saveGeminiKey,
@@ -276,6 +277,13 @@ app.put("/api/preferences", asyncRoute((req, res) => {
 // Gemini API key, stored in secrets.json (separate from preferences so it never
 // rides the export). The status endpoint only ever returns a masked key — the
 // raw value never leaves the server.
+// Lets the UI hide PDF upload when poppler (pdftoppm) isn't installed, so a PDF
+// pick can't fail with an opaque error. Image upload / Flipp / no-circular are
+// unaffected.
+app.get("/api/capabilities", (_req, res) => {
+  res.json({ pdf: hasPoppler() });
+});
+
 app.get("/api/secrets/status", (_req, res) => {
   const key = resolveGeminiKey();
   res.json({ hasKey: !!key, masked: key ? maskKey(key) : null });

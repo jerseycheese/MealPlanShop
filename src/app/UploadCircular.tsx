@@ -1,16 +1,25 @@
 import { useRef, useState } from "react";
 
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
-
 interface UploadCircularProps {
   variant: "empty" | "header";
   onFile: (file: File) => void;
   disabled?: boolean;
+  // When false, poppler (pdftoppm) isn't installed — drop PDF from the accepted
+  // types and adjust the copy. Image upload still works.
+  pdfSupported?: boolean;
 }
 
-export function UploadCircular({ variant, onFile, disabled }: UploadCircularProps) {
+export function UploadCircular({
+  variant,
+  onFile,
+  disabled,
+  pdfSupported = true,
+}: UploadCircularProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const accept = pdfSupported
+    ? ".pdf,.jpg,.jpeg,.png,.webp"
+    : ".jpg,.jpeg,.png,.webp";
 
   const pickFile = () => inputRef.current?.click();
 
@@ -32,7 +41,7 @@ export function UploadCircular({ variant, onFile, disabled }: UploadCircularProp
     <input
       ref={inputRef}
       type="file"
-      accept={ACCEPT}
+      accept={accept}
       onChange={handleChange}
       disabled={disabled}
       className="upload-circular__input"
@@ -76,9 +85,15 @@ export function UploadCircular({ variant, onFile, disabled }: UploadCircularProp
     >
       <h3 className="upload-circular__title">Upload your weekly circular</h3>
       <p className="upload-circular__hint">
-        Drop a PDF or photo here, or click to choose a file
+        {pdfSupported
+          ? "Drop a PDF or photo here, or click to choose a file"
+          : "Drop a photo here, or click to choose a file"}
       </p>
-      <p className="upload-circular__formats">PDF, JPG, PNG, WEBP &middot; up to 25 MB</p>
+      <p className="upload-circular__formats">
+        {pdfSupported
+          ? "PDF, JPG, PNG, WEBP · up to 25 MB"
+          : "JPG, PNG, WEBP · up to 25 MB — PDF needs poppler"}
+      </p>
       {hidden}
     </div>
   );

@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3101:3101"
+    volumes:
+      - mealplanshop-data:/data
+    # Optional: pass a key from your shell instead of the in-app Settings entry.
+    # environment:
+    #   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    restart: unless-stopped
+
+volumes:
+  mealplanshop-data:
