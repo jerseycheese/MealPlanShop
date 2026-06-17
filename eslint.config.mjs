@@ -24,4 +24,12 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    // The custom test runner and each suite report results via console.log
+    // (see scripts/run-tests.ts) — that's intended output, not stray logging.
+    files: ['**/*.test.ts', 'scripts/run-tests.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
 );

@@ -19,6 +19,16 @@ export interface Ingredient {
   onSale: boolean;
 }
 
+// A per-member alternative dish for a "split" meal — e.g. salmon for the house,
+// a chicken swap for the member who won't eat fish. v1 only generates these from
+// per-member dietary exclusions; it reuses the base meal's time/calorie/cost.
+export interface MealVariant {
+  forMembers: string[]; // member names this alternative is for
+  name: string;
+  ingredients: Ingredient[];
+  instructions: string[];
+}
+
 export interface Meal {
   name: string;
   ingredients: Ingredient[];
@@ -27,6 +37,8 @@ export interface Meal {
   instructions: string[];
   estimatedCalories: number;
   estimatedCost: number;
+  // Present only when the meal is split for one or more members' exclusions.
+  variants?: MealVariant[];
 }
 
 export interface DayPlan {
@@ -52,8 +64,20 @@ export interface MealPlanResult {
   shoppingList: ShoppingListItem[];
 }
 
+// One person in the household, with their own dietary needs. These are *softer*
+// than the household-wide excluded list: rather than banning an ingredient for
+// everyone, an item a member excludes makes the planner offer them a variant
+// dish. Absent `members` = a single shared profile (the pre-#74 behavior).
+export interface HouseholdMember {
+  name: string;
+  excludedIngredients: string[];
+  dietaryRestrictions: string[];
+}
+
 export interface UserPreferences {
   householdSize: number;
+  // Per-member dietary profiles. When present, householdSize is the member count.
+  members?: HouseholdMember[];
   // Household-wide cap on a meal's hands-on (active) minutes. Unset or 0 = no cap.
   maxActiveTime?: number;
   dietaryRestrictions: string[];

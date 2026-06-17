@@ -77,4 +77,30 @@ assert.ok(
   "expected preferences to drive the prompt when there are no sale items",
 );
 
-console.log("buildMealPlanUserPrompt: 9/9 passed");
+// Per-member needs (issue #74) render into the prompt so the model can offer a
+// variant for the member who won't eat fish.
+const withMembers = buildMealPlanUserPrompt(saleItems, {
+  ...base,
+  members: [
+    { name: "Me", excludedIngredients: [], dietaryRestrictions: [] },
+    { name: "Partner", excludedIngredients: ["fish"], dietaryRestrictions: [] },
+  ],
+});
+assert.ok(
+  withMembers.includes("Household members") &&
+    withMembers.includes("Partner") &&
+    withMembers.includes("won't eat: fish"),
+  "expected the per-member block with the member's exclusion in the prompt",
+);
+assert.ok(
+  withMembers.includes("variants"),
+  "expected the prompt to instruct the model to add per-member variants",
+);
+
+// No members → no member block at all (single-profile households read as before).
+assert.ok(
+  !noCap.includes("Household members"),
+  "expected no per-member block when members are unset",
+);
+
+console.log("buildMealPlanUserPrompt: 12/12 passed");

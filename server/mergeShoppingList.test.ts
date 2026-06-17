@@ -255,6 +255,67 @@ test("merged list preserves prior order then appends new in meal order", () => {
   );
 });
 
+// A meal split for a member: a main dish plus a per-member variant (issue #74).
+function splitMeal(
+  name: string,
+  ingredients: Ingredient[],
+  variantName: string,
+  variantIngredients: Ingredient[],
+): Meal {
+  return {
+    ...meal(name, ingredients),
+    variants: [
+      {
+        forMembers: ["Partner"],
+        name: variantName,
+        ingredients: variantIngredients,
+        instructions: ["cook"],
+      },
+    ],
+  };
+}
+
+// Case 11: a retained meal's variant ingredient is shopped for too — swapping an
+// unrelated slot must not drop the chicken that the kept salmon meal's variant needs.
+test("retained meal's variant ingredient is kept", () => {
+  const weekPlan: DayPlan[] = [
+    { day: "Monday", dinner: splitMeal("Salmon", [ing("Salmon")], "Chicken Plate", [ing("Chicken")]) },
+    { day: "Tuesday", lunch: meal("Pasta", [ing("Pasta")]) },
+  ];
+  const merged = mergeShoppingListAfterSwap({
+    weekPlan,
+    swappedDayIndex: 1,
+    swappedSlot: "lunch",
+    newMeal: meal("Tofu Bowl", [ing("Tofu")]),
+    priorList: [sli("Salmon"), sli("Chicken"), sli("Pasta")],
+    regeneratedList: [sli("Tofu")],
+  });
+  assert.ok(merged.find((i) => i.name === "Salmon"), "main dish ingredient kept");
+  assert.ok(merged.find((i) => i.name === "Chicken"), "variant ingredient kept");
+});
+
+// Case 12: a swapped-in split meal puts both its main and variant ingredients on the list.
+test("swapped-in meal's variant ingredient is added", () => {
+  const weekPlan: DayPlan[] = [
+    { day: "Monday", lunch: meal("Pasta", [ing("Pasta")]) },
+  ];
+  const regeneratedChicken = sli("Chicken", { quantity: "1 lb", category: "meat" });
+  const merged = mergeShoppingListAfterSwap({
+    weekPlan,
+    swappedDayIndex: 0,
+    swappedSlot: "lunch",
+    newMeal: splitMeal("Salmon", [ing("Salmon")], "Chicken Plate", [ing("Chicken")]),
+    priorList: [sli("Pasta")],
+    regeneratedList: [sli("Salmon"), regeneratedChicken],
+  });
+  assert.ok(merged.find((i) => i.name === "Salmon"), "main dish ingredient added");
+  assert.deepEqual(
+    merged.find((i) => i.name === "Chicken"),
+    regeneratedChicken,
+    "variant ingredient sourced from regenerated list",
+  );
+});
+
 console.log(`mergeShoppingList: ${passed}/${total} passed`);
 if (failures.length > 0) {
   throw new Error(`mergeShoppingList: ${failures.length} test(s) failed: ${failures.join(", ")}`);

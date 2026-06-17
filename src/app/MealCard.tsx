@@ -33,6 +33,10 @@ export function MealCard({
   swapError = null,
 }: MealCardProps) {
   const saleCount = meal.ingredients.filter((i) => i.onSale).length;
+  const variants = meal.variants ?? [];
+  const variantMembers = Array.from(
+    new Set(variants.flatMap((v) => v.forMembers)),
+  ).join(", ");
 
   return (
     <article
@@ -95,6 +99,11 @@ export function MealCard({
               {saleCount} on sale
             </span>
           )}
+          {variants.length > 0 && (
+            <span className="meal-card__pill meal-card__pill--variant">
+              Alt for {variantMembers}
+            </span>
+          )}
         </div>
       </div>
 
@@ -132,6 +141,36 @@ export function MealCard({
               ))}
             </ol>
           </div>
+
+          {variants.map((variant, vi) => (
+            <div
+              key={`variant-${vi}`}
+              className="meal-card__section meal-card__variant"
+            >
+              <h4 className="meal-card__section-title meal-card__variant-title">
+                For {variant.forMembers.join(", ")}: {variant.name}
+              </h4>
+              <ul className="meal-card__ingredients">
+                {variant.ingredients.map((ing) => (
+                  <li
+                    key={`${ing.name}|${ing.quantity}`}
+                    className={`meal-card__ingredient ${ing.onSale ? "meal-card__ingredient--sale" : ""}`}
+                  >
+                    <span className="meal-card__ingredient-qty">{ing.quantity}</span>
+                    <span className="meal-card__ingredient-name">{ing.name}</span>
+                    {ing.onSale && <span className="meal-card__sale-badge">Sale</span>}
+                  </li>
+                ))}
+              </ul>
+              <ol className="meal-card__instructions">
+                {variant.instructions.map((step, i) => (
+                  <li key={`variant-${vi}-step-${i}`} className="meal-card__step">
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
 
           <div className="meal-card__times">
             <span>Active: {formatMinutes(meal.activeTime)}</span>
