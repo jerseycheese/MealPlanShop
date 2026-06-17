@@ -228,7 +228,7 @@ export async function scanCircular(
   onProgress?.({ type: "preparing" });
   const pageImages = convertPdfToImages(filePath);
 
-  let allItems: SaleItem[] = [];
+  const allItems: SaleItem[] = [];
   let storeName: string | null = null;
   let validThrough: string | null = null;
 
