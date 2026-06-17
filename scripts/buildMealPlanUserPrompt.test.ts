@@ -121,4 +121,29 @@ assert.ok(
   "expected no 'prefers' clause for a member without cuisine preferences",
 );
 
-console.log("buildMealPlanUserPrompt: 14/14 passed");
+// Per-member sizing hints (issue #74 phase 2b) render as soft "target"/"portion"
+// leans for that member; a member without them emits neither clause.
+const withMemberSizing = buildMealPlanUserPrompt(saleItems, {
+  ...base,
+  members: [
+    {
+      name: "Me",
+      excludedIngredients: [],
+      dietaryRestrictions: [],
+      caloriesPerMeal: 600,
+      portionMultiplier: 1.5,
+    },
+    { name: "Partner", excludedIngredients: ["fish"], dietaryRestrictions: [] },
+  ],
+});
+assert.ok(
+  withMemberSizing.includes("target: ~600 cal/serving") &&
+    withMemberSizing.includes("portion: 1.5x"),
+  "expected the member's calorie target and portion multiplier in the prompt",
+);
+assert.ok(
+  !withMemberSizing.includes("Partner — won't eat: fish; dietary: none;"),
+  "expected no sizing clause for a member without calorie target or portion",
+);
+
+console.log("buildMealPlanUserPrompt: 16/16 passed");

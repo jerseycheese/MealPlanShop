@@ -1282,6 +1282,20 @@ body {
   border-color: var(--color-primary);
 }
 
+/* Per-member sizing hints (calorie target + portion multiplier) — a two-column
+   row of small number inputs, label stacked above each. */
+.preferences-modal__member-sizing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.preferences-modal__member-sizing-field {
+  display: flex;
+  flex-direction: column;
+}
+
 .preferences-modal__checkrow {
   display: flex;
   gap: 16px;
