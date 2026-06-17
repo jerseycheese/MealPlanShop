@@ -647,10 +647,8 @@ body {
 }
 
 .shopping-list__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
-  gap: 24px;
-  align-items: start;
+  columns: 300px;
+  column-gap: 24px;
 }
 
 .shopping-list__category {
@@ -660,6 +658,8 @@ body {
   padding: 16px;
   box-shadow: var(--shadow-card);
   min-width: 0;
+  break-inside: avoid;
+  margin-bottom: 24px;
 }
 
 .shopping-list__category-name {
@@ -1582,7 +1582,7 @@ body {
   }
 
   .shopping-list__grid {
-    grid-template-columns: 1fr;
+    columns: 1;
   }
 }
 
