@@ -347,10 +347,20 @@ export function formatMembers(
         m.cuisinePreferences && m.cuisinePreferences.length > 0
           ? `; prefers: ${m.cuisinePreferences.join(", ")}`
           : "";
-      return `  - ${m.name} — won't eat: ${excluded}; dietary: ${dietary}${cuisine}`;
+      // Only render a sizing clause when the member set one — its absence means
+      // their variant is sized like the main meal.
+      const calories =
+        m.caloriesPerMeal && m.caloriesPerMeal > 0
+          ? `; target: ~${m.caloriesPerMeal} cal/serving`
+          : "";
+      const portion =
+        m.portionMultiplier && m.portionMultiplier > 0
+          ? `; portion: ${m.portionMultiplier}x`
+          : "";
+      return `  - ${m.name} — won't eat: ${excluded}; dietary: ${dietary}${cuisine}${calories}${portion}`;
     })
     .join("\n");
-  return `\n- Household members and their individual dietary needs (personal, not house-wide). When a planned meal includes something a member won't eat, or breaks their dietary restriction, add a "variants" entry to that meal: an alternative dish for that member that avoids it, reusing the meal's shared sides where you can. When a member lists "prefers" cuisines, lean their variant dish toward one of those cuisines — a soft preference like the household cuisine list, not a hard rule; members with no "prefers" fall back to the household cuisines. Members with "none" eat the main dish as-is. Put every variant ingredient in the shopping list too.\n${lines}`;
+  return `\n- Household members and their individual dietary needs (personal, not house-wide). When a planned meal includes something a member won't eat, or breaks their dietary restriction, add a "variants" entry to that meal: an alternative dish for that member that avoids it, reusing the meal's shared sides where you can. When a member lists "prefers" cuisines, lean their variant dish toward one of those cuisines — a soft preference like the household cuisine list, not a hard rule; members with no "prefers" fall back to the household cuisines. When a member lists a calorie "target" or a "portion" multiplier, size their variant dish toward it — a soft lean like the cuisine hint, not a hard rule; a member with neither is sized like the main meal. Members with "none" eat the main dish as-is. Put every variant ingredient in the shopping list too.\n${lines}`;
 }
 
 // Pure builder for the meal-plan user prompt. Extracted so the constraint wiring

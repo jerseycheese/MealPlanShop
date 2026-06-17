@@ -261,4 +261,110 @@ assert.throws(
   ValidationError,
 );
 
-console.log("validatePreferences: 29/29 passed");
+// --- per-member sizing hints: caloriesPerMeal + portionMultiplier (phase 2b) ---
+
+// Both fields round-trip. portionMultiplier is a fractional value to prove a
+// non-integer positive number is accepted (unlike the integer calorie target).
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    members: [
+      {
+        name: "Me",
+        excludedIngredients: [],
+        dietaryRestrictions: [],
+        caloriesPerMeal: 600,
+        portionMultiplier: 1.5,
+      },
+    ],
+  }).members,
+  [
+    {
+      name: "Me",
+      excludedIngredients: [],
+      dietaryRestrictions: [],
+      caloriesPerMeal: 600,
+      portionMultiplier: 1.5,
+    },
+  ],
+);
+
+// 0 (and absent) sizing fields are omitted, leaving the member byte-identical to
+// one that never carried them — no migration, fingerprint stays stable.
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    members: [
+      {
+        name: "Me",
+        excludedIngredients: [],
+        dietaryRestrictions: [],
+        caloriesPerMeal: 0,
+        portionMultiplier: 0,
+      },
+    ],
+  }).members,
+  [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+);
+
+// A non-integer calorie target is rejected (the field is whole-number only).
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        { name: "X", excludedIngredients: [], dietaryRestrictions: [], caloriesPerMeal: 15.5 },
+      ],
+    }),
+  ValidationError,
+);
+
+// A negative calorie target is rejected.
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        { name: "X", excludedIngredients: [], dietaryRestrictions: [], caloriesPerMeal: -100 },
+      ],
+    }),
+  ValidationError,
+);
+
+// An over-ceiling calorie target is rejected.
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        { name: "X", excludedIngredients: [], dietaryRestrictions: [], caloriesPerMeal: 5001 },
+      ],
+    }),
+  ValidationError,
+);
+
+// A non-numeric portion multiplier is rejected.
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        { name: "X", excludedIngredients: [], dietaryRestrictions: [], portionMultiplier: "big" },
+      ],
+    }),
+  ValidationError,
+);
+
+// An over-ceiling portion multiplier is rejected.
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        { name: "X", excludedIngredients: [], dietaryRestrictions: [], portionMultiplier: 11 },
+      ],
+    }),
+  ValidationError,
+);
+
+console.log("validatePreferences: 36/36 passed");

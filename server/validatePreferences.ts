@@ -22,6 +22,9 @@ const MAX_LIST_ITEM_LEN = 40;
 const MAX_MEMBERS = 20;
 // Sanity ceiling for the active-time cap; nothing weeknight-realistic needs more.
 const MAX_ACTIVE_TIME = 240;
+// Sanity ceilings for the per-member sizing hints (issue #74 phase 2b).
+const MAX_MEAL_CALORIES = 5000; // a per-serving target; anything higher is a typo
+const MAX_PORTION_MULTIPLIER = 10; // 10x a normal portion is already absurd
 // Ceiling for the free-text notes field — a few sentences of instructions, not an essay.
 const MAX_NOTES_LEN = 1000;
 
@@ -45,6 +48,29 @@ function validateStringArray(
     cleaned.push(trimmed);
   }
   return cleaned;
+}
+
+// Validates an optional positive numeric field the way maxActiveTime is — finite,
+// in-range, integer when asked (calorie targets) or any positive number otherwise
+// (portion multipliers like 1.5). Returns undefined for absent/null/0 so the field
+// is omitted from stored prefs, keeping the member shape (and fingerprint) stable
+// for households that don't use it (issue #74 phase 2b, skip-migrations).
+function validateOptionalPositiveNumber(
+  key: string,
+  value: unknown,
+  opts: { integer: boolean; max: number },
+): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ValidationError(`${key} must be a number`);
+  }
+  if (opts.integer && !Number.isInteger(value)) {
+    throw new ValidationError(`${key} must be an integer`);
+  }
+  if (value < 0 || value > opts.max) {
+    throw new ValidationError(`${key} must be between 0 and ${opts.max}`);
+  }
+  return value > 0 ? value : undefined; // 0 = "unset", omitted like maxActiveTime
 }
 
 // Validates the per-day meal map. Keys must be day names (lowercase-trimmed via
@@ -91,12 +117,13 @@ function validateMealsByDay(value: unknown): Partial<Record<DayOfWeek, MealType[
 
 // Validates the per-member roster (issue #74). Each member's excluded-ingredients,
 // dietary-restrictions, and (phase 2a) cuisine-preferences lists go through the
-// same validateStringArray as the household-wide lists. cuisinePreferences is
-// optional and omitted when empty, so existing rosters that predate it validate
-// unchanged and keep their fingerprint stable (skip-migrations). Returns undefined
-// when the roster is absent/empty so the field never lands in stored prefs for
-// households that don't use it. Per-member lists skip the household-only cross-list
-// conflict checks.
+// same validateStringArray as the household-wide lists; the (phase 2b) per-member
+// caloriesPerMeal and portionMultiplier sizing hints go through
+// validateOptionalPositiveNumber. All three optional fields are omitted when empty/
+// unset, so existing rosters that predate them validate unchanged and keep their
+// fingerprint stable (skip-migrations). Returns undefined when the roster is
+// absent/empty so the field never lands in stored prefs for households that don't
+// use it. Per-member lists skip the household-only cross-list conflict checks.
 function validateMembers(
   value: unknown,
   listOpts: { maxItems: number; maxLen: number },
@@ -142,6 +169,20 @@ function validateMembers(
       listOpts,
     );
     if (cuisine.length > 0) member.cuisinePreferences = cuisine;
+    // Optional per-member sizing hints (phase 2b). Validated like maxActiveTime and
+    // omitted when unset/0, so a member who sets neither stays shape-identical.
+    const calories = validateOptionalPositiveNumber(
+      "member caloriesPerMeal",
+      rec.caloriesPerMeal,
+      { integer: true, max: MAX_MEAL_CALORIES },
+    );
+    if (calories !== undefined) member.caloriesPerMeal = calories;
+    const portion = validateOptionalPositiveNumber(
+      "member portionMultiplier",
+      rec.portionMultiplier,
+      { integer: false, max: MAX_PORTION_MULTIPLIER },
+    );
+    if (portion !== undefined) member.portionMultiplier = portion;
     out.push(member);
   }
   return out.length > 0 ? out : undefined;

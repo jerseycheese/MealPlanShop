@@ -320,6 +320,49 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                       updateMember(i, { cuisinePreferences: next })
                     }
                   />
+                  <div className="preferences-modal__member-sizing">
+                    <label className="preferences-modal__member-sizing-field">
+                      <span className="preferences-modal__label">
+                        Calories/meal
+                      </span>
+                      <input
+                        type="number"
+                        className="preferences-modal__number"
+                        min={0}
+                        max={5000}
+                        placeholder="No target"
+                        value={member.caloriesPerMeal ?? ""}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          updateMember(i, {
+                            caloriesPerMeal:
+                              Number.isFinite(v) && v > 0 ? v : undefined,
+                          });
+                        }}
+                      />
+                    </label>
+                    <label className="preferences-modal__member-sizing-field">
+                      <span className="preferences-modal__label">
+                        Portion (x)
+                      </span>
+                      <input
+                        type="number"
+                        className="preferences-modal__number"
+                        min={0}
+                        max={10}
+                        step={0.5}
+                        placeholder="1"
+                        value={member.portionMultiplier ?? ""}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          updateMember(i, {
+                            portionMultiplier:
+                              Number.isFinite(v) && v > 0 ? v : undefined,
+                          });
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
               ))}
               <button
