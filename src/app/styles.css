@@ -454,6 +454,13 @@ body {
   color: var(--color-accent);
 }
 
+/* Split meal (per-member variant) — outlined to read apart from the sale pill. */
+.meal-card__pill--variant {
+  background: var(--color-bg);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+}
+
 /* ─── Meal Card Details (expandable) ────────────── */
 
 .meal-card__details {
@@ -525,6 +532,17 @@ body {
   color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* ─── Per-member variant (split meal) ───────────── */
+
+.meal-card__variant {
+  padding-left: 14px;
+  border-left: 2px solid var(--color-accent);
+}
+
+.meal-card__variant-title {
+  color: var(--color-accent);
 }
 
 /* ─── Instructions ──────────────────────────────── */
@@ -1108,6 +1126,11 @@ body {
   border-color: var(--color-primary);
 }
 
+.preferences-modal__number:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .preferences-modal__notes {
   width: 100%;
   box-sizing: border-box;
@@ -1183,6 +1206,80 @@ body {
   color: var(--color-text);
   flex: 1;
   min-width: 120px;
+}
+
+/* ─── Household members (per-member diets) ───────── */
+
+.preferences-modal__members {
+  display: flex;
+  flex-direction: column;
+}
+
+.preferences-modal__member {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin: 10px 0;
+  background: var(--color-bg);
+}
+
+.preferences-modal__member-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.preferences-modal__member-name {
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  flex: 1;
+}
+
+.preferences-modal__member-name:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.preferences-modal__member-remove {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.preferences-modal__member-remove:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.preferences-modal__member-add {
+  align-self: flex-start;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px dashed var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.preferences-modal__member-add:hover {
+  border-color: var(--color-primary);
 }
 
 .preferences-modal__checkrow {

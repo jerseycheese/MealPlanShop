@@ -1,4 +1,9 @@
-import type { UserPreferences, DayOfWeek, MealType } from "../types";
+import type {
+  UserPreferences,
+  HouseholdMember,
+  DayOfWeek,
+  MealType,
+} from "../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../types";
 import { normalize } from "../normalize";
 
@@ -13,6 +18,8 @@ const VALID_MEAL_TYPES = new Set<string>(MEAL_TYPES);
 const VALID_DAYS_OF_WEEK = new Set<string>(DAYS_OF_WEEK);
 const MAX_LIST_ITEMS = 50;
 const MAX_LIST_ITEM_LEN = 40;
+// Matches the householdSize ceiling — the member roster *is* the household.
+const MAX_MEMBERS = 20;
 // Sanity ceiling for the active-time cap; nothing weeknight-realistic needs more.
 const MAX_ACTIVE_TIME = 240;
 // Ceiling for the free-text notes field — a few sentences of instructions, not an essay.
@@ -82,6 +89,51 @@ function validateMealsByDay(value: unknown): Partial<Record<DayOfWeek, MealType[
   return out;
 }
 
+// Validates the per-member roster (issue #74). Each member's excluded-ingredients
+// and dietary-restrictions lists go through the same validateStringArray as the
+// household-wide lists. Returns undefined when absent/empty so the field never
+// lands in stored prefs for households that don't use it (keeping the fingerprint
+// stable). Per-member lists skip the household-only cross-list conflict checks.
+function validateMembers(
+  value: unknown,
+  listOpts: { maxItems: number; maxLen: number },
+): HouseholdMember[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new ValidationError("members must be an array");
+  if (value.length > MAX_MEMBERS) {
+    throw new ValidationError(`members can have at most ${MAX_MEMBERS} entries`);
+  }
+  const out: HouseholdMember[] = [];
+  for (const m of value) {
+    if (!m || typeof m !== "object" || Array.isArray(m)) {
+      throw new ValidationError("each member must be an object");
+    }
+    const rec = m as Record<string, unknown>;
+    if (typeof rec.name !== "string") {
+      throw new ValidationError("member name must be a string");
+    }
+    const name = rec.name.trim();
+    if (!name) throw new ValidationError("member name cannot be empty");
+    if (name.length > MAX_LIST_ITEM_LEN) {
+      throw new ValidationError(`member name must be ${MAX_LIST_ITEM_LEN} chars or fewer`);
+    }
+    out.push({
+      name,
+      excludedIngredients: validateStringArray(
+        "member excludedIngredients",
+        rec.excludedIngredients,
+        listOpts,
+      ),
+      dietaryRestrictions: validateStringArray(
+        "member dietaryRestrictions",
+        rec.dietaryRestrictions,
+        listOpts,
+      ),
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 export function validatePreferences(input: unknown): UserPreferences {
   if (!input || typeof input !== "object") {
     throw new ValidationError("Body must be a JSON object");
@@ -105,6 +157,7 @@ export function validatePreferences(input: unknown): UserPreferences {
   }
 
   const listOpts = { maxItems: MAX_LIST_ITEMS, maxLen: MAX_LIST_ITEM_LEN };
+  const members = validateMembers(p.members, listOpts);
   const dietary = validateStringArray("dietaryRestrictions", p.dietaryRestrictions, listOpts);
   const cuisine = validateStringArray("cuisinePreferences", p.cuisinePreferences, listOpts);
   const excluded = validateStringArray("excludedIngredients", p.excludedIngredients, listOpts);
@@ -142,7 +195,9 @@ export function validatePreferences(input: unknown): UserPreferences {
   }
 
   return {
-    householdSize: size as number,
+    // Roster model: the member list *is* the household, so its length wins.
+    householdSize: members ? members.length : (size as number),
+    ...(members ? { members } : {}),
     dietaryRestrictions: dietary,
     cuisinePreferences: cuisine,
     excludedIngredients: excluded,

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UserPreferences, MealType, DayOfWeek } from "../../types";
+import type {
+  UserPreferences,
+  HouseholdMember,
+  MealType,
+  DayOfWeek,
+} from "../../types";
 import { MEAL_TYPES, DAYS_OF_WEEK } from "../../types";
 import {
   findExcludedPantryConflicts,
@@ -177,6 +182,32 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
     setPrefs({ ...prefs, mealsByDay: nextMap });
   };
 
+  const members = prefs?.members ?? [];
+
+  // Roster model (issue #74): the member list *is* the household, so household
+  // size follows its length. Dropping the last member frees the manual size field.
+  const setMembers = (next: HouseholdMember[]) => {
+    if (!prefs) return;
+    if (next.length > 0) {
+      setPrefs({ ...prefs, members: next, householdSize: next.length });
+    } else {
+      const { members: _dropped, ...rest } = prefs;
+      setPrefs(rest);
+    }
+  };
+
+  const updateMember = (index: number, patch: Partial<HouseholdMember>) =>
+    setMembers(members.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+
+  const addMember = () =>
+    setMembers([
+      ...members,
+      { name: "", excludedIngredients: [], dietaryRestrictions: [] },
+    ]);
+
+  const removeMember = (index: number) =>
+    setMembers(members.filter((_, i) => i !== index));
+
   return (
     <div
       className="preferences-modal__backdrop"
@@ -221,9 +252,76 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                     householdSize: Number(e.target.value) || 1,
                   })
                 }
+                disabled={members.length > 0}
                 className="preferences-modal__number"
+                aria-describedby={
+                  members.length > 0 ? "pref-household-hint" : undefined
+                }
               />
+              {members.length > 0 && (
+                <p id="pref-household-hint" className="preferences-modal__hint">
+                  Set by your household members ({members.length}).
+                </p>
+              )}
             </div>
+
+            <fieldset className="preferences-modal__field preferences-modal__members">
+              <legend className="preferences-modal__label">
+                Household members
+              </legend>
+              <p className="preferences-modal__hint">
+                Add anyone who eats differently. What a member won't eat isn't
+                banned for everyone — the planner offers them an alternative dish
+                instead. The household-wide lists below still apply to all.
+              </p>
+              {members.map((member, i) => (
+                <div key={i} className="preferences-modal__member">
+                  <div className="preferences-modal__member-head">
+                    <input
+                      type="text"
+                      className="preferences-modal__member-name"
+                      placeholder="Name"
+                      aria-label={`Member ${i + 1} name`}
+                      value={member.name}
+                      onChange={(e) =>
+                        updateMember(i, { name: e.target.value })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="preferences-modal__member-remove"
+                      aria-label={`Remove ${member.name || `member ${i + 1}`}`}
+                      onClick={() => removeMember(i)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <ChipField
+                    label="Won't eat"
+                    hint="e.g. fish, mushrooms"
+                    values={member.excludedIngredients}
+                    onChange={(next) =>
+                      updateMember(i, { excludedIngredients: next })
+                    }
+                  />
+                  <ChipField
+                    label="Dietary needs"
+                    hint="e.g. vegetarian, gluten-free"
+                    values={member.dietaryRestrictions}
+                    onChange={(next) =>
+                      updateMember(i, { dietaryRestrictions: next })
+                    }
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="preferences-modal__member-add"
+                onClick={addMember}
+              >
+                + Add member
+              </button>
+            </fieldset>
 
             <div className="preferences-modal__field preferences-modal__field--active-time">
               <label

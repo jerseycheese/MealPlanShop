@@ -1,6 +1,16 @@
-import type { DayPlan, Meal, ShoppingListItem } from "../types";
+import type { DayPlan, Ingredient, Meal, ShoppingListItem } from "../types";
 import { MEAL_TYPES } from "../types";
 import { normalize } from "../normalize";
+
+// Every ingredient a meal needs to be shopped for, including those introduced by
+// per-member variants (issue #74). A split meal — salmon for the house, a chicken
+// swap for one member — has to put both proteins on the list.
+function mealIngredients(meal: Meal): Ingredient[] {
+  return [
+    ...meal.ingredients,
+    ...(meal.variants?.flatMap((v) => v.ingredients) ?? []),
+  ];
+}
 
 export interface MergeArgs {
   weekPlan: DayPlan[];
@@ -31,10 +41,10 @@ export function mergeShoppingListAfterSwap(args: MergeArgs): ShoppingListItem[] 
       if (dayIndex === swappedDayIndex && slot === swappedSlot) continue;
       const meal = day[slot];
       if (!meal) continue;
-      for (const ing of meal.ingredients) retained.add(normalize(ing.name));
+      for (const ing of mealIngredients(meal)) retained.add(normalize(ing.name));
     }
   });
-  for (const ing of newMeal.ingredients) retained.add(normalize(ing.name));
+  for (const ing of mealIngredients(newMeal)) retained.add(normalize(ing.name));
 
   const merged: ShoppingListItem[] = [];
   const usedNames = new Set<string>();
@@ -48,7 +58,7 @@ export function mergeShoppingListAfterSwap(args: MergeArgs): ShoppingListItem[] 
     }
   }
 
-  for (const ing of newMeal.ingredients) {
+  for (const ing of mealIngredients(newMeal)) {
     const name = normalize(ing.name);
     if (usedNames.has(name)) continue;
     const fromRegenerated = regeneratedList.find(

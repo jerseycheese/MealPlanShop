@@ -5,6 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 import type {
   Meal,
   MealPlanResult,
+  HouseholdMember,
   SaleItem,
   ShoppingListItem,
   UserPreferences,
@@ -111,6 +112,29 @@ function scanMealForViolations(
       });
     }
   }
+  // Per-member variants must still honor the absolute household exclusions — an
+  // alternative dish can't smuggle in an ingredient the whole house banned.
+  for (const variant of meal.variants ?? []) {
+    const vNameMatch = matchExpandedTerm(variant.name, expanded);
+    if (vNameMatch) {
+      hits.push({
+        mealName: variant.name,
+        term: vNameMatch.term,
+        ...(vNameMatch.sourceCategory ? { sourceCategory: vNameMatch.sourceCategory } : {}),
+      });
+    }
+    for (const ing of variant.ingredients) {
+      const m = matchExpandedTerm(ing.name, expanded);
+      if (m) {
+        hits.push({
+          mealName: variant.name,
+          ingredient: ing.name,
+          term: m.term,
+          ...(m.sourceCategory ? { sourceCategory: m.sourceCategory } : {}),
+        });
+      }
+    }
+  }
   return hits;
 }
 
@@ -191,22 +215,24 @@ async function callModelWithExclusionRetry<T>(
 
 // -- Schema for structured output --
 
+const ingredientsSchema = {
+  type: "array" as const,
+  items: {
+    type: "object" as const,
+    properties: {
+      name: { type: "string" as const },
+      quantity: { type: "string" as const },
+      onSale: { type: "boolean" as const },
+    },
+    required: ["name", "quantity", "onSale"],
+  },
+};
+
 const mealSchema = {
   type: "object" as const,
   properties: {
     name: { type: "string" as const },
-    ingredients: {
-      type: "array" as const,
-      items: {
-        type: "object" as const,
-        properties: {
-          name: { type: "string" as const },
-          quantity: { type: "string" as const },
-          onSale: { type: "boolean" as const },
-        },
-        required: ["name", "quantity", "onSale"],
-      },
-    },
+    ingredients: ingredientsSchema,
     activeTime: { type: "number" as const },
     totalTime: { type: "number" as const },
     instructions: {
@@ -215,6 +241,24 @@ const mealSchema = {
     },
     estimatedCalories: { type: "number" as const },
     estimatedCost: { type: "number" as const },
+    // Optional per-member alternative dishes (issue #74). Only present when a
+    // meal includes something a household member excludes.
+    variants: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          forMembers: { type: "array" as const, items: { type: "string" as const } },
+          name: { type: "string" as const },
+          ingredients: ingredientsSchema,
+          instructions: {
+            type: "array" as const,
+            items: { type: "string" as const },
+          },
+        },
+        required: ["forMembers", "name", "ingredients", "instructions"],
+      },
+    },
   },
   required: [
     "name",
@@ -283,6 +327,26 @@ export function formatMealsByDay(
     .join("\n");
 }
 
+// Renders the per-member roster as a prompt block (issue #74). Empty when no
+// members are set, so single-profile households read exactly as before. Member
+// exclusions are *personal* — they ask for a per-member variant dish, not a
+// house-wide ban (that's what the Excluded ingredients line above is for).
+export function formatMembers(
+  members: HouseholdMember[] | undefined
+): string {
+  if (!members || members.length === 0) return "";
+  const lines = members
+    .map((m) => {
+      const excluded =
+        m.excludedIngredients.length > 0 ? m.excludedIngredients.join(", ") : "none";
+      const dietary =
+        m.dietaryRestrictions.length > 0 ? m.dietaryRestrictions.join(", ") : "none";
+      return `  - ${m.name} — won't eat: ${excluded}; dietary: ${dietary}`;
+    })
+    .join("\n");
+  return `\n- Household members and their individual dietary needs (personal, not house-wide). When a planned meal includes something a member won't eat, or breaks their dietary restriction, add a "variants" entry to that meal: an alternative dish for that member that avoids it, reusing the meal's shared sides where you can. Members with "none" eat the main dish as-is. Put every variant ingredient in the shopping list too.\n${lines}`;
+}
+
 // Pure builder for the meal-plan user prompt. Extracted so the constraint wiring
 // (e.g. the active-time cap) can be unit-tested without an API key or network.
 export function buildMealPlanUserPrompt(
@@ -296,6 +360,7 @@ export function buildMealPlanUserPrompt(
   const notesLine = preferences.notes
     ? `\n- Special instructions (honor these): ${preferences.notes}`
     : "";
+  const membersLine = formatMembers(preferences.members);
 
   return `
 ## Current Sale Items
@@ -311,7 +376,7 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
 - Meals to plan, per day (generate exactly these meals for each day listed, and only these days):
-${formatMealsByDay(preferences.mealsByDay)}${capLine}${notesLine}
+${formatMealsByDay(preferences.mealsByDay)}${membersLine}${capLine}${notesLine}
 
 Generate a meal plan covering exactly the days and meals listed above.
 `;
@@ -446,7 +511,7 @@ ${filteredSaleItems.map((i) => `- ${i.item}: $${i.price.toFixed(2)} ${i.unit} [$
 - Pantry staples on hand (do not include in the shopping list): ${preferences.pantryStaples.length > 0 ? preferences.pantryStaples.join(", ") : "None"}
 - Use-it-up ingredients (already on hand — prioritize working these into meals, do not include in the shopping list): ${preferences.useUpIngredients.length > 0 ? preferences.useUpIngredients.join(", ") : "None"}
 - Meals to plan, per day:
-${formatMealsByDay(preferences.mealsByDay)}${
+${formatMealsByDay(preferences.mealsByDay)}${formatMembers(preferences.members)}${
     preferences.maxActiveTime && preferences.maxActiveTime > 0
       ? `\n- Maximum active (hands-on) time per meal: ${preferences.maxActiveTime} minutes — the replacement meal's activeTime must be at or under this.`
       : ""
