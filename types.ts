@@ -72,6 +72,9 @@ export interface HouseholdMember {
   name: string;
   excludedIngredients: string[];
   dietaryRestrictions: string[];
+  // Optional soft lean for this member's variant dish (issue #74 phase 2a).
+  // Absent = fall back to the household-wide cuisinePreferences for this member.
+  cuisinePreferences?: string[];
 }
 
 export interface UserPreferences {

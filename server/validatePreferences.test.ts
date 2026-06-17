@@ -197,4 +197,68 @@ assert.throws(
   ValidationError,
 );
 
-console.log("validatePreferences: 25/25 passed");
+// --- per-member cuisinePreferences (issue #74 phase 2a) ---
+
+// A per-member cuisine list round-trips and is trimmed, same as the other lists.
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    members: [
+      {
+        name: "Me",
+        excludedIngredients: [],
+        dietaryRestrictions: [],
+        cuisinePreferences: ["  Thai  ", "Indian"],
+      },
+    ],
+  }).members,
+  [
+    {
+      name: "Me",
+      excludedIngredients: [],
+      dietaryRestrictions: [],
+      cuisinePreferences: ["Thai", "Indian"],
+    },
+  ],
+);
+
+// An empty per-member cuisine list is omitted, leaving the member shape (and its
+// fingerprint) byte-identical to a member that never carried the field.
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    members: [
+      { name: "Me", excludedIngredients: [], dietaryRestrictions: [], cuisinePreferences: [] },
+    ],
+  }).members,
+  [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+);
+
+// A member saved before this field existed (no cuisinePreferences key) still
+// validates and the result omits the field — no migration needed.
+assert.deepEqual(
+  validatePreferences({
+    ...base,
+    members: [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+  }).members,
+  [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+);
+
+// An over-length per-member cuisine entry is rejected (same 40-char cap).
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        {
+          name: "X",
+          excludedIngredients: [],
+          dietaryRestrictions: [],
+          cuisinePreferences: ["z".repeat(41)],
+        },
+      ],
+    }),
+  ValidationError,
+);
+
+console.log("validatePreferences: 29/29 passed");

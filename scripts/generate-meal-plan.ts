@@ -341,10 +341,16 @@ export function formatMembers(
         m.excludedIngredients.length > 0 ? m.excludedIngredients.join(", ") : "none";
       const dietary =
         m.dietaryRestrictions.length > 0 ? m.dietaryRestrictions.join(", ") : "none";
-      return `  - ${m.name} — won't eat: ${excluded}; dietary: ${dietary}`;
+      // Only render a cuisine clause when the member set one — its absence is the
+      // signal to fall back to the household-wide cuisine list for that member.
+      const cuisine =
+        m.cuisinePreferences && m.cuisinePreferences.length > 0
+          ? `; prefers: ${m.cuisinePreferences.join(", ")}`
+          : "";
+      return `  - ${m.name} — won't eat: ${excluded}; dietary: ${dietary}${cuisine}`;
     })
     .join("\n");
-  return `\n- Household members and their individual dietary needs (personal, not house-wide). When a planned meal includes something a member won't eat, or breaks their dietary restriction, add a "variants" entry to that meal: an alternative dish for that member that avoids it, reusing the meal's shared sides where you can. Members with "none" eat the main dish as-is. Put every variant ingredient in the shopping list too.\n${lines}`;
+  return `\n- Household members and their individual dietary needs (personal, not house-wide). When a planned meal includes something a member won't eat, or breaks their dietary restriction, add a "variants" entry to that meal: an alternative dish for that member that avoids it, reusing the meal's shared sides where you can. When a member lists "prefers" cuisines, lean their variant dish toward one of those cuisines — a soft preference like the household cuisine list, not a hard rule; members with no "prefers" fall back to the household cuisines. Members with "none" eat the main dish as-is. Put every variant ingredient in the shopping list too.\n${lines}`;
 }
 
 // Pure builder for the meal-plan user prompt. Extracted so the constraint wiring
