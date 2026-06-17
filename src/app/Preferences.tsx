@@ -202,7 +202,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const addMember = () =>
     setMembers([
       ...members,
-      { name: "", excludedIngredients: [], dietaryRestrictions: [] },
+      { name: "", excludedIngredients: [], dietaryRestrictions: [], cuisinePreferences: [] },
     ]);
 
   const removeMember = (index: number) =>
@@ -310,6 +310,14 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                     values={member.dietaryRestrictions}
                     onChange={(next) =>
                       updateMember(i, { dietaryRestrictions: next })
+                    }
+                  />
+                  <ChipField
+                    label="Cuisine preferences"
+                    hint="e.g. Thai, Indian"
+                    values={member.cuisinePreferences ?? []}
+                    onChange={(next) =>
+                      updateMember(i, { cuisinePreferences: next })
                     }
                   />
                 </div>

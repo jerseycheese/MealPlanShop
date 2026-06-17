@@ -103,4 +103,22 @@ assert.ok(
   "expected no per-member block when members are unset",
 );
 
-console.log("buildMealPlanUserPrompt: 12/12 passed");
+// Per-member cuisine preferences (issue #74 phase 2a) render as a soft "prefers"
+// lean for that member; a member without them emits no "prefers:" clause.
+const withMemberCuisine = buildMealPlanUserPrompt(saleItems, {
+  ...base,
+  members: [
+    { name: "Me", excludedIngredients: [], dietaryRestrictions: [], cuisinePreferences: ["Thai"] },
+    { name: "Partner", excludedIngredients: ["fish"], dietaryRestrictions: [] },
+  ],
+});
+assert.ok(
+  withMemberCuisine.includes("Me — won't eat: none; dietary: none; prefers: Thai"),
+  "expected the member's cuisine preferences rendered as a 'prefers' clause",
+);
+assert.ok(
+  !withMemberCuisine.includes("Partner — won't eat: fish; dietary: none; prefers:"),
+  "expected no 'prefers' clause for a member without cuisine preferences",
+);
+
+console.log("buildMealPlanUserPrompt: 14/14 passed");

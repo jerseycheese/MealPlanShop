@@ -89,11 +89,14 @@ function validateMealsByDay(value: unknown): Partial<Record<DayOfWeek, MealType[
   return out;
 }
 
-// Validates the per-member roster (issue #74). Each member's excluded-ingredients
-// and dietary-restrictions lists go through the same validateStringArray as the
-// household-wide lists. Returns undefined when absent/empty so the field never
-// lands in stored prefs for households that don't use it (keeping the fingerprint
-// stable). Per-member lists skip the household-only cross-list conflict checks.
+// Validates the per-member roster (issue #74). Each member's excluded-ingredients,
+// dietary-restrictions, and (phase 2a) cuisine-preferences lists go through the
+// same validateStringArray as the household-wide lists. cuisinePreferences is
+// optional and omitted when empty, so existing rosters that predate it validate
+// unchanged and keep their fingerprint stable (skip-migrations). Returns undefined
+// when the roster is absent/empty so the field never lands in stored prefs for
+// households that don't use it. Per-member lists skip the household-only cross-list
+// conflict checks.
 function validateMembers(
   value: unknown,
   listOpts: { maxItems: number; maxLen: number },
@@ -117,7 +120,7 @@ function validateMembers(
     if (name.length > MAX_LIST_ITEM_LEN) {
       throw new ValidationError(`member name must be ${MAX_LIST_ITEM_LEN} chars or fewer`);
     }
-    out.push({
+    const member: HouseholdMember = {
       name,
       excludedIngredients: validateStringArray(
         "member excludedIngredients",
@@ -129,7 +132,17 @@ function validateMembers(
         rec.dietaryRestrictions,
         listOpts,
       ),
-    });
+    };
+    // Optional per-member cuisine lean (phase 2a). Tolerate it being absent on
+    // rosters saved before this field existed, and omit it when empty so the
+    // stored shape (and fingerprint) for members who don't use it is unchanged.
+    const cuisine = validateStringArray(
+      "member cuisinePreferences",
+      rec.cuisinePreferences ?? [],
+      listOpts,
+    );
+    if (cuisine.length > 0) member.cuisinePreferences = cuisine;
+    out.push(member);
   }
   return out.length > 0 ? out : undefined;
 }
