@@ -19,24 +19,24 @@ function item(
     item("Spinach", "produce", "1 bag"),
     item("Salt", "pantry"),
   ];
-  const out = formatShoppingListText(items, "");
+  const out = formatShoppingListText(items, []);
   assert.equal(
     out,
     "Spinach (1 bag)\nChicken breast (2 lbs)\nGreek yogurt (2 containers)\nSalt",
   );
 }
 
-// Extra items append after the meal-plan items, one per line, with blank/
-// whitespace-only lines dropped so they never become empty reminders.
+// Extra item names append after the meal-plan items, one per line, with blank/
+// whitespace-only entries dropped so they never become empty reminders.
 {
   const items = [item("Spinach", "produce", "1 bag")];
-  const out = formatShoppingListText(items, "Paper towels\n  \nDog food\n");
+  const out = formatShoppingListText(items, ["Paper towels", "  ", "Dog food"]);
   assert.equal(out, "Spinach (1 bag)\nPaper towels\nDog food");
 }
 
 // No items and no extras is an empty string, not a stray newline.
-assert.equal(formatShoppingListText([], ""), "");
-assert.equal(formatShoppingListText([], "   \n  "), "");
+assert.equal(formatShoppingListText([], []), "");
+assert.equal(formatShoppingListText([], ["   ", "  "]), "");
 
 // parseExtraItems is the single source of the trim-and-drop-blanks rule.
 assert.deepEqual(parseExtraItems("milk\n eggs \n\n  "), ["milk", "eggs"]);

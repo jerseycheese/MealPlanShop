@@ -64,6 +64,17 @@ export interface MealPlanResult {
   shoppingList: ShoppingListItem[];
 }
 
+// A user-added shopping-list entry that isn't from the meal plan (milk, paper
+// towels). Plan-independent — survives a regenerate. `price` is a rough Gemini
+// estimate (null when not estimated or no key), folded into the list total.
+// `category` is one of CATEGORY_ENUM so the item slots into the right aisle
+// section alongside meal-plan items; defaults to "other" until estimated.
+export interface ExtraItem {
+  name: string;
+  price: number | null;
+  category: string;
+}
+
 // One person in the household, with their own dietary needs. These are *softer*
 // than the household-wide excluded list: rather than banning an ingredient for
 // everyone, an item a member excludes makes the planner offer them a variant

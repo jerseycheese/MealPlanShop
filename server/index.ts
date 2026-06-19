@@ -13,6 +13,7 @@ import {
   generateMealSwap,
   DEFAULT_PREFERENCES,
 } from "../scripts/generate-meal-plan";
+import { estimateExtraItemPrices } from "../scripts/estimate-extra-prices";
 import {
   computePrefsFingerprint,
   isPlanFingerprintStale,
@@ -32,6 +33,7 @@ import type {
   MealPlanResult,
   UserPreferences,
   ExtractionResult,
+  ExtraItem,
   ScanProgress,
   DayOfWeek,
   MealType,
@@ -221,9 +223,7 @@ function writeFlippCache(flyerId: number, result: ExtractionResult) {
 // the file outright.
 function clearShoppingListState() {
   const existing = readJsonOrNull<{ extraItems?: unknown }>(SHOPPING_LIST_STATE_PATH);
-  const extraItems = Array.isArray(existing?.extraItems)
-    ? existing!.extraItems.filter((k: unknown): k is string => typeof k === "string")
-    : [];
+  const extraItems = normalizeExtraItems(existing?.extraItems);
   if (extraItems.length === 0) {
     if (fs.existsSync(SHOPPING_LIST_STATE_PATH)) {
       try {
@@ -251,6 +251,37 @@ function loadPreferences(): UserPreferences {
   return parsed ? { ...DEFAULT_PREFERENCES, ...parsed } : DEFAULT_PREFERENCES;
 }
 
+// Coerce stored extra items into the canonical {name, price} shape. Tolerates the
+// pre-price legacy form (a plain string array) by mapping each string to an
+// uncosted item — no migration, just a graceful read (issue: skip data migrations).
+// Trims names, drops blanks/over-long, and clamps to MAX_EXTRA_ITEMS.
+function normalizeExtraItems(raw: unknown): ExtraItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ExtraItem[] = [];
+  for (const entry of raw) {
+    let name: string | null = null;
+    let price: number | null = null;
+    let category = "other";
+    if (typeof entry === "string") {
+      name = entry;
+    } else if (entry && typeof entry === "object" && typeof (entry as { name?: unknown }).name === "string") {
+      name = (entry as { name: string }).name;
+      const p = (entry as { price?: unknown }).price;
+      if (typeof p === "number" && Number.isFinite(p) && p >= 0) {
+        price = Math.round(p * 100) / 100;
+      }
+      const c = (entry as { category?: unknown }).category;
+      if (typeof c === "string" && c.trim()) category = c.trim();
+    }
+    if (name == null) continue;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length > MAX_EXTRA_ITEM_LEN) continue;
+    out.push({ name: trimmed, price, category });
+    if (out.length >= MAX_EXTRA_ITEMS) break;
+  }
+  return out;
+}
+
 app.use(helmet());
 app.use(express.json());
 
@@ -259,6 +290,7 @@ app.use(express.json());
 app.use("/api/", rateLimit({ windowMs: 60_000, limit: 120 }));
 app.use("/api/circular/upload", rateLimit({ windowMs: 60_000, limit: 10 }));
 app.use("/api/circular/flipp/fetch", rateLimit({ windowMs: 60_000, limit: 20 }));
+app.use("/api/extra-items/estimate", rateLimit({ windowMs: 60_000, limit: 30 }));
 
 app.get("/api/preferences", (_req, res) => {
   res.json({ preferences: loadPreferences() });
@@ -326,10 +358,9 @@ app.get("/api/shopping-list-state", (_req, res) => {
     ? parsed.checkedKeys.filter((k: unknown) => typeof k === "string")
     : [];
   // Extra items are plan-independent — returned as-is regardless of planId so
-  // they survive a regenerate. Absent in older files → default [], no migration.
-  const extraItems = Array.isArray(parsed.extraItems)
-    ? parsed.extraItems.filter((k: unknown) => typeof k === "string")
-    : [];
+  // they survive a regenerate. Normalized to {name, price}; a legacy string array
+  // reads back as uncosted items. Absent in older files → default [].
+  const extraItems = normalizeExtraItems(parsed.extraItems);
   res.json({ planId, checkedKeys, extraItems });
 });
 
@@ -357,10 +388,10 @@ app.put("/api/shopping-list-state", asyncRoute((req, res) => {
       throw new HttpError(400, `checkedKeys can have at most ${MAX_CHECKED_KEYS} entries`);
     }
   }
-  // Optional, plan-independent extra items. Absent = leave existing ones; an
-  // explicit array replaces them. Trim and drop blanks so the stored list stays
-  // paste-clean.
-  let extraItems: string[] | undefined;
+  // Optional, plan-independent extra items, each {name, price}. Absent = leave
+  // existing ones; an explicit array replaces them. normalizeExtraItems trims,
+  // drops blanks, and tolerates the legacy string-array form on the way in.
+  let extraItems: ExtraItem[] | undefined;
   if (body.extraItems !== undefined) {
     if (!Array.isArray(body.extraItems)) {
       throw new HttpError(400, "extraItems must be an array");
@@ -368,27 +399,14 @@ app.put("/api/shopping-list-state", asyncRoute((req, res) => {
     if (body.extraItems.length > MAX_EXTRA_ITEMS) {
       throw new HttpError(400, `extraItems can have at most ${MAX_EXTRA_ITEMS} entries`);
     }
-    extraItems = [];
-    for (const e of body.extraItems) {
-      if (typeof e !== "string") {
-        throw new HttpError(400, "extraItems entries must be strings");
-      }
-      if (e.length > MAX_EXTRA_ITEM_LEN) {
-        throw new HttpError(400, `extraItems entries must be ${MAX_EXTRA_ITEM_LEN} chars or fewer`);
-      }
-      const trimmed = e.trim();
-      if (trimmed) extraItems.push(trimmed);
-    }
+    extraItems = normalizeExtraItems(body.extraItems);
   }
   ensureOutputDir();
   // When extraItems isn't sent, preserve whatever's on disk rather than wiping it.
   const existing = extraItems === undefined
     ? readJsonOrNull<{ extraItems?: unknown }>(SHOPPING_LIST_STATE_PATH)
     : null;
-  const persistedExtras = extraItems
-    ?? (Array.isArray(existing?.extraItems)
-      ? existing!.extraItems.filter((k: unknown): k is string => typeof k === "string")
-      : []);
+  const persistedExtras = extraItems ?? normalizeExtraItems(existing?.extraItems);
   writeJsonAtomic(SHOPPING_LIST_STATE_PATH, {
     planId: body.planId,
     checkedKeys: [...seen],
@@ -400,6 +418,25 @@ app.put("/api/shopping-list-state", asyncRoute((req, res) => {
 app.get("/api/circular/progress", (_req, res) => {
   res.json(scanProgress);
 });
+
+// Rough Gemini price estimate for user-added extra items. Best-effort: the client
+// adds the row first and folds in the price when this returns, so a failure here
+// (no key, API hiccup) just leaves the item uncosted rather than blocking the add.
+app.post("/api/extra-items/estimate", asyncRoute(async (req, res) => {
+  const body = req.body as { names?: unknown } | null | undefined;
+  const names = Array.isArray(body?.names)
+    ? body!.names
+        .filter((n): n is string => typeof n === "string")
+        .map((n) => n.trim())
+        .filter(Boolean)
+        .slice(0, MAX_EXTRA_ITEMS)
+    : [];
+  if (names.length === 0) {
+    throw new HttpError(400, "names must be a non-empty array of strings");
+  }
+  const prices = await estimateExtraItemPrices(names);
+  res.json({ prices });
+}));
 
 app.get("/api/circular", (_req, res) => {
   const data = readJsonOrNull<{

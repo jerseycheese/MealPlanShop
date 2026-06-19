@@ -31,11 +31,11 @@ function categoryRank(category: string): number {
 // Serialize the shopping list to a plaintext checklist where one line = one
 // reminder — no bullets, no category headers, no prices, so it pastes straight
 // into Apple Reminders (or any notes app) with each line becoming its own entry.
-// Meal-plan items come first, sorted into aisle order; the user's extra items
-// follow. Quantity rides in parentheses when present (e.g. "Chicken (2 lbs)").
+// Meal-plan items come first, sorted into aisle order; the user's extra item
+// names follow. Quantity rides in parentheses when present (e.g. "Chicken (2 lbs)").
 export function formatShoppingListText(
   items: ShoppingListItem[],
-  extraItemsText: string,
+  extraItemNames: string[],
 ): string {
   const sorted = [...items].sort(
     (a, b) => categoryRank(a.category) - categoryRank(b.category),
@@ -44,5 +44,6 @@ export function formatShoppingListText(
     const qty = item.quantity?.trim();
     return qty ? `${item.name} (${qty})` : item.name;
   });
-  return [...lines, ...parseExtraItems(extraItemsText)].join("\n");
+  const extras = extraItemNames.map((n) => n.trim()).filter(Boolean);
+  return [...lines, ...extras].join("\n");
 }

@@ -766,6 +766,76 @@ body {
   margin-left: 8px;
 }
 
+/* Extra-item price reads as a soft estimate, not a sale badge — muted, not the
+   accent pill. The em-dash placeholder uses the same chip so rows stay aligned. */
+.shopping-list__price--extra {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.shopping-list__totals {
+  flex-basis: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Extra rows put a remove button beside the (checkable) label. */
+.shopping-list__item-row--extra {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shopping-list__item-row--extra .shopping-list__item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.shopping-list__extra-remove {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.shopping-list__extra-remove:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.shopping-list__extra-add {
+  margin-top: 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.shopping-list__extra-add:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.shopping-list__extra-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* ─── Empty State ───────────────────────────────── */
 
 .empty-state {

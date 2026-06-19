@@ -5,6 +5,7 @@ const SUITES = [
   "scripts/excludedCategories.test.ts",
   "scripts/mealPlanShape.test.ts",
   "scripts/buildMealPlanUserPrompt.test.ts",
+  "scripts/estimate-extra-prices.test.ts",
   "server/circular/flipp.test.ts",
   "server/circular/categorize.test.ts",
   "server/mergeShoppingList.test.ts",
