@@ -23,6 +23,7 @@ import { moveMealInWeekPlan } from "./moveMeal";
 import { validatePreferences, ValidationError } from "./validatePreferences";
 import { resolveDataDir } from "./dataDir";
 import { hasPoppler } from "./poppler";
+import { hasReminders, sendToReminders, REMINDERS_LIST_NAME } from "./reminders";
 import {
   resolveGeminiKey,
   saveGeminiKey,
@@ -67,6 +68,10 @@ const MAX_CHECKED_KEYS = 500;
 const MAX_KEY_LEN = 200;
 const MAX_EXTRA_ITEMS = 100;
 const MAX_EXTRA_ITEM_LEN = 200;
+// Generous cap so a full weekly list (meal items + extras) is never silently
+// truncated on its way to Reminders — dropping grocery items would be worse than
+// a slightly long list.
+const MAX_REMINDER_ITEMS = 200;
 
 const ALLOWED_EXTENSIONS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".webp"]);
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -291,6 +296,7 @@ app.use("/api/", rateLimit({ windowMs: 60_000, limit: 120 }));
 app.use("/api/circular/upload", rateLimit({ windowMs: 60_000, limit: 10 }));
 app.use("/api/circular/flipp/fetch", rateLimit({ windowMs: 60_000, limit: 20 }));
 app.use("/api/extra-items/estimate", rateLimit({ windowMs: 60_000, limit: 30 }));
+app.use("/api/reminders", rateLimit({ windowMs: 60_000, limit: 30 }));
 
 app.get("/api/preferences", (_req, res) => {
   res.json({ preferences: loadPreferences() });
@@ -313,7 +319,7 @@ app.put("/api/preferences", asyncRoute((req, res) => {
 // pick can't fail with an opaque error. Image upload / Flipp / no-circular are
 // unaffected.
 app.get("/api/capabilities", (_req, res) => {
-  res.json({ pdf: hasPoppler() });
+  res.json({ pdf: hasPoppler(), reminders: hasReminders() });
 });
 
 app.get("/api/secrets/status", (_req, res) => {
@@ -436,6 +442,30 @@ app.post("/api/extra-items/estimate", asyncRoute(async (req, res) => {
   }
   const prices = await estimateExtraItemPrices(names);
   res.json({ prices });
+}));
+
+// Push the current shopping list into Apple Reminders (macOS only). The client
+// builds the final aisle-ordered, de-duped lines — it's the only place that has
+// the pantry-filtered list the user actually sees — and posts them; the server
+// is a thin osascript executor. Deliberately not wrapped in withSerial: it
+// writes nothing to output/, so it shouldn't be blocked behind an in-flight scan
+// or meal-plan generation.
+app.post("/api/reminders", asyncRoute(async (req, res) => {
+  const body = req.body as { items?: unknown } | null | undefined;
+  const items = Array.isArray(body?.items)
+    ? body!.items
+        .filter((n): n is string => typeof n === "string")
+        .map((n) => n.trim())
+        .filter(Boolean)
+        .slice(0, MAX_REMINDER_ITEMS)
+    : [];
+  if (items.length === 0) {
+    throw new HttpError(400, "items must be a non-empty array of strings");
+  }
+  // sendToReminders throws a 422-tagged error (missing osascript / TCC denial /
+  // AppleScript failure) that the error middleware turns into a readable message.
+  sendToReminders(REMINDERS_LIST_NAME, items);
+  res.json({ success: true, count: items.length });
 }));
 
 app.get("/api/circular", (_req, res) => {

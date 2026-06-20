@@ -19,6 +19,7 @@ import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
 import { formatValidThrough } from "./formatValidThrough";
 import { containsWholeWord } from "../../scripts/excludedCategories";
+import { normalize } from "../../normalize";
 
 const SAVED_HINT_DISMISS_MS = 3500;
 const SCAN_PROGRESS_POLL_MS = 1500;
@@ -121,6 +122,7 @@ export function App() {
   // state before learning whether a Gemini key is configured.
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [pdfSupported, setPdfSupported] = useState(true);
+  const [remindersSupported, setRemindersSupported] = useState(true);
   const [showPrefs, setShowPrefs] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
   const [pantryStaples, setPantryStaples] = useState<string[]>([]);
@@ -245,13 +247,20 @@ export function App() {
       .catch(() => setHasKey(true));
   }, []);
 
-  // Is poppler (pdftoppm) installed? Drives whether PDF upload is offered. Fail
+  // What can this server do? poppler (pdftoppm) drives whether PDF upload is
+  // offered; osascript on macOS drives whether Send-to-Reminders is shown. Fail
   // open — a failed check shouldn't hide a working feature, and the server still
-  // guards PDF scanning with a readable 422.
+  // guards each with a readable error.
   useEffect(() => {
-    fetchJson<{ pdf?: boolean }>(API.capabilities)
-      .then((data) => setPdfSupported(data.pdf !== false))
-      .catch(() => setPdfSupported(true));
+    fetchJson<{ pdf?: boolean; reminders?: boolean }>(API.capabilities)
+      .then((data) => {
+        setPdfSupported(data.pdf !== false);
+        setRemindersSupported(data.reminders !== false);
+      })
+      .catch(() => {
+        setPdfSupported(true);
+        setRemindersSupported(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -567,14 +576,26 @@ export function App() {
   };
 
   // Add typed names as extra rows immediately (price null), deduped against the
-  // existing list and within the batch, then fold in Gemini price estimates as
-  // they return — so a missing key or slow estimate never blocks the add.
+  // meal-plan items, the existing extras, and within the batch, then fold in
+  // Gemini price estimates as they return — so a missing key or slow estimate
+  // never blocks the add.
   const addExtras = (names: string[]) => {
-    const have = new Set(extras.map((e) => e.name.toLowerCase()));
+    // Seed the dedupe set with the visible meal-plan item names too, not just the
+    // existing extras — otherwise an extra that duplicates a meal ingredient slips
+    // in and shows up twice (the cumin/soy-sauce double-listing). Pantry-filtered
+    // to match what's on screen; normalize matches the shared list builder.
+    const mealItemNames = filterPantry(
+      mealPlan?.shoppingList ?? [],
+      pantryStaples,
+    ).map((i) => normalize(i.name));
+    const have = new Set([
+      ...mealItemNames,
+      ...extras.map((e) => normalize(e.name)),
+    ]);
     const toAdd: ExtraItem[] = [];
     for (const raw of names) {
       const name = raw.trim();
-      const key = name.toLowerCase();
+      const key = normalize(name);
       if (!name || have.has(key)) continue;
       have.add(key);
       toAdd.push({ name, price: null, category: "other" });
@@ -619,6 +640,30 @@ export function App() {
     );
     setExtras(nextExtras);
     persistExtras(nextExtras);
+  };
+
+  // Push the current shopping list to Apple Reminders through the server (which
+  // shells out to osascript). Returns a plain result so ShoppingList can show the
+  // macOS Automation-permission message inline rather than as a transient label.
+  const pushToReminders = async (
+    lines: string[],
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch(API.reminders, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: lines }),
+      });
+      const data = await res.json();
+      return data?.success
+        ? { success: true }
+        : { success: false, error: data?.error || "Couldn't send to Reminders." };
+    } catch {
+      return {
+        success: false,
+        error: "Couldn't reach the server to send to Reminders.",
+      };
+    }
   };
 
   const toggleMeal = (key: string) => {
@@ -935,6 +980,8 @@ export function App() {
             extras={extras}
             onAddExtras={addExtras}
             onRemoveExtra={removeExtra}
+            remindersSupported={remindersSupported}
+            onSendToReminders={pushToReminders}
           />
         </>
       )}

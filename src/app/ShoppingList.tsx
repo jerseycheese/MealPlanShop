@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ExtraItem, ShoppingListItem } from "../../types";
 import { shoppingItemKey } from "./shoppingItemKey";
 import {
+  buildReminderLines,
   CATEGORY_ORDER,
   formatShoppingListText,
   parseExtraItems,
@@ -16,6 +17,8 @@ interface ShoppingListProps {
   extras: ExtraItem[];
   onAddExtras: (names: string[]) => void;
   onRemoveExtra: (name: string) => void;
+  remindersSupported: boolean;
+  onSendToReminders: (lines: string[]) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Stable checkbox key for an extra item, namespaced so it can't collide with a
@@ -40,9 +43,14 @@ export function ShoppingList({
   extras,
   onAddExtras,
   onRemoveExtra,
+  remindersSupported,
+  onSendToReminders,
 }: ShoppingListProps) {
   const [copied, setCopied] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // Group meal-plan items and extras together by category so extras land in the
   // right store section (cheddar -> dairy, paper towels -> other) instead of a
@@ -68,10 +76,10 @@ export function ShoppingList({
   const extrasTotal = extras.reduce((sum, e) => sum + (e.price ?? 0), 0);
   const total = mealPlanTotal + extrasTotal;
   const totalItems = items.length + extras.length;
-  const copyText = formatShoppingListText(
-    items,
-    extras.map((e) => e.name),
-  );
+  const copyText = formatShoppingListText(items, extras);
+  // De-duped, aisle-ordered lines for Apple Reminders, with an aisle divider row
+  // before each group so the flat Standard list reads like sections.
+  const reminderLines = buildReminderLines(items, extras);
 
   // Copy the whole list (meal items + extras) as plaintext so it pastes into
   // Reminders one-line-per-item. Clipboard API needs a secure context; localhost
@@ -85,6 +93,23 @@ export function ShoppingList({
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
+    }
+  };
+
+  // Push the list to Apple Reminders. App owns the fetch; this manages the
+  // button feedback and surfaces the server's error inline — the macOS
+  // Automation-permission message needs to stay readable, not flash past.
+  const handleSendToReminders = async () => {
+    if (sending || reminderLines.length === 0) return;
+    setSending(true);
+    setSendError(null);
+    const result = await onSendToReminders(reminderLines);
+    setSending(false);
+    if (result.success) {
+      setSent(true);
+      window.setTimeout(() => setSent(false), 2000);
+    } else {
+      setSendError(result.error ?? "Couldn't send to Reminders.");
     }
   };
 
@@ -188,15 +213,32 @@ export function ShoppingList({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="shopping-list__copy"
-          onClick={handleCopy}
-          disabled={!copyText}
-        >
-          {copied ? "Copied" : "Copy list"}
-        </button>
+        <div className="shopping-list__actions">
+          <button
+            type="button"
+            className="shopping-list__copy"
+            onClick={handleCopy}
+            disabled={!copyText}
+          >
+            {copied ? "Copied" : "Copy list"}
+          </button>
+          {remindersSupported && (
+            <button
+              type="button"
+              className="shopping-list__send-reminders"
+              onClick={handleSendToReminders}
+              disabled={sending || reminderLines.length === 0}
+            >
+              {sending ? "Sending…" : sent ? "Sent" : "Send to Reminders"}
+            </button>
+          )}
+        </div>
       </div>
+      {sendError && (
+        <p className="shopping-list__send-error" role="alert">
+          {sendError}
+        </p>
+      )}
 
       <div className="shopping-list__grid">
         {sortedCategories.map((category) => (
