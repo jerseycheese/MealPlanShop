@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ExtraItem, ShoppingListItem } from "../../types";
 import { shoppingItemKey } from "./shoppingItemKey";
 import {
-  buildShoppingListLines,
+  buildReminderLines,
   CATEGORY_ORDER,
   formatShoppingListText,
   parseExtraItems,
@@ -77,9 +77,9 @@ export function ShoppingList({
   const total = mealPlanTotal + extrasTotal;
   const totalItems = items.length + extras.length;
   const copyText = formatShoppingListText(items, extras);
-  // The same de-duped, aisle-ordered lines the copy button produces — one per
-  // item — sent to Apple Reminders via the server.
-  const reminderLines = buildShoppingListLines(items, extras);
+  // De-duped, aisle-ordered lines for Apple Reminders, with an aisle divider row
+  // before each group so the flat Standard list reads like sections.
+  const reminderLines = buildReminderLines(items, extras);
 
   // Copy the whole list (meal items + extras) as plaintext so it pastes into
   // Reminders one-line-per-item. Clipboard API needs a secure context; localhost

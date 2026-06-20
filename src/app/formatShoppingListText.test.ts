@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import type { ShoppingListItem, ExtraItem } from "../../types";
 import {
+  buildReminderLines,
   buildShoppingListLines,
   formatShoppingListText,
   parseExtraItems,
@@ -64,4 +65,23 @@ assert.equal(formatShoppingListText([], [extra("   "), extra("  ")]), "");
 assert.deepEqual(parseExtraItems("milk\n eggs \n\n  "), ["milk", "eggs"]);
 assert.deepEqual(parseExtraItems(""), []);
 
-console.log("formatShoppingListText: 7/7 passed");
+// buildReminderLines groups the deduped, aisle-ordered lines under one divider
+// per aisle, so a flat Reminders list still reads by section.
+{
+  const items = [
+    item("Spinach", "produce", "1 bag"),
+    item("Chicken breast", "meat", "2 lbs"),
+  ];
+  assert.deepEqual(buildReminderLines(items, [extra("Paper towels", "other")]), [
+    "—— PRODUCE ——",
+    "Spinach (1 bag)",
+    "—— MEAT ——",
+    "Chicken breast (2 lbs)",
+    "—— OTHER ——",
+    "Paper towels",
+  ]);
+}
+// No items -> no dividers, so the Send button stays disabled.
+assert.deepEqual(buildReminderLines([], []), []);
+
+console.log("formatShoppingListText: 9/9 passed");
