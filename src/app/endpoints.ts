@@ -14,6 +14,7 @@ export const API = {
   mealPlanMove: "/api/meal-plan/move",
   shoppingListState: "/api/shopping-list-state",
   extraItemsEstimate: "/api/extra-items/estimate",
+  reminders: "/api/reminders",
   secretsStatus: "/api/secrets/status",
   secrets: "/api/secrets",
 } as const;

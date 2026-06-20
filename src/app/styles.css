@@ -631,6 +631,50 @@ body {
   opacity: 0.6;
 }
 
+.shopping-list__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  /* Hold the two buttons on one line; let the heading + totals wrap instead of
+     squeezing the actions into a stacked column. */
+  flex-shrink: 0;
+}
+
+.shopping-list__send-reminders {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.shopping-list__send-reminders:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+
+.shopping-list__send-reminders:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.shopping-list__send-error {
+  margin: 0 0 16px;
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border-radius: var(--radius-md);
+}
+
 .shopping-list__extra {
   margin-top: 24px;
 }
