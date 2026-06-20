@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type {
   MealPlanResult,
   ShoppingListItem,
+  ExtraItem,
   ScanProgress,
   MealType,
 } from "../../types";
@@ -17,7 +18,6 @@ import { WeekView } from "./WeekView";
 import { API } from "./endpoints";
 import { fetchJson } from "./fetchJson";
 import { formatValidThrough } from "./formatValidThrough";
-import { parseExtraItems } from "./formatShoppingListText";
 import { containsWholeWord } from "../../scripts/excludedCategories";
 
 const SAVED_HINT_DISMISS_MS = 3500;
@@ -125,9 +125,10 @@ export function App() {
   const [savedHint, setSavedHint] = useState(false);
   const [pantryStaples, setPantryStaples] = useState<string[]>([]);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
-  // Non-meal-plan items the user adds (milk, paper towels). Plan-independent —
-  // they survive a regenerate — and ride into the copied list. One per line.
-  const [extraItemsText, setExtraItemsText] = useState<string>("");
+  // Non-meal-plan items the user adds (milk, paper towels), each with a rough
+  // Gemini price estimate. Plan-independent — they survive a regenerate — and
+  // ride into the copied list and the list total.
+  const [extras, setExtras] = useState<ExtraItem[]>([]);
   const [circular, setCircular] = useState<CircularMeta | null>(null);
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
@@ -198,10 +199,25 @@ export function App() {
             setCheckedKeys(new Set());
           }
           // Extra items aren't tied to a plan — keep them across regenerates.
-          setExtraItemsText(
+          // The server returns canonical {name, price} objects.
+          setExtras(
             Array.isArray(state.extraItems)
-              ? state.extraItems.filter((s): s is string => typeof s === "string").join("\n")
-              : "",
+              ? (state.extraItems as unknown[]).flatMap((e) =>
+                  e && typeof e === "object" && typeof (e as ExtraItem).name === "string"
+                    ? [{
+                        name: (e as ExtraItem).name,
+                        price:
+                          typeof (e as ExtraItem).price === "number"
+                            ? (e as ExtraItem).price
+                            : null,
+                        category:
+                          typeof (e as ExtraItem).category === "string"
+                            ? (e as ExtraItem).category
+                            : "other",
+                      }]
+                    : [],
+                )
+              : [],
           );
         } catch {
           setCheckedKeys(new Set());
@@ -513,7 +529,7 @@ export function App() {
       body: JSON.stringify({
         planId,
         checkedKeys: snapshot,
-        extraItems: parseExtraItems(extraItemsText),
+        extraItems: extras,
       }),
     })
       .then((res) => {
@@ -533,10 +549,9 @@ export function App() {
       });
   };
 
-  // Persist the extra-items field on blur. Fire-and-forget: no rapid-toggle race
-  // like the checkboxes, and a dropped save just means re-typing, so a failed
-  // PUT doesn't need to revert anything.
-  const commitExtraItems = () => {
+  // Persist extras (alongside the current checks) to the server. Best-effort
+  // fire-and-forget: a dropped save just means re-adding, so no revert needed.
+  const persistExtras = (nextExtras: ExtraItem[]) => {
     if (!mealPlan?.planId) return;
     fetch(API.shoppingListState, {
       method: "PUT",
@@ -544,11 +559,66 @@ export function App() {
       body: JSON.stringify({
         planId: mealPlan.planId,
         checkedKeys: [...checkedKeys],
-        extraItems: parseExtraItems(extraItemsText),
+        extraItems: nextExtras,
       }),
     }).catch(() => {
-      /* best-effort; the text stays in the field either way */
+      /* best-effort */
     });
+  };
+
+  // Add typed names as extra rows immediately (price null), deduped against the
+  // existing list and within the batch, then fold in Gemini price estimates as
+  // they return — so a missing key or slow estimate never blocks the add.
+  const addExtras = (names: string[]) => {
+    const have = new Set(extras.map((e) => e.name.toLowerCase()));
+    const toAdd: ExtraItem[] = [];
+    for (const raw of names) {
+      const name = raw.trim();
+      const key = name.toLowerCase();
+      if (!name || have.has(key)) continue;
+      have.add(key);
+      toAdd.push({ name, price: null, category: "other" });
+    }
+    if (toAdd.length === 0) return;
+    const nextExtras = [...extras, ...toAdd];
+    setExtras(nextExtras);
+    persistExtras(nextExtras);
+
+    fetch(API.extraItemsEstimate, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names: toAdd.map((e) => e.name) }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((data: { prices?: ExtraItem[] }) => {
+        const estimated = new Map<string, ExtraItem>();
+        for (const p of data.prices ?? []) {
+          if (p && typeof p.name === "string") estimated.set(p.name.toLowerCase(), p);
+        }
+        const merged = nextExtras.map((e) => {
+          const hit = estimated.get(e.name.toLowerCase());
+          return hit
+            ? {
+                ...e,
+                price: typeof hit.price === "number" ? hit.price : null,
+                category: typeof hit.category === "string" ? hit.category : e.category,
+              }
+            : e;
+        });
+        setExtras(merged);
+        persistExtras(merged);
+      })
+      .catch(() => {
+        /* no key or estimate failed — leave the new rows uncosted */
+      });
+  };
+
+  const removeExtra = (name: string) => {
+    const nextExtras = extras.filter(
+      (e) => e.name.toLowerCase() !== name.toLowerCase(),
+    );
+    setExtras(nextExtras);
+    persistExtras(nextExtras);
   };
 
   const toggleMeal = (key: string) => {
@@ -858,13 +928,13 @@ export function App() {
             items={filterPantry(mealPlan.shoppingList, pantryStaples)}
             checkedKeys={checkedKeys}
             onToggle={toggleChecked}
-            weeklyTotal={mealPlan.weekPlan
+            mealPlanTotal={mealPlan.weekPlan
               .flatMap((d) => MEAL_TYPES.map((t) => d[t]?.estimatedCost ?? 0))
               .reduce((a, b) => a + b, 0)}
             loyaltyProgram={loyaltyProgramFor(circular?.storeName ?? null)}
-            extraItemsText={extraItemsText}
-            onExtraItemsChange={setExtraItemsText}
-            onExtraItemsCommit={commitExtraItems}
+            extras={extras}
+            onAddExtras={addExtras}
+            onRemoveExtra={removeExtra}
           />
         </>
       )}

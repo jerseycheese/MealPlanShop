@@ -13,6 +13,7 @@ export const API = {
   mealPlanSwap: "/api/meal-plan/swap",
   mealPlanMove: "/api/meal-plan/move",
   shoppingListState: "/api/shopping-list-state",
+  extraItemsEstimate: "/api/extra-items/estimate",
   secretsStatus: "/api/secrets/status",
   secrets: "/api/secrets",
 } as const;
