@@ -54,6 +54,10 @@ export interface ShoppingListItem {
   category: string;
   onSale: boolean;
   salePrice: number | null;
+  // Per-unit label for the sale price ("lb", "each", "bunch"), re-joined from the
+  // circular's SaleItem so a row can show "$1.29/lb" vs "$0.69 ea". Optional: old
+  // stored plans and non-sale rows simply omit it. Issue #121.
+  unit?: string;
   requiresLoyaltyCard?: boolean;
 }
 
@@ -113,23 +117,23 @@ export interface UserPreferences {
   notes?: string;
 }
 
-export const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
+export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const;
 export type MealType = (typeof MEAL_TYPES)[number];
 
 export const DAYS_OF_WEEK = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
 ] as const;
 export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
 
 export type ScanProgress =
-  | { stage: "idle" }
-  | { stage: "preparing" }
-  | { stage: "scanning"; page: number; pages: number; storeName: string | null }
-  | { stage: "fetching"; merchant: string }
-  | { stage: "planning" };
+  | { stage: 'idle' }
+  | { stage: 'preparing' }
+  | { stage: 'scanning'; page: number; pages: number; storeName: string | null }
+  | { stage: 'fetching'; merchant: string }
+  | { stage: 'planning' };

@@ -10,8 +10,8 @@
   --color-accent: #c75b2b;
   --color-accent-light: #fff0e8;
   --color-border: #e8e2d8;
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-pill: 100px;
@@ -230,7 +230,10 @@ body {
   font-family: var(--font-body);
   font-size: 13px;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    opacity 0.15s;
 }
 
 .week-grid-cell--filled {
@@ -399,7 +402,9 @@ body {
   color: var(--color-primary);
   cursor: pointer;
   user-select: none;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .meal-card__swap:hover {
@@ -407,7 +412,7 @@ body {
   color: #fff;
 }
 
-.meal-card__swap[aria-disabled="true"] {
+.meal-card__swap[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.55;
   background: var(--color-primary-light);
@@ -618,7 +623,10 @@ body {
   color: var(--color-text);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .shopping-list__copy:hover:not(:disabled) {
@@ -652,7 +660,10 @@ body {
   color: var(--color-primary);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .shopping-list__send-reminders:hover:not(:disabled) {
@@ -825,6 +836,14 @@ body {
   color: var(--color-text);
 }
 
+/* Clarifies the total above is planned meals + listed extras, not a trip total. */
+.shopping-list__totals-note {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
 /* Extra rows put a remove button beside the (checkable) label. */
 .shopping-list__item-row--extra {
   display: flex;
@@ -848,7 +867,9 @@ body {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .shopping-list__extra-remove:hover {
@@ -867,7 +888,10 @@ body {
   background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .shopping-list__extra-add:hover:not(:disabled) {
@@ -921,7 +945,10 @@ body {
   background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, transform 0.1s;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.1s;
 }
 
 .upload-circular__header-btn:hover:not(:disabled) {
@@ -947,7 +974,9 @@ body {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .upload-circular__dropzone:hover,
@@ -1066,7 +1095,10 @@ body {
   background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, transform 0.1s;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.1s;
 }
 
 .header__prefs:hover:not(:disabled) {
@@ -1124,7 +1156,9 @@ body {
   background: var(--color-accent);
   color: var(--color-surface);
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
+  transition:
+    opacity 0.15s,
+    transform 0.1s;
 }
 
 .meal-plan-stale-banner__cta:hover:not(:disabled) {
@@ -1370,7 +1404,9 @@ body {
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .preferences-modal__member-remove:hover {
@@ -1500,7 +1536,10 @@ body {
   background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .preferences-modal__backup-btn:hover:not(:disabled) {
@@ -1533,7 +1572,10 @@ body {
   padding: 9px 18px;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
 }
 
 .preferences-modal__cancel {
@@ -1641,7 +1683,10 @@ body {
   background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .api-key-entry__clear:hover:not(:disabled) {
@@ -1686,7 +1731,9 @@ body {
   background: var(--color-primary);
   color: #fff;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    transform 0.1s;
 }
 
 .api-key-entry__save:hover:not(:disabled) {
@@ -2087,7 +2134,7 @@ body {
 
 .empty-state__divider::before,
 .empty-state__divider::after {
-  content: "";
+  content: '';
   flex: 1;
   height: 1px;
   background: var(--color-border);

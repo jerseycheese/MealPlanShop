@@ -1,12 +1,13 @@
-import { useState } from "react";
-import type { ExtraItem, ShoppingListItem } from "../../types";
-import { shoppingItemKey } from "./shoppingItemKey";
+import { useState } from 'react';
+import type { ExtraItem, ShoppingListItem } from '../../types';
+import { shoppingItemKey } from './shoppingItemKey';
+import { formatSalePrice } from './formatSalePrice';
 import {
   buildReminderLines,
   CATEGORY_ORDER,
   formatShoppingListText,
   parseExtraItems,
-} from "./formatShoppingListText";
+} from './formatShoppingListText';
 
 interface ShoppingListProps {
   items: ShoppingListItem[];
@@ -18,7 +19,9 @@ interface ShoppingListProps {
   onAddExtras: (names: string[]) => void;
   onRemoveExtra: (name: string) => void;
   remindersSupported: boolean;
-  onSendToReminders: (lines: string[]) => Promise<{ success: boolean; error?: string }>;
+  onSendToReminders: (
+    lines: string[]
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Stable checkbox key for an extra item, namespaced so it can't collide with a
@@ -31,8 +34,8 @@ function extraKey(name: string): string {
 // They share the aisle grouping but render slightly differently (extras carry a
 // remove button and an estimated price; meal items carry sale/loyalty info).
 type Row =
-  | { kind: "meal"; item: ShoppingListItem }
-  | { kind: "extra"; item: ExtraItem };
+  | { kind: 'meal'; item: ShoppingListItem }
+  | { kind: 'extra'; item: ExtraItem };
 
 export function ShoppingList({
   items,
@@ -47,7 +50,7 @@ export function ShoppingList({
   onSendToReminders,
 }: ShoppingListProps) {
   const [copied, setCopied] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -57,12 +60,12 @@ export function ShoppingList({
   // separate bucket.
   const grouped = new Map<string, Row[]>();
   const pushRow = (category: string, row: Row) => {
-    const cat = (category || "other").toLowerCase();
+    const cat = (category || 'other').toLowerCase();
     if (!grouped.has(cat)) grouped.set(cat, []);
     grouped.get(cat)!.push(row);
   };
-  for (const item of items) pushRow(item.category, { kind: "meal", item });
-  for (const ex of extras) pushRow(ex.category, { kind: "extra", item: ex });
+  for (const item of items) pushRow(item.category, { kind: 'meal', item });
+  for (const ex of extras) pushRow(ex.category, { kind: 'extra', item: ex });
 
   const sortedCategories = [...grouped.keys()].sort((a, b) => {
     const ai = CATEGORY_ORDER.indexOf(a);
@@ -117,19 +120,19 @@ export function ShoppingList({
     const names = parseExtraItems(draft);
     if (names.length === 0) return;
     onAddExtras(names);
-    setDraft("");
+    setDraft('');
   };
 
   const renderMealRow = (item: ShoppingListItem) => {
     const key = shoppingItemKey(item);
     const checked = checkedKeys.has(key);
     const classes = [
-      "shopping-list__item",
-      item.onSale ? "shopping-list__item--sale" : "",
-      checked ? "shopping-list__item--checked" : "",
+      'shopping-list__item',
+      item.onSale ? 'shopping-list__item--sale' : '',
+      checked ? 'shopping-list__item--checked' : '',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
     return (
       <li key={key} className="shopping-list__item-row">
         <label className={classes}>
@@ -140,7 +143,9 @@ export function ShoppingList({
             onChange={() => onToggle(key)}
           />
           <div className="shopping-list__item-info">
-            <span className="shopping-list__item-name" title={item.name}>{item.name}</span>
+            <span className="shopping-list__item-name" title={item.name}>
+              {item.name}
+            </span>
             {item.requiresLoyaltyCard && loyaltyProgram && (
               <span
                 className={`loyalty-chip loyalty-chip--${loyaltyProgram.modifier}`}
@@ -153,7 +158,7 @@ export function ShoppingList({
           </div>
           {item.onSale && item.salePrice != null && (
             <span className="shopping-list__price">
-              ${item.salePrice.toFixed(2)}
+              {formatSalePrice(item.salePrice, item.unit)}
             </span>
           )}
         </label>
@@ -165,13 +170,16 @@ export function ShoppingList({
     const key = extraKey(ex.name);
     const checked = checkedKeys.has(key);
     const classes = [
-      "shopping-list__item",
-      checked ? "shopping-list__item--checked" : "",
+      'shopping-list__item',
+      checked ? 'shopping-list__item--checked' : '',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
     return (
-      <li key={key} className="shopping-list__item-row shopping-list__item-row--extra">
+      <li
+        key={key}
+        className="shopping-list__item-row shopping-list__item-row--extra"
+      >
         <label className={classes}>
           <input
             type="checkbox"
@@ -180,10 +188,12 @@ export function ShoppingList({
             onChange={() => onToggle(key)}
           />
           <div className="shopping-list__item-info">
-            <span className="shopping-list__item-name" title={ex.name}>{ex.name}</span>
+            <span className="shopping-list__item-name" title={ex.name}>
+              {ex.name}
+            </span>
           </div>
           <span className="shopping-list__price shopping-list__price--extra">
-            {ex.price != null ? `$${ex.price.toFixed(2)}` : "—"}
+            {ex.price != null ? `$${ex.price.toFixed(2)}` : '—'}
           </span>
         </label>
         <button
@@ -208,9 +218,15 @@ export function ShoppingList({
             {saleCount > 0 && ` (${saleCount} on sale)`}
           </span>
           {mealPlanTotal > 0 && (
-            <span className="shopping-list__totals">
-              Meal plan ~${mealPlanTotal.toFixed(2)} · Total ~${total.toFixed(2)}
-            </span>
+            <>
+              <span className="shopping-list__totals">
+                Meal plan ~${mealPlanTotal.toFixed(2)} · Listed items ~$
+                {total.toFixed(2)}
+              </span>
+              <span className="shopping-list__totals-note">
+                Planned meals plus extras you added — not a full-trip total.
+              </span>
+            </>
           )}
         </div>
         <div className="shopping-list__actions">
@@ -220,7 +236,7 @@ export function ShoppingList({
             onClick={handleCopy}
             disabled={!copyText}
           >
-            {copied ? "Copied" : "Copy list"}
+            {copied ? 'Copied' : 'Copy list'}
           </button>
           {remindersSupported && (
             <button
@@ -229,7 +245,7 @@ export function ShoppingList({
               onClick={handleSendToReminders}
               disabled={sending || reminderLines.length === 0}
             >
-              {sending ? "Sending…" : sent ? "Sent" : "Send to Reminders"}
+              {sending ? 'Sending…' : sent ? 'Sent' : 'Send to Reminders'}
             </button>
           )}
         </div>
@@ -245,25 +261,30 @@ export function ShoppingList({
           <div key={category} className="shopping-list__category">
             <h3 className="shopping-list__category-name">{category}</h3>
             <ul className="shopping-list__items">
-              {grouped.get(category)!.map((row) =>
-                row.kind === "meal"
-                  ? renderMealRow(row.item)
-                  : renderExtraRow(row.item),
-              )}
+              {grouped
+                .get(category)!
+                .map((row) =>
+                  row.kind === 'meal'
+                    ? renderMealRow(row.item)
+                    : renderExtraRow(row.item)
+                )}
             </ul>
           </div>
         ))}
       </div>
 
       <div className="shopping-list__extra">
-        <label className="shopping-list__extra-label" htmlFor="shopping-list-extra">
+        <label
+          className="shopping-list__extra-label"
+          htmlFor="shopping-list-extra"
+        >
           Add items (milk, paper towels — one per line)
         </label>
         <textarea
           id="shopping-list-extra"
           className="shopping-list__extra-input"
           rows={3}
-          placeholder={"One per line, then Add — price and aisle are estimated"}
+          placeholder={'One per line, then Add — price and aisle are estimated'}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
         />
