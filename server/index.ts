@@ -21,6 +21,7 @@ import {
 import { mergeShoppingListAfterSwap } from './mergeShoppingList';
 import { attachSaleUnits } from './attachSaleUnits';
 import { moveMealInWeekPlan } from './moveMeal';
+import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
 import { resolveDataDir } from './dataDir';
 import { hasPoppler } from './poppler';
@@ -196,58 +197,59 @@ async function runScanAndPlan(
   extraction: ExtractionResult,
   opts: { allowEmpty?: boolean } = {}
 ): Promise<{ itemCount: number; storeName: string | null }> {
-  if (!opts.allowEmpty && extraction.items.length === 0) {
-    const err = new Error('No sale items extracted from this circular.');
-    (err as Error & { statusCode?: number }).statusCode = 422;
-    throw err;
-  }
-  ensureOutputDir();
-  writeJsonAtomic(EXTRACTION_PATH, extraction);
-
   scanProgress = { stage: 'planning' };
-  const prefs = loadPreferences();
-  const mealPlan = await generateMealPlan(extraction.items, prefs);
-
-  // Post-hoc join: propagate the loyalty-card flag from sale items to shopping
-  // list rows by name match. The meal plan prompt doesn't know about it; doing
-  // it here keeps the prompt unchanged.
-  const loyaltyByName = new Map<string, boolean>();
-  for (const item of extraction.items) {
-    if (item.requiresLoyaltyCard)
-      loyaltyByName.set(item.item.toLowerCase(), true);
-  }
-  if (loyaltyByName.size && Array.isArray(mealPlan.shoppingList)) {
-    for (const row of mealPlan.shoppingList) {
-      const rowName = row.name.toLowerCase();
-      for (const [saleName] of loyaltyByName) {
-        if (
-          containsWholeWord(rowName, saleName) ||
-          containsWholeWord(saleName, rowName)
-        ) {
-          row.requiresLoyaltyCard = true;
-          break;
+  // Generate first, then write the extraction and the plan together (commit), so a
+  // generation failure or interruption can't leave a new circular paired with the
+  // old plan — the UI would otherwise show a fresh store banner over a stale plan (#123).
+  return scanAndPlan(
+    extraction,
+    {
+      loadPreferences,
+      generate: generateMealPlan,
+      decorate: (mealPlan, ext, prefs) => {
+        // Post-hoc join: propagate the loyalty-card flag from sale items to shopping
+        // list rows by name match. The meal plan prompt doesn't know about it; doing
+        // it here keeps the prompt unchanged.
+        const loyaltyByName = new Map<string, boolean>();
+        for (const item of ext.items) {
+          if (item.requiresLoyaltyCard)
+            loyaltyByName.set(item.item.toLowerCase(), true);
         }
-      }
-    }
-  }
+        if (loyaltyByName.size && Array.isArray(mealPlan.shoppingList)) {
+          for (const row of mealPlan.shoppingList) {
+            const rowName = row.name.toLowerCase();
+            for (const [saleName] of loyaltyByName) {
+              if (
+                containsWholeWord(rowName, saleName) ||
+                containsWholeWord(saleName, rowName)
+              ) {
+                row.requiresLoyaltyCard = true;
+                break;
+              }
+            }
+          }
+        }
 
-  // Same post-hoc join for the per-unit price label (lb vs each) — issue #121.
-  if (Array.isArray(mealPlan.shoppingList)) {
-    attachSaleUnits(mealPlan.shoppingList, extraction.items);
-  }
+        // Same post-hoc join for the per-unit price label (lb vs each) — issue #121.
+        if (Array.isArray(mealPlan.shoppingList)) {
+          attachSaleUnits(mealPlan.shoppingList, ext.items);
+        }
 
-  const stamped = {
-    ...mealPlan,
-    planId: crypto.randomUUID(),
-    prefsFingerprint: computePrefsFingerprint(prefs),
-  };
-  writeJsonAtomic(MEAL_PLAN_PATH, stamped);
-  clearShoppingListState();
-
-  return {
-    itemCount: extraction.items.length,
-    storeName: extraction.storeName,
-  };
+        return {
+          ...mealPlan,
+          planId: crypto.randomUUID(),
+          prefsFingerprint: computePrefsFingerprint(prefs),
+        };
+      },
+      commit: (ext, plan) => {
+        ensureOutputDir();
+        writeJsonAtomic(EXTRACTION_PATH, ext);
+        writeJsonAtomic(MEAL_PLAN_PATH, plan);
+        clearShoppingListState();
+      },
+    },
+    opts
+  );
 }
 
 function readFlippCache(flyerId: number): ExtractionResult | null {
