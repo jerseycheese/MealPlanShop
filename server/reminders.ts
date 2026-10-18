@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync } from 'node:child_process';
 
 // One-tap "Send to Apple Reminders": push the shopping list onto the phone by
 // shelling out to macOS osascript. macOS-only by nature. Mirrors the
@@ -11,12 +11,12 @@ import { execFileSync } from "node:child_process";
 // list's Auto-Categorize would re-sort items into its own sections and undo the
 // ordering. The list type isn't scriptable, so creating our own is the only way
 // to guarantee Standard.
-export const REMINDERS_LIST_NAME = "MealPlanShop";
+export const REMINDERS_LIST_NAME = 'MealPlanShop';
 
 // Shown both when the capability probe fails and when osascript itself is
 // missing, so the macOS-only message has a single source.
 export const REMINDERS_UNSUPPORTED_MESSAGE =
-  "Sending to Apple Reminders only works on macOS.";
+  'Sending to Apple Reminders only works on macOS.';
 
 // The list name and item titles are passed as argv to `on run argv` — never
 // interpolated into the script text. So a name with quotes, parens, or
@@ -46,11 +46,11 @@ let cached: boolean | undefined;
 // means "not available" — this must never throw.
 export function hasReminders(): boolean {
   if (cached === undefined) {
-    if (process.platform !== "darwin") {
+    if (process.platform !== 'darwin') {
       cached = false;
     } else {
       try {
-        execFileSync("osascript", ["-e", "return 1"], { stdio: "ignore" });
+        execFileSync('osascript', ['-e', 'return 1'], { stdio: 'ignore' });
         cached = true;
       } catch {
         cached = false;
@@ -65,19 +65,35 @@ export function hasReminders(): boolean {
 // osascript exits non-zero with "Not authorized to send Apple events" (-1743).
 // That grant is a one-time manual approval — there's no API to pre-authorize it.
 export function remindersErrorMessage(detail: string): string {
-  const text = (detail || "").trim();
+  const text = (detail || '').trim();
   if (/not authorized|-1743/i.test(text)) {
     return (
-      "MealPlanShop needs permission to control Reminders. Open System Settings " +
-      "-> Privacy & Security -> Automation, enable Reminders for your terminal " +
-      "or Node, then try again. (This is a one-time approval.)"
+      'MealPlanShop needs permission to control Reminders. Open System Settings ' +
+      '-> Privacy & Security -> Automation, enable Reminders for your terminal ' +
+      'or Node, then try again. (This is a one-time approval.)'
     );
   }
   if (/macos|enoent|not found/i.test(text)) {
     return REMINDERS_UNSUPPORTED_MESSAGE;
   }
-  const firstLine = text.split("\n")[0] || "unknown error";
+  if (text === 'TIMEOUT') {
+    return (
+      'Sending to Reminders took too long and was stopped partway through. ' +
+      'Reminders creates items one at a time, so long lists can take a while — try again.'
+    );
+  }
+  const firstLine = text.split('\n')[0] || 'unknown error';
   return `Couldn't send to Apple Reminders: ${firstLine}`;
+}
+
+// Reminders.app creates items one AppleScript call at a time — no batch API —
+// so wall-clock time scales with list length (observed ~0.8s/item on a 52-line
+// push). A flat timeout works until the list grows past it, then every send
+// fails with an unhelpful "unknown error" (execFileSync kills the process on
+// timeout, so there's no stderr to explain why). Scale with titles.length
+// instead of guessing a single constant, capped so a runaway call still ends.
+function reminderTimeoutMs(itemCount: number): number {
+  return Math.min(300_000, 10_000 + itemCount * 1_500);
 }
 
 // Push the titles into the named Reminders list (replace semantics). Throws a
@@ -85,16 +101,24 @@ export function remindersErrorMessage(detail: string): string {
 // with a readable message on any osascript failure.
 export function sendToReminders(listName: string, titles: string[]): void {
   try {
-    execFileSync("osascript", ["-e", REMINDERS_SCRIPT, listName, ...titles], {
-      stdio: ["ignore", "ignore", "pipe"],
-      timeout: 30_000,
+    execFileSync('osascript', ['-e', REMINDERS_SCRIPT, listName, ...titles], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      timeout: reminderTimeoutMs(titles.length),
     });
   } catch (err) {
-    const e = err as { stderr?: Buffer | string; code?: string };
-    // ENOENT = osascript isn't on PATH (non-macOS). Otherwise the script ran and
-    // failed — the reason is in stderr (commonly the TCC "not authorized").
-    const detail =
-      e.code === "ENOENT" ? REMINDERS_UNSUPPORTED_MESSAGE : String(e.stderr ?? "");
+    const e = err as {
+      stderr?: Buffer | string;
+      code?: string;
+      killed?: boolean;
+    };
+    // ENOENT = osascript isn't on PATH (non-macOS). killed = the timeout fired
+    // (SIGTERM, no stderr to explain it). Otherwise the script ran and failed —
+    // the reason is in stderr (commonly the TCC "not authorized").
+    const detail = e.killed
+      ? 'TIMEOUT'
+      : e.code === 'ENOENT'
+        ? REMINDERS_UNSUPPORTED_MESSAGE
+        : String(e.stderr ?? '');
     const wrapped = new Error(remindersErrorMessage(detail)) as Error & {
       statusCode?: number;
     };
