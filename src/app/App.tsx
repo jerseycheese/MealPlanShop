@@ -1,38 +1,38 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   MealPlanResult,
   ShoppingListItem,
   ExtraItem,
   ScanProgress,
   MealType,
-} from "../../types";
-import { MEAL_TYPES } from "../../types";
-import { MealCard } from "./MealCard";
-import { ShoppingList } from "./ShoppingList";
-import { UploadCircular } from "./UploadCircular";
-import { Preferences } from "./Preferences";
-import { StorePicker, type FlippMerchant } from "./StorePicker";
-import { PlanWithoutCircular } from "./PlanWithoutCircular";
-import { ApiKeyEntry } from "./ApiKeyEntry";
-import { WeekView } from "./WeekView";
-import { API } from "./endpoints";
-import { fetchJson } from "./fetchJson";
-import { formatValidThrough } from "./formatValidThrough";
-import { containsWholeWord } from "../../scripts/excludedCategories";
-import { normalize } from "../../normalize";
+} from '../../types';
+import { MEAL_TYPES } from '../../types';
+import { MealCard } from './MealCard';
+import { ShoppingList } from './ShoppingList';
+import { UploadCircular } from './UploadCircular';
+import { Preferences } from './Preferences';
+import { StorePicker, type FlippMerchant } from './StorePicker';
+import { PlanWithoutCircular } from './PlanWithoutCircular';
+import { ApiKeyEntry } from './ApiKeyEntry';
+import { WeekView } from './WeekView';
+import { API } from './endpoints';
+import { fetchJson } from './fetchJson';
+import { formatValidThrough } from './formatValidThrough';
+import { matchesPantryStaple } from './matchesPantryStaple';
+import { normalize } from '../../normalize';
 
 const SAVED_HINT_DISMISS_MS = 3500;
 const SCAN_PROGRESS_POLL_MS = 1500;
 const MEAL_CARD_STAGGER_MS = 80;
 
 const DAY_TAB_LABEL: Record<string, string> = {
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun',
 };
 
 function dayTabLabel(day: string): string {
@@ -51,13 +51,10 @@ function filterPantry(
   pantry: string[]
 ): ShoppingListItem[] {
   if (pantry.length === 0) return items;
-  const needles = pantry
-    .map((p) => p.trim().toLowerCase())
-    .filter((p) => p.length > 0);
+  const needles = pantry.map((p) => p.trim()).filter((p) => p.length > 0);
   if (needles.length === 0) return items;
   return items.filter((item) => {
-    const name = item.name.toLowerCase();
-    return !needles.some((n) => containsWholeWord(name, n));
+    return !needles.some((n) => matchesPantryStaple(item.name, n));
   });
 }
 
@@ -66,40 +63,42 @@ const LOYALTY_PROGRAMS: ReadonlyArray<{
   label: string;
   modifier: string;
 }> = [
-  { match: ["food lion"], label: "MVP", modifier: "mvp" },
-  { match: ["harris teeter"], label: "VIC", modifier: "vic" },
-  { match: ["kroger"], label: "Plus", modifier: "plus" },
-  { match: ["publix"], label: "Plus", modifier: "plus" },
-  { match: ["safeway", "albertsons"], label: "Card", modifier: "generic" },
-  { match: ["shoprite"], label: "Price Plus", modifier: "plus" },
+  { match: ['food lion'], label: 'MVP', modifier: 'mvp' },
+  { match: ['harris teeter'], label: 'VIC', modifier: 'vic' },
+  { match: ['kroger'], label: 'Plus', modifier: 'plus' },
+  { match: ['publix'], label: 'Plus', modifier: 'plus' },
+  { match: ['safeway', 'albertsons'], label: 'Card', modifier: 'generic' },
+  { match: ['shoprite'], label: 'Price Plus', modifier: 'plus' },
 ];
 
-function loyaltyProgramFor(storeName: string | null): { label: string; modifier: string } | null {
+function loyaltyProgramFor(
+  storeName: string | null
+): { label: string; modifier: string } | null {
   if (!storeName) return null;
   const s = storeName.toLowerCase();
   const hit = LOYALTY_PROGRAMS.find((p) => p.match.some((m) => s.includes(m)));
   if (hit) return { label: hit.label, modifier: hit.modifier };
-  return { label: "Card", modifier: "generic" };
+  return { label: 'Card', modifier: 'generic' };
 }
 
 function isMealPlanResult(value: unknown): value is MealPlanResult {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
   return Array.isArray(v.weekPlan) && Array.isArray(v.shoppingList);
 }
 
 function progressLabel(p: ScanProgress): string | null {
   switch (p.stage) {
-    case "preparing":
-      return "Preparing circular...";
-    case "scanning":
+    case 'preparing':
+      return 'Preparing circular...';
+    case 'scanning':
       return p.storeName
         ? `Scanning ${p.storeName} page ${p.page} of ${p.pages}...`
         : `Scanning page ${p.page} of ${p.pages}...`;
-    case "fetching":
+    case 'fetching':
       return `Fetching ${p.merchant} circular...`;
-    case "planning":
-      return "Building meal plan...";
+    case 'planning':
+      return 'Building meal plan...';
     default:
       return null;
   }
@@ -113,7 +112,7 @@ export function App() {
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress>({
-    stage: "idle",
+    stage: 'idle',
   });
   const [error, setError] = useState<string | null>(null);
   const [prefsError, setPrefsError] = useState<string | null>(null);
@@ -133,11 +132,21 @@ export function App() {
   const [extras, setExtras] = useState<ExtraItem[]>([]);
   const [circular, setCircular] = useState<CircularMeta | null>(null);
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
-  const [swapError, setSwapError] = useState<{ key: string; message: string } | null>(null);
+  const [swapError, setSwapError] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   const [showStorePicker, setShowStorePicker] = useState(false);
-  const [viewMode, setViewMode] = useState<"day" | "week">("day");
-  const [pickedUp, setPickedUp] = useState<{ day: string; mealType: MealType } | null>(null);
-  const [movingPair, setMovingPair] = useState<{ from: string; to: string; mealType: MealType } | null>(null);
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [pickedUp, setPickedUp] = useState<{
+    day: string;
+    mealType: MealType;
+  } | null>(null);
+  const [movingPair, setMovingPair] = useState<{
+    from: string;
+    to: string;
+    mealType: MealType;
+  } | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
 
   // Monotonic counter to discard stale shopping-list-state PUT responses.
@@ -145,7 +154,8 @@ export function App() {
   // one would revert (on failure) state that the newer one already replaced.
   const shoppingListPutSeq = useRef(0);
 
-  const busy = generating || uploading || swappingKey !== null || movingPair !== null;
+  const busy =
+    generating || uploading || swappingKey !== null || movingPair !== null;
 
   const fetchCircular = useCallback(async () => {
     try {
@@ -160,10 +170,10 @@ export function App() {
         return;
       }
       setCircular({
-        storeName: typeof data.storeName === "string" ? data.storeName : null,
+        storeName: typeof data.storeName === 'string' ? data.storeName : null,
         validThrough:
-          typeof data.validThrough === "string" ? data.validThrough : null,
-        itemCount: typeof data.itemCount === "number" ? data.itemCount : 0,
+          typeof data.validThrough === 'string' ? data.validThrough : null,
+        itemCount: typeof data.itemCount === 'number' ? data.itemCount : 0,
       });
     } catch {
       setCircular(null);
@@ -180,7 +190,7 @@ export function App() {
       } else {
         const { exists: _, stale: staleFlag, ...plan } = data;
         if (!isMealPlanResult(plan)) {
-          throw new Error("meal-plan response failed validation");
+          throw new Error('meal-plan response failed validation');
         }
         const planResult = plan;
         setMealPlan(planResult);
@@ -205,21 +215,25 @@ export function App() {
           setExtras(
             Array.isArray(state.extraItems)
               ? (state.extraItems as unknown[]).flatMap((e) =>
-                  e && typeof e === "object" && typeof (e as ExtraItem).name === "string"
-                    ? [{
-                        name: (e as ExtraItem).name,
-                        price:
-                          typeof (e as ExtraItem).price === "number"
-                            ? (e as ExtraItem).price
-                            : null,
-                        category:
-                          typeof (e as ExtraItem).category === "string"
-                            ? (e as ExtraItem).category
-                            : "other",
-                      }]
-                    : [],
+                  e &&
+                  typeof e === 'object' &&
+                  typeof (e as ExtraItem).name === 'string'
+                    ? [
+                        {
+                          name: (e as ExtraItem).name,
+                          price:
+                            typeof (e as ExtraItem).price === 'number'
+                              ? (e as ExtraItem).price
+                              : null,
+                          category:
+                            typeof (e as ExtraItem).category === 'string'
+                              ? (e as ExtraItem).category
+                              : 'other',
+                        },
+                      ]
+                    : []
                 )
-              : [],
+              : []
           );
         } catch {
           setCheckedKeys(new Set());
@@ -227,7 +241,7 @@ export function App() {
       }
       setError(null);
     } catch {
-      setError("Failed to load meal plan");
+      setError('Failed to load meal plan');
     } finally {
       setLoaded(true);
     }
@@ -267,18 +281,18 @@ export function App() {
     fetchJson<{ preferences?: { pantryStaples?: unknown } }>(API.preferences)
       .then((data) => {
         if (!data?.preferences) {
-          throw new Error("preferences response failed validation");
+          throw new Error('preferences response failed validation');
         }
         setPantryStaples(
           Array.isArray(data.preferences.pantryStaples)
             ? data.preferences.pantryStaples
-            : [],
+            : []
         );
         setPrefsError(null);
       })
       .catch((err) => {
         if (import.meta.env.DEV) {
-          console.error("Failed to load preferences", err);
+          console.error('Failed to load preferences', err);
         }
         setPrefsError("Couldn't load saved preferences — using defaults.");
       });
@@ -286,7 +300,10 @@ export function App() {
 
   useEffect(() => {
     if (!savedHint) return;
-    const timer = window.setTimeout(() => setSavedHint(false), SAVED_HINT_DISMISS_MS);
+    const timer = window.setTimeout(
+      () => setSavedHint(false),
+      SAVED_HINT_DISMISS_MS
+    );
     return () => window.clearTimeout(timer);
   }, [savedHint]);
 
@@ -294,15 +311,15 @@ export function App() {
   useEffect(() => {
     if (!pickedUp) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPickedUp(null);
+      if (e.key === 'Escape') setPickedUp(null);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [pickedUp]);
 
   useEffect(() => {
     if (!uploading) {
-      setScanProgress({ stage: "idle" });
+      setScanProgress({ stage: 'idle' });
       return;
     }
     let cancelled = false;
@@ -327,16 +344,16 @@ export function App() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch(API.mealPlanGenerate, { method: "POST" });
+      const res = await fetch(API.mealPlanGenerate, { method: 'POST' });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || "Generation failed");
+        setError(data.error || 'Generation failed');
       } else {
         await fetchMealPlan();
         setExpandedMeals(new Set());
       }
     } catch {
-      setError("Failed to generate meal plan");
+      setError('Failed to generate meal plan');
     } finally {
       setGenerating(false);
     }
@@ -344,25 +361,25 @@ export function App() {
 
   const handleSwap = async (
     dayName: string,
-    mealType: "breakfast" | "lunch" | "dinner"
+    mealType: 'breakfast' | 'lunch' | 'dinner'
   ) => {
     const key = `${dayName}-${mealType}`;
     setSwappingKey(key);
     setSwapError(null);
     try {
       const res = await fetch(API.mealPlanSwap, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ day: dayName, mealType }),
       });
       const data = await res.json();
       if (!data.success) {
-        setSwapError({ key, message: data.error || "Swap failed" });
+        setSwapError({ key, message: data.error || 'Swap failed' });
       } else {
         await fetchMealPlan();
       }
     } catch {
-      setSwapError({ key, message: "Failed to swap meal" });
+      setSwapError({ key, message: 'Failed to swap meal' });
     } finally {
       setSwappingKey(null);
     }
@@ -370,7 +387,7 @@ export function App() {
 
   const doMove = async (
     from: { day: string; mealType: MealType },
-    to: { day: string; mealType: MealType },
+    to: { day: string; mealType: MealType }
   ) => {
     if (from.day === to.day && from.mealType === to.mealType) {
       setPickedUp(null);
@@ -380,13 +397,13 @@ export function App() {
     setMoveError(null);
     try {
       const res = await fetch(API.mealPlanMove, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from, to }),
       });
       const data = await res.json();
       if (!data.success) {
-        setMoveError(data.error || "Move failed");
+        setMoveError(data.error || 'Move failed');
       } else {
         await fetchMealPlan();
         // A moved meal's `${day}-${type}` key no longer points at the same slot,
@@ -394,7 +411,7 @@ export function App() {
         setExpandedMeals(new Set());
       }
     } catch {
-      setMoveError("Failed to move meal");
+      setMoveError('Failed to move meal');
     } finally {
       setMovingPair(null);
       setPickedUp(null);
@@ -440,18 +457,18 @@ export function App() {
     setError(null);
     try {
       const res = await fetch(API.circularFlippFetch, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           flyerId: m.flyerId,
-          merchantId: typeof m.merchantId === "number" ? m.merchantId : null,
+          merchantId: typeof m.merchantId === 'number' ? m.merchantId : null,
           merchantName: m.name,
           validThrough: m.validTo,
         }),
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || "Fetch failed");
+        setError(data.error || 'Fetch failed');
       } else {
         await fetchMealPlan();
         await fetchCircular();
@@ -459,7 +476,7 @@ export function App() {
         setSelectedDay(0);
       }
     } catch {
-      setError("Failed to fetch circular");
+      setError('Failed to fetch circular');
     } finally {
       setUploading(false);
     }
@@ -470,14 +487,14 @@ export function App() {
     setError(null);
     try {
       const formData = new FormData();
-      formData.append("circular", file);
+      formData.append('circular', file);
       const res = await fetch(API.circularUpload, {
-        method: "POST",
+        method: 'POST',
         body: formData,
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || "Upload failed");
+        setError(data.error || 'Upload failed');
       } else {
         await fetchMealPlan();
         await fetchCircular();
@@ -485,7 +502,7 @@ export function App() {
         setSelectedDay(0);
       }
     } catch {
-      setError("Failed to upload circular");
+      setError('Failed to upload circular');
     } finally {
       setUploading(false);
     }
@@ -497,13 +514,13 @@ export function App() {
     setError(null);
     try {
       const res = await fetch(API.mealPlanGenerateNoCircular, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storeName: storeName.trim() || null }),
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || "Generation failed");
+        setError(data.error || 'Generation failed');
       } else {
         await fetchMealPlan();
         await fetchCircular();
@@ -511,7 +528,7 @@ export function App() {
         setSelectedDay(0);
       }
     } catch {
-      setError("Failed to generate meal plan from preferences");
+      setError('Failed to generate meal plan from preferences');
     } finally {
       setGenerating(false);
     }
@@ -533,8 +550,8 @@ export function App() {
     // Every write carries the full state (checked + extras) so the two paths
     // can't clobber each other — last write wins with everything intact.
     fetch(API.shoppingListState, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         planId,
         checkedKeys: snapshot,
@@ -563,8 +580,8 @@ export function App() {
   const persistExtras = (nextExtras: ExtraItem[]) => {
     if (!mealPlan?.planId) return;
     fetch(API.shoppingListState, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         planId: mealPlan.planId,
         checkedKeys: [...checkedKeys],
@@ -586,7 +603,7 @@ export function App() {
     // to match what's on screen; normalize matches the shared list builder.
     const mealItemNames = filterPantry(
       mealPlan?.shoppingList ?? [],
-      pantryStaples,
+      pantryStaples
     ).map((i) => normalize(i.name));
     const have = new Set([
       ...mealItemNames,
@@ -598,7 +615,7 @@ export function App() {
       const key = normalize(name);
       if (!name || have.has(key)) continue;
       have.add(key);
-      toAdd.push({ name, price: null, category: "other" });
+      toAdd.push({ name, price: null, category: 'other' });
     }
     if (toAdd.length === 0) return;
     const nextExtras = [...extras, ...toAdd];
@@ -606,23 +623,27 @@ export function App() {
     persistExtras(nextExtras);
 
     fetch(API.extraItemsEstimate, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ names: toAdd.map((e) => e.name) }),
     })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((res) =>
+        res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))
+      )
       .then((data: { prices?: ExtraItem[] }) => {
         const estimated = new Map<string, ExtraItem>();
         for (const p of data.prices ?? []) {
-          if (p && typeof p.name === "string") estimated.set(p.name.toLowerCase(), p);
+          if (p && typeof p.name === 'string')
+            estimated.set(p.name.toLowerCase(), p);
         }
         const merged = nextExtras.map((e) => {
           const hit = estimated.get(e.name.toLowerCase());
           return hit
             ? {
                 ...e,
-                price: typeof hit.price === "number" ? hit.price : null,
-                category: typeof hit.category === "string" ? hit.category : e.category,
+                price: typeof hit.price === 'number' ? hit.price : null,
+                category:
+                  typeof hit.category === 'string' ? hit.category : e.category,
               }
             : e;
         });
@@ -636,7 +657,7 @@ export function App() {
 
   const removeExtra = (name: string) => {
     const nextExtras = extras.filter(
-      (e) => e.name.toLowerCase() !== name.toLowerCase(),
+      (e) => e.name.toLowerCase() !== name.toLowerCase()
     );
     setExtras(nextExtras);
     persistExtras(nextExtras);
@@ -646,18 +667,21 @@ export function App() {
   // shells out to osascript). Returns a plain result so ShoppingList can show the
   // macOS Automation-permission message inline rather than as a transient label.
   const pushToReminders = async (
-    lines: string[],
+    lines: string[]
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch(API.reminders, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: lines }),
       });
       const data = await res.json();
       return data?.success
         ? { success: true }
-        : { success: false, error: data?.error || "Couldn't send to Reminders." };
+        : {
+            success: false,
+            error: data?.error || "Couldn't send to Reminders.",
+          };
     } catch {
       return {
         success: false,
@@ -709,9 +733,9 @@ export function App() {
 
   const day = mealPlan?.weekPlan[selectedDay];
   const busyLabel = uploading
-    ? (progressLabel(scanProgress) ?? "Scanning circular...")
+    ? (progressLabel(scanProgress) ?? 'Scanning circular...')
     : generating
-      ? "Generating..."
+      ? 'Generating...'
       : null;
   return (
     <div className="app">
@@ -835,7 +859,7 @@ export function App() {
 
       {busyLabel && (
         <div className="processing-banner">
-          {busyLabel}{" "}
+          {busyLabel}{' '}
           {!mealPlan && (
             <span className="processing-banner__hint">
               Multi-page PDFs can take several minutes.
@@ -848,7 +872,8 @@ export function App() {
         <div className="empty-state">
           <h2 className="empty-state__title">No meal plan yet</h2>
           <p className="empty-state__text">
-            Pick your store's weekly circular and we'll build a meal plan around the deals.
+            Pick your store's weekly circular and we'll build a meal plan around
+            the deals.
           </p>
           <div className="empty-state__picker">
             <StorePicker
@@ -883,13 +908,17 @@ export function App() {
             </div>
           )}
 
-          <div className="view-toggle" role="group" aria-label="Choose plan layout">
+          <div
+            className="view-toggle"
+            role="group"
+            aria-label="Choose plan layout"
+          >
             <button
               type="button"
-              className={`view-toggle__btn ${viewMode === "day" ? "view-toggle__btn--active" : ""}`}
-              aria-pressed={viewMode === "day"}
+              className={`view-toggle__btn ${viewMode === 'day' ? 'view-toggle__btn--active' : ''}`}
+              aria-pressed={viewMode === 'day'}
               onClick={() => {
-                setViewMode("day");
+                setViewMode('day');
                 setPickedUp(null);
               }}
             >
@@ -897,21 +926,21 @@ export function App() {
             </button>
             <button
               type="button"
-              className={`view-toggle__btn ${viewMode === "week" ? "view-toggle__btn--active" : ""}`}
-              aria-pressed={viewMode === "week"}
-              onClick={() => setViewMode("week")}
+              className={`view-toggle__btn ${viewMode === 'week' ? 'view-toggle__btn--active' : ''}`}
+              aria-pressed={viewMode === 'week'}
+              onClick={() => setViewMode('week')}
             >
               Week
             </button>
           </div>
 
-          {viewMode === "day" ? (
+          {viewMode === 'day' ? (
             <>
               <nav className="day-tabs">
                 {mealPlan.weekPlan.map((d, i) => (
                   <button
                     key={d.day}
-                    className={`day-tabs__tab ${i === selectedDay ? "day-tabs__tab--active" : ""}`}
+                    className={`day-tabs__tab ${i === selectedDay ? 'day-tabs__tab--active' : ''}`}
                     onClick={() => setSelectedDay(i)}
                   >
                     {dayTabLabel(d.day)}
@@ -939,9 +968,13 @@ export function App() {
                         swapping={isSwapping}
                         swapDisabled={(busy && !isSwapping) || stale}
                         swapDisabledReason={
-                          stale ? "Regenerate first to apply preference changes" : null
+                          stale
+                            ? 'Regenerate first to apply preference changes'
+                            : null
                         }
-                        swapError={swapError?.key === key ? swapError.message : null}
+                        swapError={
+                          swapError?.key === key ? swapError.message : null
+                        }
                       />
                     );
                   })}
@@ -956,7 +989,7 @@ export function App() {
               interactionDisabled={busy || stale}
               statusMessage={
                 movingPair
-                  ? "Moving meal..."
+                  ? 'Moving meal...'
                   : pickedUp
                     ? `Picked up the ${pickedUp.mealType} on ${pickedUp.day}. Choose where to move it, or press Escape to cancel.`
                     : null
