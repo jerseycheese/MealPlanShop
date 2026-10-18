@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
 import {
   hasReminders,
+  osascriptFailureDetail,
   remindersErrorMessage,
   REMINDERS_LIST_NAME,
   REMINDERS_SCRIPT,
@@ -27,11 +28,18 @@ const generic = remindersErrorMessage('some weird AppleScript failure');
 assert.match(generic, /Couldn't send to Apple Reminders/i);
 assert.match(generic, /weird AppleScript failure/);
 
-// A timed-out push (killed by execFileSync, no stderr) reads as "try again",
+// A timed-out push (ETIMEDOUT from execFileSync, no stderr) reads as "try again",
 // not the old unhelpful "unknown error" fallback.
 const timedOut = remindersErrorMessage('TIMEOUT');
 assert.match(timedOut, /too long/i);
 assert.doesNotMatch(timedOut, /unknown error/i);
+
+// The sync API reports its own timeout as code ETIMEDOUT (not `killed`), and
+// that must reach the timeout message rather than the empty-stderr fallback.
+assert.equal(
+  osascriptFailureDetail({ code: 'ETIMEDOUT', signal: 'SIGTERM', stderr: '' }),
+  'TIMEOUT'
+);
 
 // The push targets the dedicated, app-owned Standard list.
 assert.equal(REMINDERS_LIST_NAME, 'MealPlanShop');
@@ -41,4 +49,4 @@ assert.equal(REMINDERS_LIST_NAME, 'MealPlanShop');
 assert.match(REMINDERS_SCRIPT, /on run argv/);
 assert.match(REMINDERS_SCRIPT, /delete \(every reminder/);
 
-console.log('reminders: 10/10 passed');
+console.log('reminders: 11/11 passed');

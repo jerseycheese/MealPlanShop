@@ -96,6 +96,18 @@ function reminderTimeoutMs(itemCount: number): number {
   return Math.min(300_000, 10_000 + itemCount * 1_500);
 }
 
+// Map an execFileSync failure to the detail remindersErrorMessage reads.
+// ENOENT = osascript isn't on PATH (non-macOS). ETIMEDOUT = our timeout fired;
+// Node kills the process with SIGTERM and leaves no stderr (and doesn't set
+// `killed` for the sync API). Otherwise the script ran and failed, and the
+// reason is in stderr (commonly the TCC "not authorized").
+export function osascriptFailureDetail(err: unknown): string {
+  const e = err as { stderr?: Buffer | string; code?: string };
+  if (e.code === 'ETIMEDOUT') return 'TIMEOUT';
+  if (e.code === 'ENOENT') return REMINDERS_UNSUPPORTED_MESSAGE;
+  return String(e.stderr ?? '');
+}
+
 // Push the titles into the named Reminders list (replace semantics). Throws a
 // plain Error tagged statusCode 422 — honored by the server error middleware —
 // with a readable message on any osascript failure.
@@ -106,19 +118,7 @@ export function sendToReminders(listName: string, titles: string[]): void {
       timeout: reminderTimeoutMs(titles.length),
     });
   } catch (err) {
-    const e = err as {
-      stderr?: Buffer | string;
-      code?: string;
-      killed?: boolean;
-    };
-    // ENOENT = osascript isn't on PATH (non-macOS). killed = the timeout fired
-    // (SIGTERM, no stderr to explain it). Otherwise the script ran and failed —
-    // the reason is in stderr (commonly the TCC "not authorized").
-    const detail = e.killed
-      ? 'TIMEOUT'
-      : e.code === 'ENOENT'
-        ? REMINDERS_UNSUPPORTED_MESSAGE
-        : String(e.stderr ?? '');
+    const detail = osascriptFailureDetail(err);
     const wrapped = new Error(remindersErrorMessage(detail)) as Error & {
       statusCode?: number;
     };
