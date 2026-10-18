@@ -782,6 +782,14 @@ body {
   opacity: 0.75;
 }
 
+/* A checked-off item should recede, full stop — the sale tint otherwise keeps
+   it visually competing with items still on sale that haven't been picked up
+   yet. Higher specificity (two classes) beats .shopping-list__item--sale
+   regardless of source order. */
+.shopping-list__item--sale.shopping-list__item--checked {
+  background: transparent;
+}
+
 .shopping-list__item--checked .shopping-list__item-name,
 .shopping-list__item--checked .shopping-list__item-qty {
   text-decoration: line-through;
@@ -799,9 +807,14 @@ body {
 .shopping-list__item-name {
   font-weight: 500;
   /* Wrap rather than truncate: the full item name should always be readable,
-     including on touch where a title-attribute tooltip never fires. */
+     including on touch where a title-attribute tooltip never fires.
+     break-word, not anywhere: "anywhere" shrinks this box's computed minimum
+     width down to a single character, so item-qty's nowrap text (e.g. "2
+     packages (16 oz each)") can squeeze it to 1 char per line under a flex
+     shortfall. break-word only splits a word that can't fit its own line,
+     keeping the per-word minimum sane while still never truncating. */
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .shopping-list__item-qty {
@@ -819,6 +832,14 @@ body {
   color: #fff;
   white-space: nowrap;
   margin-left: 8px;
+  /* Long unit text (e.g. "Fully Cooked, Select Varieties, 2 lb") must not force
+     its full nowrap width — without min-width:0 a flex item can't shrink below
+     its content size, which starves .shopping-list__item-name down to near zero
+     and makes it wrap one character per line. Truncate instead. */
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Extra-item price reads as a soft estimate, not a sale badge — muted, not the
@@ -842,6 +863,10 @@ body {
   font-size: 12px;
   font-weight: 400;
   color: var(--color-text-muted);
+  /* This is a caption on .shopping-list__totals, not a peer of title/count —
+     pull it in from the heading's uniform 10px gap so it hugs the number it
+     annotates instead of reading as another item in the same row. */
+  margin-top: -6px;
 }
 
 /* Extra rows put a remove button beside the (checkable) label. */
