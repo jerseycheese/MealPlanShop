@@ -25,6 +25,7 @@ const SUITES = [
   'src/app/formatDateRange.test.ts',
   'src/app/formatShoppingListText.test.ts',
   'src/app/formatSalePrice.test.ts',
+  'src/app/matchesPantryStaple.test.ts',
 ];
 
 async function main() {
