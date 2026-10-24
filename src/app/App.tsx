@@ -697,6 +697,18 @@ export function App() {
       });
   };
 
+  // End of trip: fold the checked pantry items into pantryStaples in one write
+  // (never per checkbox, which would flag the plan stale mid-shop). They're
+  // staples now, so any matching extras leave the list.
+  const restockPantry = async (names: string[]) => {
+    if (!(await syncPantryStaples({ add: names }))) return;
+    const bought = new Set(names.map(normalize));
+    const nextExtras = extras.filter((e) => !bought.has(normalize(e.name)));
+    if (nextExtras.length === extras.length) return;
+    setExtras(nextExtras);
+    persistExtras(nextExtras);
+  };
+
   const removeExtra = (name: string) => {
     const nextExtras = extras.filter(
       (e) => e.name.toLowerCase() !== name.toLowerCase()
@@ -1055,6 +1067,7 @@ export function App() {
             extras={extras}
             onAddExtras={addExtras}
             onRemoveExtra={removeExtra}
+            onRestockPantry={restockPantry}
             remindersSupported={remindersSupported}
             onSendToReminders={pushToReminders}
           />

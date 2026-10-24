@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ExtraItem, ShoppingListItem } from '../../types';
-import { shoppingItemKey } from './shoppingItemKey';
+import { extraKey, shoppingItemKey } from './shoppingItemKey';
+import { pantryItemsToRestock } from './pantryStaples';
 import { formatSalePrice } from './formatSalePrice';
 import {
   buildReminderLines,
@@ -18,16 +19,11 @@ interface ShoppingListProps {
   extras: ExtraItem[];
   onAddExtras: (names: string[]) => void;
   onRemoveExtra: (name: string) => void;
+  onRestockPantry: (names: string[]) => void;
   remindersSupported: boolean;
   onSendToReminders: (
     lines: string[]
   ) => Promise<{ success: boolean; error?: string }>;
-}
-
-// Stable checkbox key for an extra item, namespaced so it can't collide with a
-// meal-plan item's key in the shared checkedKeys set.
-function extraKey(name: string): string {
-  return `extra:${name.trim().toLowerCase()}`;
 }
 
 // A row in a category section is either a meal-plan item or a user-added extra.
@@ -46,6 +42,7 @@ export function ShoppingList({
   extras,
   onAddExtras,
   onRemoveExtra,
+  onRestockPantry,
   remindersSupported,
   onSendToReminders,
 }: ShoppingListProps) {
@@ -115,6 +112,8 @@ export function ShoppingList({
       setSendError(result.error ?? "Couldn't send to Reminders.");
     }
   };
+
+  const restockNames = pantryItemsToRestock(items, extras, checkedKeys);
 
   const handleAdd = () => {
     const names = parseExtraItems(draft);
@@ -238,6 +237,16 @@ export function ShoppingList({
           >
             {copied ? 'Copied' : 'Copy list'}
           </button>
+          {restockNames.length > 0 && (
+            <button
+              type="button"
+              className="shopping-list__restock"
+              onClick={() => onRestockPantry(restockNames)}
+            >
+              Done shopping: restock {restockNames.length} pantry{' '}
+              {restockNames.length === 1 ? 'staple' : 'staples'}
+            </button>
+          )}
           {remindersSupported && (
             <button
               type="button"

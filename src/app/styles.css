@@ -612,7 +612,8 @@ body {
   color: var(--color-text-muted);
 }
 
-.shopping-list__copy {
+.shopping-list__copy,
+.shopping-list__restock {
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
@@ -629,7 +630,8 @@ body {
     color 0.15s;
 }
 
-.shopping-list__copy:hover:not(:disabled) {
+.shopping-list__copy:hover:not(:disabled),
+.shopping-list__restock:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
