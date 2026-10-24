@@ -19,6 +19,7 @@ import { API } from './endpoints';
 import { fetchJson } from './fetchJson';
 import { formatValidThrough } from './formatValidThrough';
 import { matchesPantryStaple } from './matchesPantryStaple';
+import { applyStapleChanges, type StapleChanges } from './pantryStaples';
 import { normalize } from '../../normalize';
 
 const SAVED_HINT_DISMISS_MS = 3500;
@@ -592,6 +593,24 @@ export function App() {
     });
   };
 
+  // Ask the server to drop/add pantry staples (one shared path for both
+  // directions), then mirror the result: the staples that filter the list and
+  // whether the plan is now stale. Best-effort: on failure the staples stay as-is.
+  const syncPantryStaples = (changes: StapleChanges) => {
+    fetchJson<{ pantryStaples: string[]; stale: boolean }>(API.pantryStaples, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes),
+    })
+      .then((data) => {
+        setPantryStaples(data.pantryStaples);
+        if (mealPlan) setStale(data.stale);
+      })
+      .catch(() => {
+        /* best-effort */
+      });
+  };
+
   // Add typed names as extra rows immediately (price null), deduped against the
   // meal-plan items, the existing extras, and within the batch, then fold in
   // Gemini price estimates as they return — so a missing key or slow estimate
@@ -601,9 +620,17 @@ export function App() {
     // existing extras — otherwise an extra that duplicates a meal ingredient slips
     // in and shows up twice (the cumin/soy-sauce double-listing). Pantry-filtered
     // to match what's on screen; normalize matches the shared list builder.
+    //
+    // Typing an item means the user is out of it, so any pantry staple it matches
+    // is dropped. Filter with the post-drop staples: a meal row the staple was
+    // hiding reappears, and the typed name then dedupes against it instead of
+    // listing the item twice.
+    const keptStaples = applyStapleChanges(pantryStaples, {
+      dropMatching: names,
+    });
     const mealItemNames = filterPantry(
       mealPlan?.shoppingList ?? [],
-      pantryStaples
+      keptStaples
     ).map((i) => normalize(i.name));
     const have = new Set([
       ...mealItemNames,
@@ -616,6 +643,9 @@ export function App() {
       if (!name || have.has(key)) continue;
       have.add(key);
       toAdd.push({ name, price: null, category: 'other' });
+    }
+    if (keptStaples.length !== pantryStaples.length) {
+      syncPantryStaples({ dropMatching: names });
     }
     if (toAdd.length === 0) return;
     const nextExtras = [...extras, ...toAdd];

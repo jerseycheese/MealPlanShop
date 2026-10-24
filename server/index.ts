@@ -23,6 +23,11 @@ import { attachSaleUnits } from './attachSaleUnits';
 import { moveMealInWeekPlan } from './moveMeal';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
+import {
+  applyStapleChanges,
+  planUsesStaples,
+  withStaples,
+} from '../src/app/pantryStaples';
 import { resolveDataDir } from './dataDir';
 import { hasPoppler } from './poppler';
 import {
@@ -375,6 +380,63 @@ app.put(
     // not regenerable, so a bad save or import shouldn't be able to lose them.
     writeJsonAtomicWithBackup(PREFERENCES_PATH, result);
     res.json({ success: true, preferences: result });
+  })
+);
+
+// Shopping-list edits that keep pantryStaples in step (see server/pantryStaples.ts).
+// Saves through the same validate + backup path as PUT /api/preferences.
+//
+// Staleness: pantryStaples feeds generation, so changing it normally flips the prefs
+// fingerprint and marks the plan stale (Swap disabled). A pure drop of staples no
+// meal in the plan uses can't change what would be generated, so in that case the
+// plan is re-stamped and stays fresh. Adds, or drops the plan uses, stay stale.
+app.post(
+  '/api/pantry-staples',
+  asyncRoute((req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const names = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value.filter((n): n is string => typeof n === 'string')
+        : [];
+    const changes = {
+      dropMatching: names(body.dropMatching),
+      add: names(body.add),
+    };
+
+    const prefs = loadPreferences();
+    const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
+    const wasFresh = !!plan && !isPlanFingerprintStale(plan, prefs);
+
+    const next = applyStapleChanges(prefs.pantryStaples, changes);
+    if (
+      next.length !== prefs.pantryStaples.length ||
+      next.some((s, i) => s !== prefs.pantryStaples[i])
+    ) {
+      const saved = validatePreferences(withStaples(prefs, next));
+      ensureDataDir();
+      writeJsonAtomicWithBackup(PREFERENCES_PATH, saved);
+
+      const dropped = prefs.pantryStaples.filter((s) => !next.includes(s));
+      if (
+        plan &&
+        wasFresh &&
+        changes.add.length === 0 &&
+        !planUsesStaples(plan.weekPlan, dropped)
+      ) {
+        writeJsonAtomic(MEAL_PLAN_PATH, {
+          ...plan,
+          prefsFingerprint: computePrefsFingerprint(loadPreferences()),
+        });
+      }
+    }
+
+    const after = loadPreferences();
+    const current = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
+    res.json({
+      success: true,
+      pantryStaples: after.pantryStaples,
+      stale: current ? isPlanFingerprintStale(current, after) : false,
+    });
   })
 );
 
