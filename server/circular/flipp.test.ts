@@ -5,6 +5,7 @@ import {
   effectivePrice,
   parseUnit,
   daysUntil,
+  hasExpired,
   type FlippItemDetail,
 } from "./sources/flipp";
 
@@ -101,5 +102,12 @@ assert.equal(daysUntil("2026-06-06", morning), 1, "ends tomorrow");
 assert.equal(daysUntil("2026-06-07", morning), 2, "expiring soon (<=2)");
 assert.equal(daysUntil("2026-06-01", morning), 0, "already expired clamps to 0");
 assert.equal(daysUntil("", morning), 0, "unparseable clamps to 0");
+
+// hasExpired — a date-only validThrough is good through the END of that local
+// day. `new Date("2026-06-05")` is UTC midnight, which dropped the cache the
+// evening before west of UTC (and at the start of the day in UTC itself).
+assert.equal(hasExpired("2026-06-05", lateNight), false, "valid late on its last day");
+assert.equal(hasExpired("2026-06-04", morning), true, "expired after its last day");
+assert.equal(hasExpired("", morning), false, "unparseable never expires");
 
 console.log("flipp.test.ts: all assertions passed");
