@@ -1,6 +1,11 @@
 import * as assert from 'node:assert/strict';
-import { applyStapleChanges, planUsesStaples } from './pantryStaples';
-import type { DayPlan, Meal } from '../../types';
+import {
+  applyStapleChanges,
+  pantryItemsToRestock,
+  planUsesStaples,
+} from './pantryStaples';
+import { extraKey, shoppingItemKey } from './shoppingItemKey';
+import type { DayPlan, ExtraItem, Meal, ShoppingListItem } from '../../types';
 
 let passed = 0;
 let total = 0;
@@ -68,6 +73,35 @@ test('planUsesStaples checks every meal ingredient', () => {
   ];
   assert.equal(planUsesStaples(plan, ['olive oil']), true);
   assert.equal(planUsesStaples(plan, ['salt']), false);
+});
+
+function listItem(name: string, category: string): ShoppingListItem {
+  return { name, quantity: '1', category, onSale: false, salePrice: null };
+}
+
+// Checked pantry items restock; checked perishables and unchecked pantry items don't.
+test('pantryItemsToRestock keeps only checked pantry-category items', () => {
+  const items = [
+    listItem('soy sauce', 'pantry'),
+    listItem('rice', 'pantry'),
+    listItem('zucchini', 'produce'),
+    listItem('coffee', 'beverages'),
+  ];
+  const extras: ExtraItem[] = [
+    { name: 'Olive Oil', price: null, category: 'pantry' },
+    { name: 'ground beef', price: null, category: 'meat' },
+  ];
+  const checked = new Set([
+    shoppingItemKey(items[0]),
+    shoppingItemKey(items[2]),
+    shoppingItemKey(items[3]),
+    extraKey('Olive Oil'),
+    extraKey('ground beef'),
+  ]);
+  assert.deepEqual(pantryItemsToRestock(items, extras, checked), [
+    'soy sauce',
+    'Olive Oil',
+  ]);
 });
 
 console.log(`pantryStaples: ${passed}/${total} passed`);
