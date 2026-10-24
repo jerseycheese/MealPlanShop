@@ -131,6 +131,12 @@ export function App() {
   // Gemini price estimate. Plan-independent — they survive a regenerate — and
   // ride into the copied list and the list total.
   const [extras, setExtras] = useState<ExtraItem[]>([]);
+  // Latest state for continuations that resume after an await: the render-time
+  // snapshot they closed over would overwrite edits made while the request ran.
+  const extrasRef = useRef(extras);
+  extrasRef.current = extras;
+  const checkedKeysRef = useRef(checkedKeys);
+  checkedKeysRef.current = checkedKeys;
   const [circular, setCircular] = useState<CircularMeta | null>(null);
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<{
@@ -586,7 +592,7 @@ export function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         planId: mealPlan.planId,
-        checkedKeys: [...checkedKeys],
+        checkedKeys: [...checkedKeysRef.current],
         extraItems: nextExtras,
       }),
     }).catch(() => {
@@ -649,7 +655,7 @@ export function App() {
     ).map((i) => normalize(i.name));
     const have = new Set([
       ...mealItemNames,
-      ...extras.map((e) => normalize(e.name)),
+      ...extrasRef.current.map((e) => normalize(e.name)),
     ]);
     const toAdd: ExtraItem[] = [];
     for (const raw of names) {
@@ -660,7 +666,7 @@ export function App() {
       toAdd.push({ name, price: null, category: 'other' });
     }
     if (toAdd.length === 0) return;
-    const nextExtras = [...extras, ...toAdd];
+    const nextExtras = [...extrasRef.current, ...toAdd];
     setExtras(nextExtras);
     persistExtras(nextExtras);
 
@@ -703,8 +709,9 @@ export function App() {
   const restockPantry = async (names: string[]) => {
     if (!(await syncPantryStaples({ add: names }))) return;
     const bought = new Set(names.map(normalize));
-    const nextExtras = extras.filter((e) => !bought.has(normalize(e.name)));
-    if (nextExtras.length === extras.length) return;
+    const current = extrasRef.current;
+    const nextExtras = current.filter((e) => !bought.has(normalize(e.name)));
+    if (nextExtras.length === current.length) return;
     setExtras(nextExtras);
     persistExtras(nextExtras);
   };
