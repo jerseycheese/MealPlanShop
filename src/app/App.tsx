@@ -154,6 +154,7 @@ export function App() {
   // Without this, rapid toggles race: an older request resolving after a newer
   // one would revert (on failure) state that the newer one already replaced.
   const shoppingListPutSeq = useRef(0);
+  const pantryStaplesSeq = useRef(0);
 
   const busy =
     generating || uploading || swappingKey !== null || movingPair !== null;
@@ -595,42 +596,56 @@ export function App() {
 
   // Ask the server to drop/add pantry staples (one shared path for both
   // directions), then mirror the result: the staples that filter the list and
-  // whether the plan is now stale. Best-effort: on failure the staples stay as-is.
-  const syncPantryStaples = (changes: StapleChanges) => {
-    fetchJson<{ pantryStaples: string[]; stale: boolean }>(API.pantryStaples, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changes),
-    })
-      .then((data) => {
+  // whether the plan is now stale. Resolves to the server's staples, or null if
+  // the call failed. Each response is a full snapshot, so only the latest request
+  // applies its result — an older one landing late must not restore a dropped staple.
+  const syncPantryStaples = async (
+    changes: StapleChanges
+  ): Promise<string[] | null> => {
+    const seq = ++pantryStaplesSeq.current;
+    try {
+      const data = await fetchJson<{ pantryStaples: string[]; stale: boolean }>(
+        API.pantryStaples,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(changes),
+        }
+      );
+      if (seq === pantryStaplesSeq.current) {
         setPantryStaples(data.pantryStaples);
         if (mealPlan) setStale(data.stale);
-      })
-      .catch(() => {
-        /* best-effort */
-      });
+      }
+      return data.pantryStaples;
+    } catch {
+      return null;
+    }
   };
 
   // Add typed names as extra rows immediately (price null), deduped against the
   // meal-plan items, the existing extras, and within the batch, then fold in
   // Gemini price estimates as they return — so a missing key or slow estimate
   // never blocks the add.
-  const addExtras = (names: string[]) => {
+  const addExtras = async (names: string[]) => {
     // Seed the dedupe set with the visible meal-plan item names too, not just the
     // existing extras — otherwise an extra that duplicates a meal ingredient slips
     // in and shows up twice (the cumin/soy-sauce double-listing). Pantry-filtered
     // to match what's on screen; normalize matches the shared list builder.
     //
     // Typing an item means the user is out of it, so any pantry staple it matches
-    // is dropped. Filter with the post-drop staples: a meal row the staple was
-    // hiding reappears, and the typed name then dedupes against it instead of
-    // listing the item twice.
-    const keptStaples = applyStapleChanges(pantryStaples, {
-      dropMatching: names,
-    });
+    // is dropped first. Dedupe against the staples the server confirms: a meal row
+    // the staple was hiding reappears, and the typed name then dedupes against it
+    // instead of listing twice. If the drop fails the row stays hidden, so dedupe
+    // against the staples as they were and the typed item is still added.
+    const dropsStaple =
+      applyStapleChanges(pantryStaples, { dropMatching: names }).length !==
+      pantryStaples.length;
+    const staples = dropsStaple
+      ? ((await syncPantryStaples({ dropMatching: names })) ?? pantryStaples)
+      : pantryStaples;
     const mealItemNames = filterPantry(
       mealPlan?.shoppingList ?? [],
-      keptStaples
+      staples
     ).map((i) => normalize(i.name));
     const have = new Set([
       ...mealItemNames,
@@ -643,9 +658,6 @@ export function App() {
       if (!name || have.has(key)) continue;
       have.add(key);
       toAdd.push({ name, price: null, category: 'other' });
-    }
-    if (keptStaples.length !== pantryStaples.length) {
-      syncPantryStaples({ dropMatching: names });
     }
     if (toAdd.length === 0) return;
     const nextExtras = [...extras, ...toAdd];
