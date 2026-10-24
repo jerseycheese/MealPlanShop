@@ -46,7 +46,7 @@ import type {
   MealType,
 } from '../types';
 import { MEAL_TYPES, DAYS_OF_WEEK } from '../types';
-import { listFlyers, fetchFlyer } from './circular/sources/flipp';
+import { listFlyers, fetchFlyer, hasExpired } from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
 import { containsWholeWord } from '../scripts/excludedCategories';
 import {
@@ -257,10 +257,7 @@ function readFlippCache(flyerId: number): ExtractionResult | null {
     path.join(FLIPP_CACHE_DIR, `${flyerId}.json`)
   );
   if (!data) return null;
-  if (data.validThrough) {
-    const end = new Date(data.validThrough).getTime();
-    if (Number.isFinite(end) && Date.now() > end) return null;
-  }
+  if (data.validThrough && hasExpired(data.validThrough)) return null;
   return {
     items: data.items,
     storeName: data.storeName,

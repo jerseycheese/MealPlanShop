@@ -148,6 +148,16 @@ export function daysUntil(dateOnly: string, now: Date = new Date()): number {
   return Math.max(0, Math.round(diff / (24 * 60 * 60 * 1000)));
 }
 
+// True once a date-only validThrough (e.g. "2026-06-18") is over. It's valid
+// through the end of that local day, so expiry is the following local midnight.
+// Unparseable dates never expire, matching the cache's pass-through behavior.
+export function hasExpired(dateOnly: string, now: Date = new Date()): boolean {
+  const end = parseLocalDate(dateOnly);
+  if (!end) return false;
+  end.setDate(end.getDate() + 1);
+  return now.getTime() >= end.getTime();
+}
+
 export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
   const sid = generateSid();
   const url = `${BASE}/data?locale=en&postal_code=${encodeURIComponent(postalCode)}&sid=${sid}`;
