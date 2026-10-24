@@ -176,7 +176,7 @@ test("swapped-in ingredient shared with unchanged meal is not duplicated", () =>
   });
   const riceEntries = merged.filter((i) => i.name.toLowerCase() === "rice");
   assert.equal(riceEntries.length, 1);
-  assert.deepEqual(riceEntries[0], priorRice);
+  assert.deepEqual(riceEntries[0], { ...priorRice, quantity: "5 cups" });
 });
 
 // Case 7: an undefined DayPlan slot does not throw.
@@ -212,8 +212,9 @@ test("empty inputs produce an empty list without throwing", () => {
   assert.deepEqual(merged, []);
 });
 
-// Case 9: duplicate names in priorList are both carried (no dedupe).
-test("duplicate prior entries are both carried", () => {
+// Case 9: duplicate names in priorList collapse to one row. The checkbox key no
+// longer carries quantity, so both rows would share one key anyway.
+test("duplicate prior entries collapse to one", () => {
   const weekPlan: DayPlan[] = [
     { day: "Monday", lunch: meal("Dressing", [ing("Olive Oil")]) },
   ];
@@ -229,7 +230,7 @@ test("duplicate prior entries are both carried", () => {
   });
   assert.equal(
     merged.filter((i) => i.name.trim().toLowerCase() === "olive oil").length,
-    2,
+    1,
   );
 });
 
@@ -314,6 +315,30 @@ test("swapped-in meal's variant ingredient is added", () => {
     regeneratedChicken,
     "variant ingredient sourced from regenerated list",
   );
+});
+
+// Case 13: swapping out a meal that shared an ingredient refreshes that row's
+// quantity to the post-swap week, and its checkbox key survives the change.
+test("shared ingredient quantity follows the post-swap week", () => {
+  const weekPlan: DayPlan[] = [
+    { day: "Monday", lunch: meal("Chicken Bowl", [ing("Chicken", "2 lbs")]) },
+    { day: "Tuesday", dinner: meal("Chicken Soup", [ing("Chicken", "1 lb")]) },
+  ];
+  const priorChicken = sli("Chicken", { quantity: "3 lbs", category: "meat" });
+  const merged = mergeShoppingListAfterSwap({
+    weekPlan,
+    swappedDayIndex: 0,
+    swappedSlot: "lunch",
+    newMeal: meal("Tofu Bowl", [ing("Tofu")]),
+    priorList: [priorChicken],
+    regeneratedList: [
+      sli("Chicken", { quantity: "1 lb", category: "meat" }),
+      sli("Tofu"),
+    ],
+  });
+  const kept = merged.find((i) => i.name === "Chicken");
+  assert.equal(kept?.quantity, "1 lb");
+  assert.equal(shoppingItemKey(kept!), shoppingItemKey(priorChicken));
 });
 
 console.log(`mergeShoppingList: ${passed}/${total} passed`);
