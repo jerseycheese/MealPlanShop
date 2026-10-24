@@ -21,10 +21,12 @@ export interface MergeArgs {
   regeneratedList: ShoppingListItem[];
 }
 
-// After a single-meal swap, keep prior shopping-list entries verbatim for any
-// ingredient the post-swap week still needs, so their shoppingItemKey (and the
-// user's checkbox state) survives. Only genuinely-new ingredients pull a fresh
-// entry from Gemini's regenerated list.
+// After a single-meal swap, keep the prior shopping-list entry for any ingredient
+// the post-swap week still needs, so its name and category (and with them its
+// shoppingItemKey and the user's checkbox) survive. Its quantity comes from
+// Gemini's regenerated week list when that list has the item, since the swap
+// usually changes how much of a shared ingredient the week needs. Only
+// genuinely-new ingredients pull a whole fresh entry from the regenerated list.
 export function mergeShoppingListAfterSwap(args: MergeArgs): ShoppingListItem[] {
   const {
     weekPlan,
@@ -49,23 +51,22 @@ export function mergeShoppingListAfterSwap(args: MergeArgs): ShoppingListItem[] 
   const merged: ShoppingListItem[] = [];
   const usedNames = new Set<string>();
 
-  // Keep duplicates: deduping could orphan a currently-checked key.
+  const findRegenerated = (name: string) =>
+    regeneratedList.find((item) => normalize(item.name) === name);
+
   for (const entry of priorList) {
     const name = normalize(entry.name);
-    if (retained.has(name)) {
-      merged.push(entry);
-      usedNames.add(name);
-    }
+    if (!retained.has(name) || usedNames.has(name)) continue;
+    const quantity = findRegenerated(name)?.quantity ?? entry.quantity;
+    merged.push({ ...entry, quantity });
+    usedNames.add(name);
   }
 
   for (const ing of mealIngredients(newMeal)) {
     const name = normalize(ing.name);
     if (usedNames.has(name)) continue;
-    const fromRegenerated = regeneratedList.find(
-      (item) => normalize(item.name) === name,
-    );
     merged.push(
-      fromRegenerated ?? {
+      findRegenerated(name) ?? {
         name: ing.name,
         quantity: ing.quantity,
         category: "other",
