@@ -37,29 +37,29 @@ function sli(
 // Exact name match carries the unit onto the row.
 test('exact match attaches unit', () => {
   const rows = [sli('zucchini')];
-  attachSaleUnits(rows, [sale('zucchini', 'lb')]);
-  assert.equal(rows[0].unit, 'lb');
+  attachSaleUnits(rows, [sale('zucchini', 'per lb')]);
+  assert.equal(rows[0].unit, 'per lb');
 });
 
 // Fuzzy whole-word match: a plan row "boneless chicken breast" picks up the
 // "chicken breast" sale item's unit.
 test('whole-word match attaches unit', () => {
   const rows = [sli('boneless chicken breast')];
-  attachSaleUnits(rows, [sale('chicken breast', 'lb')]);
-  assert.equal(rows[0].unit, 'lb');
+  attachSaleUnits(rows, [sale('chicken breast', 'per lb')]);
+  assert.equal(rows[0].unit, 'per lb');
 });
 
 // A row with no matching sale item stays unit-less.
 test('no match leaves unit undefined', () => {
   const rows = [sli('paper towels')];
-  attachSaleUnits(rows, [sale('zucchini', 'lb')]);
+  attachSaleUnits(rows, [sale('zucchini', 'per lb')]);
   assert.equal(rows[0].unit, undefined);
 });
 
 // Non-sale rows never get a unit even on a name match — no price shows anyway.
 test('non-sale row skipped', () => {
   const rows = [sli('zucchini', { onSale: false, salePrice: null })];
-  attachSaleUnits(rows, [sale('zucchini', 'lb')]);
+  attachSaleUnits(rows, [sale('zucchini', 'per lb')]);
   assert.equal(rows[0].unit, undefined);
 });
 
