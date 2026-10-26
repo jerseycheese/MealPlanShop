@@ -20,6 +20,7 @@ import {
 } from './prefs-fingerprint';
 import { mergeShoppingListAfterSwap } from './mergeShoppingList';
 import { attachSaleUnits } from './attachSaleUnits';
+import { decorateMealPlan } from './decorateMealPlan';
 import { moveMealInWeekPlan } from './moveMeal';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
@@ -56,7 +57,6 @@ import type {
 import { MEAL_TYPES, DAYS_OF_WEEK } from '../types';
 import { listFlyers, fetchFlyer, hasExpired } from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
-import { containsWholeWord } from '../scripts/excludedCategories';
 import {
   readJsonOrNull,
   writeJsonAtomic,
@@ -199,8 +199,8 @@ function withSerial(
 }
 
 // Shared write-extraction → generate-meal-plan → write-meal-plan path used by
-// both the PDF upload route and the Flipp fetch route. Returns the meal plan
-// item count + storeName so the route can shape its JSON response.
+// the PDF upload route, the Flipp fetch route, and regenerate. Returns the
+// meal plan item count + storeName so the route can shape its JSON response.
 async function runScanAndPlan(
   extraction: ExtractionResult,
   opts: { allowEmpty?: boolean } = {}
@@ -214,41 +214,7 @@ async function runScanAndPlan(
     {
       loadPreferences,
       generate: generateMealPlan,
-      decorate: (mealPlan, ext, prefs) => {
-        // Post-hoc join: propagate the loyalty-card flag from sale items to shopping
-        // list rows by name match. The meal plan prompt doesn't know about it; doing
-        // it here keeps the prompt unchanged.
-        const loyaltyByName = new Map<string, boolean>();
-        for (const item of ext.items) {
-          if (item.requiresLoyaltyCard)
-            loyaltyByName.set(item.item.toLowerCase(), true);
-        }
-        if (loyaltyByName.size && Array.isArray(mealPlan.shoppingList)) {
-          for (const row of mealPlan.shoppingList) {
-            const rowName = row.name.toLowerCase();
-            for (const [saleName] of loyaltyByName) {
-              if (
-                containsWholeWord(rowName, saleName) ||
-                containsWholeWord(saleName, rowName)
-              ) {
-                row.requiresLoyaltyCard = true;
-                break;
-              }
-            }
-          }
-        }
-
-        // Same post-hoc join for the per-unit price label (lb vs each) — issue #121.
-        if (Array.isArray(mealPlan.shoppingList)) {
-          attachSaleUnits(mealPlan.shoppingList, ext.items);
-        }
-
-        return {
-          ...mealPlan,
-          planId: crypto.randomUUID(),
-          prefsFingerprint: computePrefsFingerprint(prefs),
-        };
-      },
+      decorate: decorateMealPlan,
       commit: (ext, plan) => {
         ensureOutputDir();
         writeJsonAtomic(EXTRACTION_PATH, ext);
@@ -688,18 +654,20 @@ app.post(
         );
       }
       const saleItems = extraction.items || extraction;
-      const prefs = loadPreferences();
-      const result = await generateMealPlan(saleItems, prefs);
-      const stamped = {
-        ...result,
-        planId: crypto.randomUUID(),
-        prefsFingerprint: computePrefsFingerprint(prefs),
-      };
-
-      ensureOutputDir();
-      writeJsonAtomic(MEAL_PLAN_PATH, stamped);
-      clearShoppingListState();
-      res.json({ success: true });
+      // Route through the same decorate (loyalty/unit joins) and commit as
+      // upload/Flipp, instead of writing the plan straight out — that's what
+      // dropped the loyalty chips and per-unit prices on regenerate (#142).
+      // allowEmpty mirrors the old behavior: regenerating a no-circular/
+      // prefs-only plan never errored on zero sale items.
+      const result = await runScanAndPlan(
+        {
+          items: saleItems,
+          storeName: extraction.storeName ?? null,
+          validThrough: extraction.validThrough ?? null,
+        },
+        { allowEmpty: true }
+      );
+      res.json({ success: true, ...result });
     })
   )
 );

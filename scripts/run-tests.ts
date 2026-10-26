@@ -15,6 +15,8 @@ const SUITES = [
   'server/mergeShoppingList.test.ts',
   'server/scanAndPlan.test.ts',
   'server/attachSaleUnits.test.ts',
+  'server/attachLoyaltyFlags.test.ts',
+  'server/decorateMealPlan.test.ts',
   'server/moveMeal.test.ts',
   'server/prefs-fingerprint.test.ts',
   'server/validatePreferences.test.ts',
