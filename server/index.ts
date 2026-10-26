@@ -28,7 +28,10 @@ import {
   planUsesStaples,
   withStaples,
 } from '../src/app/pantryStaples';
-import { resolveDataDir } from './dataDir';
+import {
+  resolveDataDir,
+  loadPreferences as loadStoredPreferences,
+} from './dataDir';
 import { hasPoppler } from './poppler';
 import {
   hasReminders,
@@ -310,8 +313,7 @@ function clearShoppingListState() {
 }
 
 function loadPreferences(): UserPreferences {
-  const parsed = readJsonOrNull<Partial<UserPreferences>>(PREFERENCES_PATH);
-  return parsed ? { ...DEFAULT_PREFERENCES, ...parsed } : DEFAULT_PREFERENCES;
+  return loadStoredPreferences(DEFAULT_PREFERENCES);
 }
 
 // Coerce stored extra items into the canonical {name, price} shape. Tolerates the

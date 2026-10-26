@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as crypto from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import type {
   Meal,
@@ -23,6 +24,8 @@ import {
 import { GEMINI_MODEL } from './env';
 import { requireGeminiKey } from '../server/secrets';
 import { toReadableGeminiError } from '../server/geminiErrors';
+import { loadPreferences } from '../server/dataDir';
+import { computePrefsFingerprint } from '../server/prefs-fingerprint';
 export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
@@ -729,7 +732,12 @@ async function main() {
   const extraction = JSON.parse(fs.readFileSync(itemsPath, 'utf-8'));
   const saleItems: SaleItem[] = extraction.items || extraction;
 
-  const result = await generateMealPlan(saleItems, DEFAULT_PREFERENCES);
+  const preferences = loadPreferences(DEFAULT_PREFERENCES);
+  const result: MealPlanResult = {
+    ...(await generateMealPlan(saleItems, preferences)),
+    planId: crypto.randomUUID(),
+    prefsFingerprint: computePrefsFingerprint(preferences),
+  };
 
   // Write output
   const outputPath = path.join(__dirname, '../output/meal-plan.json');

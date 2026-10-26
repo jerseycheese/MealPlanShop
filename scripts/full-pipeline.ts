@@ -1,19 +1,16 @@
-import "dotenv/config";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { scanCircular } from "./scan-circular";
-import { generateMealPlan, DEFAULT_PREFERENCES } from "./generate-meal-plan";
+import 'dotenv/config';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { scanCircular } from './scan-circular';
+import { generateMealPlan, DEFAULT_PREFERENCES } from './generate-meal-plan';
+import { loadPreferences } from '../server/dataDir';
 
 async function main() {
   const imagePath = process.argv[2];
 
   if (!imagePath) {
-    console.error(
-      "Usage: npm run pipeline -- <path-to-circular-image>"
-    );
-    console.error(
-      "Example: npm run pipeline -- samples/weekly-circular.jpg"
-    );
+    console.error('Usage: npm run pipeline -- <path-to-circular-image>');
+    console.error('Example: npm run pipeline -- samples/weekly-circular.jpg');
     process.exit(1);
   }
 
@@ -22,27 +19,24 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("=== MealPlanShop Pipeline ===\n");
+  console.log('=== MealPlanShop Pipeline ===\n');
 
   // Step 1: Extract sale items from circular photo
-  console.log("--- Step 1: Scanning circular ---");
+  console.log('--- Step 1: Scanning circular ---');
   const extraction = await scanCircular(imagePath);
-  console.log("");
+  console.log('');
 
   if (extraction.items.length === 0) {
-    console.error("No sale items extracted. Check the image quality.");
+    console.error('No sale items extracted. Check the image quality.');
     process.exit(1);
   }
 
   // Step 2: Generate meal plan from sale items
-  console.log("--- Step 2: Generating meal plan ---");
-  const preferences = {
-    ...DEFAULT_PREFERENCES,
-    dietaryRestrictions: [],
-  };
+  console.log('--- Step 2: Generating meal plan ---');
+  const preferences = loadPreferences(DEFAULT_PREFERENCES);
 
   const mealPlan = await generateMealPlan(extraction.items, preferences);
-  console.log("");
+  console.log('');
 
   // Write combined output
   const output = {
@@ -57,24 +51,25 @@ async function main() {
     shoppingList: mealPlan.shoppingList,
   };
 
-  const outputPath = path.join(__dirname, "../output/full-pipeline.json");
+  const outputPath = path.join(__dirname, '../output/full-pipeline.json');
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
   console.log(`Full output written to: ${outputPath}`);
 
   // Print final summary
-  console.log("\n=== Pipeline Complete ===");
+  console.log('\n=== Pipeline Complete ===');
   console.log(`  Sale items found: ${extraction.items.length}`);
   console.log(`  Days planned: ${mealPlan.weekPlan.length}`);
   console.log(`  Shopping list items: ${mealPlan.shoppingList.length}`);
 
   const saleCount = mealPlan.shoppingList.filter((i) => i.onSale).length;
   const totalItems = mealPlan.shoppingList.length;
-  const salePct = totalItems > 0 ? ((saleCount / totalItems) * 100).toFixed(0) : "0";
+  const salePct =
+    totalItems > 0 ? ((saleCount / totalItems) * 100).toFixed(0) : '0';
   console.log(`  Items on sale: ${saleCount}/${totalItems} (${salePct}%)`);
 }
 
 main().catch((err) => {
-  console.error("Error:", err.message);
+  console.error('Error:', err.message);
   process.exit(1);
 });
