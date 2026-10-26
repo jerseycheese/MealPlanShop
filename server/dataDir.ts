@@ -1,5 +1,7 @@
-import * as os from "node:os";
-import * as path from "node:path";
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { UserPreferences } from '../types';
+import { readJsonOrNull } from './lib/jsonStore';
 
 // Where the app keeps state that must outlive any single git checkout —
 // preferences above all. Prefs used to live in the gitignored, per-checkout
@@ -14,10 +16,23 @@ import * as path from "node:path";
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.MEALPLANSHOP_DATA_DIR?.trim();
   if (override) return override;
-  return path.join(os.homedir(), ".config", "mealplanshop");
+  return path.join(os.homedir(), '.config', 'mealplanshop');
 }
 
 // Absolute path to the shared preferences file inside the resolved data dir.
 export function preferencesPath(env: NodeJS.ProcessEnv = process.env): string {
-  return path.join(resolveDataDir(env), "preferences.json");
+  return path.join(resolveDataDir(env), 'preferences.json');
+}
+
+// Resolve the user's saved preferences, falling back to `defaults` for a
+// missing file or for fields a stored (possibly older) preferences.json
+// doesn't have. Shared by the server routes and the CLI scripts (issue #141)
+// so both plan from the same preferences instead of the CLI silently using
+// `defaults` alone.
+export function loadPreferences(
+  defaults: UserPreferences,
+  env: NodeJS.ProcessEnv = process.env
+): UserPreferences {
+  const parsed = readJsonOrNull<Partial<UserPreferences>>(preferencesPath(env));
+  return parsed ? { ...defaults, ...parsed } : defaults;
 }
