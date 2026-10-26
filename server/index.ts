@@ -20,7 +20,7 @@ import {
 } from './prefs-fingerprint';
 import { mergeShoppingListAfterSwap } from './mergeShoppingList';
 import { attachSaleUnits } from './attachSaleUnits';
-import { attachLoyaltyFlags } from './attachLoyaltyFlags';
+import { decorateMealPlan } from './decorateMealPlan';
 import { moveMealInWeekPlan } from './moveMeal';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
@@ -214,22 +214,7 @@ async function runScanAndPlan(
     {
       loadPreferences,
       generate: generateMealPlan,
-      decorate: (mealPlan, ext, prefs) => {
-        // Post-hoc joins: propagate the loyalty-card flag and the per-unit price
-        // label (lb vs each, issue #121) from sale items to shopping list rows by
-        // name match. The meal plan prompt doesn't know about either; doing it
-        // here keeps the prompt unchanged.
-        if (Array.isArray(mealPlan.shoppingList)) {
-          attachLoyaltyFlags(mealPlan.shoppingList, ext.items);
-          attachSaleUnits(mealPlan.shoppingList, ext.items);
-        }
-
-        return {
-          ...mealPlan,
-          planId: crypto.randomUUID(),
-          prefsFingerprint: computePrefsFingerprint(prefs),
-        };
-      },
+      decorate: decorateMealPlan,
       commit: (ext, plan) => {
         ensureOutputDir();
         writeJsonAtomic(EXTRACTION_PATH, ext);
