@@ -2,7 +2,11 @@ import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const SUITES = [
+  'parseLocalDate.test.ts',
   'scripts/excludedCategories.test.ts',
+  'scripts/findExcludedViolations.test.ts',
+  'scripts/validateValidThrough.test.ts',
+  'scripts/deduplicateItems.test.ts',
   'scripts/mealPlanShape.test.ts',
   'scripts/buildMealPlanUserPrompt.test.ts',
   'scripts/estimate-extra-prices.test.ts',
@@ -26,6 +30,7 @@ const SUITES = [
   'src/app/formatShoppingListText.test.ts',
   'src/app/formatSalePrice.test.ts',
   'src/app/matchesPantryStaple.test.ts',
+  'src/app/shoppingItemKey.test.ts',
   'src/app/pantryStaples.test.ts',
 ];
 

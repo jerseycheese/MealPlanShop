@@ -11,6 +11,12 @@
     "skipLibCheck": true,
     "jsx": "react-jsx"
   },
-  "include": ["scripts/**/*", "server/**/*", "src/app/**/*", "types.ts"],
+  "include": [
+    "scripts/**/*",
+    "server/**/*",
+    "src/app/**/*",
+    "types.ts",
+    "*.test.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
