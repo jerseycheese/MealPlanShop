@@ -162,6 +162,21 @@ assert.deepEqual(
   'expired flyer dropped, rest soonest-ending first'
 );
 
+// toMerchants — a higher-scoring expired flyer must not knock out the
+// merchant's valid one during the per-merchant pick
+const sameStore = toMerchants(
+  [
+    { id: 10, merchant: 'ALDI', name: 'Weekly Ad', valid_to: '2026-05-15' },
+    { id: 11, merchant: 'ALDI', name: 'In Store Ad', valid_to: '2026-06-11' },
+  ],
+  morning
+);
+assert.deepEqual(
+  sameStore.map((m) => m.flyerId),
+  [11],
+  'valid flyer survives a higher-scoring expired one for the same merchant'
+);
+
 // isFlippCacheStale — _cachedAt bounds an entry whose validThrough is null
 const dayMs = 24 * 60 * 60 * 1000;
 assert.equal(

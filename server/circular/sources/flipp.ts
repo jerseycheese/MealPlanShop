@@ -190,37 +190,43 @@ export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
     ? (data.flyers as FlippFlyerRaw[])
     : [];
 
-  // Group by merchant — Flipp returns multiple flyers per merchant (e.g.
-  // ALDI ships an "In Store Ad" full of kitchen mats AND a "Weekly Ad" full
-  // of groceries). Score each flyer's name so the grocery flyer wins,
-  // falling back to latest valid_from when names are equally vague.
-  const byMerchant = new Map<string, FlippFlyerRaw>();
-  for (const f of flyers) {
-    const name = (f.merchant ?? '').trim();
-    if (!name) continue;
-    if (!GROCERY_MERCHANTS.has(name)) continue;
-    const existing = byMerchant.get(name);
-    if (!existing || flyerScore(f) > flyerScore(existing)) {
-      byMerchant.set(name, f);
-    }
-  }
-
-  return toMerchants(byMerchant.values());
+  return toMerchants(flyers);
 }
 
-// Picker rows, soonest-ending first. Expired flyers are dropped: daysUntil
-// clamps a past date to 0, so one left in would sort to the top as "Ends today".
+// Picker rows, one per grocery merchant, soonest-ending first.
+//
+// Expired and dateless flyers are dropped BEFORE the per-merchant pick: an
+// expired flyer with a better name score would otherwise win the merchant,
+// then get dropped, hiding that store entirely. Left in, daysUntil clamps a
+// past date to 0 and it sorts to the top as "Ends today".
+//
+// Flipp returns multiple flyers per merchant (e.g. ALDI ships an "In Store
+// Ad" full of kitchen mats AND a "Weekly Ad" full of groceries). Score each
+// flyer's name so the grocery flyer wins, falling back to latest valid_from
+// when names are equally vague.
 export function toMerchants(
   flyers: Iterable<FlippFlyerRaw>,
   now: Date = new Date()
 ): FlippMerchant[] {
-  const merchants: FlippMerchant[] = [];
+  const byMerchant = new Map<string, FlippFlyerRaw & { valid_to: string }>();
   for (const f of flyers) {
-    if (!f.valid_to || hasExpired(f.valid_to, now)) continue;
+    const name = (f.merchant ?? '').trim();
+    if (!name) continue;
+    if (!GROCERY_MERCHANTS.has(name)) continue;
+    const validTo = f.valid_to;
+    if (!validTo || hasExpired(validTo, now)) continue;
+    const existing = byMerchant.get(name);
+    if (!existing || flyerScore(f) > flyerScore(existing)) {
+      byMerchant.set(name, { ...f, valid_to: validTo });
+    }
+  }
+
+  const merchants: FlippMerchant[] = [];
+  for (const [name, f] of byMerchant) {
     merchants.push({
       flyerId: f.id,
       merchantId: f.merchant_id ?? null,
-      name: (f.merchant ?? '').trim(),
+      name,
       validFrom: f.valid_from ?? '',
       validTo: f.valid_to,
       daysLeft: daysUntil(f.valid_to, now),
