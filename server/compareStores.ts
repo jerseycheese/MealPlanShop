@@ -58,6 +58,7 @@ export interface ComparedStore {
 }
 
 export interface SkippedStore {
+  flyerId: number;
   storeName: string;
   reason: string;
 }
@@ -103,6 +104,7 @@ export async function compareStores(
       const extraction = await deps.getExtraction(m);
       if (extraction.items.length < MIN_FLYER_ITEMS) {
         skipped.push({
+          flyerId: m.flyerId,
           storeName: m.name,
           reason: `Only ${extraction.items.length} sale items, too few to price a week`,
         });
@@ -128,6 +130,7 @@ export async function compareStores(
     } catch (err) {
       firstError ??= err;
       skipped.push({
+        flyerId: m.flyerId,
         storeName: m.name,
         reason: err instanceof Error ? err.message : 'Failed',
       });
@@ -157,4 +160,17 @@ export function readComparedStore(
     path.join(outputDir, COMPARE_FILENAME)
   );
   return saved?.ranked?.find((s) => s.flyerId === flyerId) ?? null;
+}
+
+// Make a compared store the active plan by handing its saved extraction + plan
+// to the same commit a normal fetch uses. Returns null when the store isn't in
+// the last comparison.
+export function commitComparedStore(
+  outputDir: string,
+  flyerId: number,
+  commit: (extraction: ExtractionResult, plan: MealPlanResult) => void
+): ComparedStore | null {
+  const picked = readComparedStore(outputDir, flyerId);
+  if (picked) commit(picked.extraction, picked.plan);
+  return picked;
 }

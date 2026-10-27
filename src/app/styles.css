@@ -2164,6 +2164,7 @@ body {
 }
 
 .store-compare__note,
+.store-compare__empty,
 .store-compare__skipped {
   font-size: 0.85rem;
   color: var(--color-text-muted);

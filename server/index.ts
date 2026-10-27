@@ -64,7 +64,7 @@ import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
 import {
   compareStores,
   eligibleFlyers,
-  readComparedStore,
+  commitComparedStore,
 } from './compareStores';
 import {
   readJsonOrNull,
@@ -1146,12 +1146,11 @@ app.post(
       const body = req.body as { flyerId?: unknown } | undefined;
       const flyerId = typeof body?.flyerId === 'number' ? body.flyerId : NaN;
       const picked = Number.isFinite(flyerId)
-        ? readComparedStore(OUTPUT_DIR, flyerId)
+        ? commitComparedStore(OUTPUT_DIR, flyerId, commitPlan)
         : null;
       if (!picked) {
         throw new HttpError(404, 'That store is not in the last comparison.');
       }
-      commitPlan(picked.extraction, picked.plan);
       if (typeof picked.merchantId === 'number') {
         saveCircularPrefs({ lastMerchantId: picked.merchantId });
       }

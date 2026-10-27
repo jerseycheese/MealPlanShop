@@ -10,7 +10,7 @@ export interface ComparedStoreRow {
 
 export interface StoreComparisonView {
   ranked: ComparedStoreRow[];
-  skipped: { storeName: string; reason: string }[];
+  skipped: { flyerId: number; storeName: string; reason: string }[];
 }
 
 interface StoreCompareProps {
@@ -43,45 +43,51 @@ export function StoreCompare({
         Totals are Gemini's estimates and lean on what's on sale, so treat close
         ones as a tie.
       </p>
-      <div className="store-compare__scroll">
-        <table className="store-compare__table">
-          <thead>
-            <tr>
-              <th scope="col">Store</th>
-              <th scope="col">Est. total</th>
-              <th scope="col">Sale items used</th>
-              <th scope="col">Meals</th>
-              <th scope="col" aria-label="Action" />
-            </tr>
-          </thead>
-          <tbody>
-            {comparison.ranked.map((s) => (
-              <tr key={s.flyerId}>
-                <th scope="row">{s.storeName}</th>
-                <td>${s.total.toFixed(2)}</td>
-                <td>
-                  {s.saleItemsUsed}/{s.listItems}
-                </td>
-                <td>{s.mealCount}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="store-compare__use"
-                    onClick={() => onUse(s.flyerId)}
-                    disabled={disabled}
-                  >
-                    Use this store
-                  </button>
-                </td>
+      {comparison.ranked.length === 0 ? (
+        <p className="store-compare__empty">
+          None of the stores could be ranked. The reasons are below.
+        </p>
+      ) : (
+        <div className="store-compare__scroll">
+          <table className="store-compare__table">
+            <thead>
+              <tr>
+                <th scope="col">Store</th>
+                <th scope="col">Est. total</th>
+                <th scope="col">Sale items used</th>
+                <th scope="col">Meals</th>
+                <th scope="col" aria-label="Action" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {comparison.ranked.map((s) => (
+                <tr key={s.flyerId}>
+                  <th scope="row">{s.storeName}</th>
+                  <td>${s.total.toFixed(2)}</td>
+                  <td>
+                    {s.saleItemsUsed}/{s.listItems}
+                  </td>
+                  <td>{s.mealCount}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="store-compare__use"
+                      onClick={() => onUse(s.flyerId)}
+                      disabled={disabled}
+                    >
+                      Use this store
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {comparison.skipped.length > 0 && (
         <ul className="store-compare__skipped">
           {comparison.skipped.map((s) => (
-            <li key={s.storeName}>
+            <li key={s.flyerId}>
               Skipped {s.storeName}: {s.reason}
             </li>
           ))}

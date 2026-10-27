@@ -467,6 +467,7 @@ export function App() {
 
   const handleFlippFetch = async (m: FlippMerchant) => {
     setShowStorePicker(false);
+    setComparison(null);
     setUploading(true);
     setError(null);
     try {
@@ -500,6 +501,7 @@ export function App() {
   // being planned.
   const handleCompare = async (includeAll: boolean) => {
     setShowStorePicker(false);
+    setComparison(null);
     setUploading(true);
     setError(null);
     try {
@@ -548,6 +550,7 @@ export function App() {
   };
 
   const handleUpload = async (file: File) => {
+    setComparison(null);
     setUploading(true);
     setError(null);
     try {

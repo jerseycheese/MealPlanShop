@@ -6,6 +6,7 @@ import {
   compareStores,
   eligibleFlyers,
   readComparedStore,
+  commitComparedStore,
   COMPARE_FILENAME,
   MIN_FLYER_ITEMS,
 } from './compareStores';
@@ -137,6 +138,24 @@ export async function run(): Promise<void> {
       const picked = readComparedStore(dir, 2);
       assert.equal(picked?.storeName, 'ALDI');
       assert.equal(picked?.extraction.items.length, 56);
+    });
+
+    await test('using a compared store commits its saved extraction and plan', async () => {
+      await compareStores(merchants, dir, deps);
+      const commits: Array<{ ext: ExtractionResult; plan: MealPlanResult }> =
+        [];
+      const picked = commitComparedStore(dir, 4, (ext, plan) =>
+        commits.push({ ext, plan })
+      );
+      assert.equal(picked?.storeName, 'Lidl');
+      assert.equal(commits.length, 1);
+      assert.equal(commits[0].ext.storeName, 'Lidl');
+      assert.equal(commits[0].plan.weekPlan[0].dinner?.estimatedCost, 25);
+      assert.equal(
+        commitComparedStore(dir, 999, () => commits.push({} as never)),
+        null
+      );
+      assert.equal(commits.length, 1, 'unknown store must commit nothing');
     });
 
     await test('rethrows when every store fails', async () => {
