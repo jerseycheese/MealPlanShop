@@ -714,6 +714,23 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
   return parsed;
 }
 
+// Stamp a fresh planId and the prefs fingerprint, then write the plan where the
+// server reads it. Shared by the plan and pipeline CLIs.
+export function writeMealPlan(
+  plan: MealPlanResult,
+  preferences: UserPreferences,
+  outputPath = path.join(__dirname, '../output/meal-plan.json')
+): { result: MealPlanResult; outputPath: string } {
+  const result: MealPlanResult = {
+    ...plan,
+    planId: crypto.randomUUID(),
+    prefsFingerprint: computePrefsFingerprint(preferences),
+  };
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+  return { result, outputPath };
+}
+
 // -- CLI entry point --
 
 async function main() {
@@ -733,15 +750,10 @@ async function main() {
   const saleItems: SaleItem[] = extraction.items || extraction;
 
   const preferences = loadPreferences(DEFAULT_PREFERENCES);
-  const result: MealPlanResult = {
-    ...(await generateMealPlan(saleItems, preferences)),
-    planId: crypto.randomUUID(),
-    prefsFingerprint: computePrefsFingerprint(preferences),
-  };
-
-  // Write output
-  const outputPath = path.join(__dirname, '../output/meal-plan.json');
-  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+  const { result, outputPath } = writeMealPlan(
+    await generateMealPlan(saleItems, preferences),
+    preferences
+  );
   console.log(`\nOutput written to: ${outputPath}`);
 
   // Print summary
