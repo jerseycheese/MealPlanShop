@@ -1,8 +1,11 @@
 import 'dotenv/config';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { scanCircular } from './scan-circular';
-import { generateMealPlan, DEFAULT_PREFERENCES } from './generate-meal-plan';
+import { scanCircular, writeExtraction } from './scan-circular';
+import {
+  generateMealPlan,
+  writeMealPlan,
+  DEFAULT_PREFERENCES,
+} from './generate-meal-plan';
 import { loadPreferences } from '../server/dataDir';
 
 async function main() {
@@ -24,7 +27,7 @@ async function main() {
   // Step 1: Extract sale items from circular photo
   console.log('--- Step 1: Scanning circular ---');
   const extraction = await scanCircular(imagePath);
-  console.log('');
+  console.log(`Extraction written to: ${writeExtraction(extraction)}\n`);
 
   if (extraction.items.length === 0) {
     console.error('No sale items extracted. Check the image quality.');
@@ -35,26 +38,11 @@ async function main() {
   console.log('--- Step 2: Generating meal plan ---');
   const preferences = loadPreferences(DEFAULT_PREFERENCES);
 
-  const mealPlan = await generateMealPlan(extraction.items, preferences);
-  console.log('');
-
-  // Write combined output
-  const output = {
-    circular: {
-      storeName: extraction.storeName,
-      validThrough: extraction.validThrough,
-      saleItemCount: extraction.items.length,
-    },
-    saleItems: extraction.items,
-    preferences,
-    mealPlan: mealPlan.weekPlan,
-    shoppingList: mealPlan.shoppingList,
-  };
-
-  const outputPath = path.join(__dirname, '../output/full-pipeline.json');
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
-  console.log(`Full output written to: ${outputPath}`);
+  const { result: mealPlan, outputPath } = writeMealPlan(
+    await generateMealPlan(extraction.items, preferences),
+    preferences
+  );
+  console.log(`Meal plan written to: ${outputPath}`);
 
   // Print final summary
   console.log('\n=== Pipeline Complete ===');

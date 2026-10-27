@@ -7,6 +7,7 @@ const SUITES = [
   'scripts/findExcludedViolations.test.ts',
   'scripts/validateValidThrough.test.ts',
   'scripts/deduplicateItems.test.ts',
+  'scripts/writeOutputs.test.ts',
   'scripts/mealPlanShape.test.ts',
   'scripts/buildMealPlanUserPrompt.test.ts',
   'scripts/estimate-extra-prices.test.ts',

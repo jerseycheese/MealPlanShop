@@ -1,58 +1,58 @@
-import "dotenv/config";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { execFileSync } from "node:child_process";
-import { GoogleGenAI } from "@google/genai";
-import type { SaleItem, ExtractionResult } from "../types";
-import { GEMINI_MODEL } from "./env";
-import { requireGeminiKey } from "../server/secrets";
-import { toReadableGeminiError } from "../server/geminiErrors";
-import { hasPoppler, popplerRequiredError } from "../server/poppler";
+import 'dotenv/config';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { GoogleGenAI } from '@google/genai';
+import type { SaleItem, ExtractionResult } from '../types';
+import { GEMINI_MODEL } from './env';
+import { requireGeminiKey } from '../server/secrets';
+import { toReadableGeminiError } from '../server/geminiErrors';
+import { hasPoppler, popplerRequiredError } from '../server/poppler';
 
 export const CATEGORY_ENUM = [
-  "produce",
-  "meat",
-  "seafood",
-  "dairy",
-  "bakery",
-  "frozen",
-  "pantry",
-  "beverages",
-  "snacks",
-  "deli",
-  "other",
+  'produce',
+  'meat',
+  'seafood',
+  'dairy',
+  'bakery',
+  'frozen',
+  'pantry',
+  'beverages',
+  'snacks',
+  'deli',
+  'other',
 ] as const;
 
 export type ScanProgressEvent =
-  | { type: "preparing" }
-  | { type: "page"; page: number; pages: number; storeName: string | null };
+  | { type: 'preparing' }
+  | { type: 'page'; page: number; pages: number; storeName: string | null };
 
 // -- Schema for structured output --
 
 const extractionSchema = {
-  type: "object" as const,
+  type: 'object' as const,
   properties: {
     items: {
-      type: "array" as const,
+      type: 'array' as const,
       items: {
-        type: "object" as const,
+        type: 'object' as const,
         properties: {
-          item: { type: "string" as const },
-          price: { type: "number" as const },
-          unit: { type: "string" as const },
+          item: { type: 'string' as const },
+          price: { type: 'number' as const },
+          unit: { type: 'string' as const },
           category: {
-            type: "string" as const,
+            type: 'string' as const,
             enum: [...CATEGORY_ENUM],
           },
-          priceNote: { type: "string" as const },
+          priceNote: { type: 'string' as const },
         },
-        required: ["item", "price", "unit", "category"],
+        required: ['item', 'price', 'unit', 'category'],
       },
     },
-    storeName: { type: ["string", "null"] as const },
-    validThrough: { type: ["string", "null"] as const },
+    storeName: { type: ['string', 'null'] as const },
+    validThrough: { type: ['string', 'null'] as const },
   },
-  required: ["items", "storeName", "validThrough"],
+  required: ['items', 'storeName', 'validThrough'],
 };
 
 // -- Single image scanning --
@@ -63,16 +63,16 @@ async function scanImage(
   prompt: string
 ): Promise<ExtractionResult> {
   const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString("base64");
+  const base64Image = imageBuffer.toString('base64');
 
   const ext = path.extname(imagePath).toLowerCase();
   const mimeTypes: Record<string, string> = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
   };
-  const mimeType = mimeTypes[ext] || "image/jpeg";
+  const mimeType = mimeTypes[ext] || 'image/jpeg';
 
   const response = await ai.models
     .generateContent({
@@ -87,7 +87,7 @@ async function scanImage(
         { text: prompt },
       ],
       config: {
-        responseMimeType: "application/json",
+        responseMimeType: 'application/json',
         responseJsonSchema: extractionSchema,
         httpOptions: { timeout: 90_000 },
       },
@@ -101,26 +101,26 @@ async function scanImage(
   ) as Partial<ExtractionResult>;
   return {
     items: Array.isArray(parsed.items) ? parsed.items : [],
-    storeName: typeof parsed.storeName === "string" ? parsed.storeName : null,
+    storeName: typeof parsed.storeName === 'string' ? parsed.storeName : null,
     validThrough:
-      typeof parsed.validThrough === "string" ? parsed.validThrough : null,
+      typeof parsed.validThrough === 'string' ? parsed.validThrough : null,
   };
 }
 
 // -- PDF conversion --
 
 function convertPdfToImages(pdfPath: string): string[] {
-  const tmpDir = path.join(path.dirname(pdfPath), ".pdf-tmp");
+  const tmpDir = path.join(path.dirname(pdfPath), '.pdf-tmp');
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  const prefix = path.join(tmpDir, "page");
-  execFileSync("pdftoppm", ["-r", "150", "-jpeg", pdfPath, prefix], {
-    stdio: "pipe",
+  const prefix = path.join(tmpDir, 'page');
+  execFileSync('pdftoppm', ['-r', '150', '-jpeg', pdfPath, prefix], {
+    stdio: 'pipe',
   });
 
   const files = fs
     .readdirSync(tmpDir)
-    .filter((f) => f.endsWith(".jpg"))
+    .filter((f) => f.endsWith('.jpg'))
     .sort()
     .map((f) => path.join(tmpDir, f));
 
@@ -129,7 +129,7 @@ function convertPdfToImages(pdfPath: string): string[] {
 }
 
 function cleanupTmpImages(pdfPath: string) {
-  const tmpDir = path.join(path.dirname(pdfPath), ".pdf-tmp");
+  const tmpDir = path.join(path.dirname(pdfPath), '.pdf-tmp');
   if (fs.existsSync(tmpDir)) {
     fs.rmSync(tmpDir, { recursive: true });
   }
@@ -142,7 +142,9 @@ function cleanupTmpImages(pdfPath: string) {
 // misreads the year (e.g. returns 2024 for a current flyer); better to show
 // no date than a wrong one. Strings without a year are left alone — the UI
 // degrades gracefully.
-export function validateValidThrough(validThrough: string | null): string | null {
+export function validateValidThrough(
+  validThrough: string | null
+): string | null {
   if (!validThrough) return null;
   if (!/\b20\d{2}\b/.test(validThrough)) return validThrough;
 
@@ -196,23 +198,23 @@ export async function scanCircular(
 ): Promise<ExtractionResult> {
   const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
   const prompt = fs.readFileSync(
-    path.join(__dirname, "../prompts/circular-extraction.md"),
-    "utf-8"
+    path.join(__dirname, '../prompts/circular-extraction.md'),
+    'utf-8'
   );
 
   const ext = path.extname(filePath).toLowerCase();
-  const isPdf = ext === ".pdf";
+  const isPdf = ext === '.pdf';
 
   if (!isPdf) {
     // Single image
     console.log(`Scanning circular image: ${filePath}`);
     const size = fs.statSync(filePath).size;
     console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
-    onProgress?.({ type: "page", page: 1, pages: 1, storeName: null });
+    onProgress?.({ type: 'page', page: 1, pages: 1, storeName: null });
     const result = await scanImage(ai, filePath, prompt);
     result.validThrough = validateValidThrough(result.validThrough);
     onProgress?.({
-      type: "page",
+      type: 'page',
       page: 1,
       pages: 1,
       storeName: result.storeName,
@@ -225,7 +227,7 @@ export async function scanCircular(
   // The guard is here (not the route) so the CLI gets the same message.
   if (!hasPoppler()) throw popplerRequiredError();
   console.log(`Scanning PDF circular: ${filePath}`);
-  onProgress?.({ type: "preparing" });
+  onProgress?.({ type: 'preparing' });
   const pageImages = convertPdfToImages(filePath);
 
   const allItems: SaleItem[] = [];
@@ -247,7 +249,7 @@ export async function scanCircular(
       validThrough = result.validThrough;
 
     onProgress?.({
-      type: "page",
+      type: 'page',
       page: pageNum,
       pages: pageImages.length,
       storeName,
@@ -268,15 +270,26 @@ export async function scanCircular(
   return { items: deduplicated, storeName, validThrough };
 }
 
+// Write the extraction where the server and `npm run plan` read it. Shared by
+// the scan and pipeline CLIs so neither can drift to a file nothing reads.
+export function writeExtraction(
+  result: ExtractionResult,
+  outputPath = path.join(__dirname, '../output/extraction.json')
+): string {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+  return outputPath;
+}
+
 // -- CLI entry point --
 
 async function main() {
   const filePath = process.argv[2];
 
   if (!filePath) {
-    console.error("Usage: npm run scan -- <path-to-circular>");
-    console.error("Supports: .jpg, .jpeg, .png, .webp, .pdf");
-    console.error("Example: npm run scan -- samples/flyer.pdf");
+    console.error('Usage: npm run scan -- <path-to-circular>');
+    console.error('Supports: .jpg, .jpeg, .png, .webp, .pdf');
+    console.error('Example: npm run scan -- samples/flyer.pdf');
     process.exit(1);
   }
 
@@ -287,17 +300,14 @@ async function main() {
 
   const result = await scanCircular(filePath);
 
-  // Write output
-  const outputPath = path.join(__dirname, "../output/extraction.json");
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+  const outputPath = writeExtraction(result);
   console.log(`\nOutput written to: ${outputPath}`);
 
   // Print summary table
-  console.log("\n--- Sale Items ---");
+  console.log('\n--- Sale Items ---');
   for (const item of result.items) {
     const priceStr = `$${item.price.toFixed(2)}`;
-    const note = item.priceNote ? ` (${item.priceNote})` : "";
+    const note = item.priceNote ? ` (${item.priceNote})` : '';
     console.log(
       `  [${item.category.padEnd(10)}] ${item.item.padEnd(40)} ${priceStr.padStart(8)} ${item.unit}${note}`
     );
@@ -306,7 +316,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch((err) => {
-    console.error("Error:", err.message);
+    console.error('Error:', err.message);
     process.exit(1);
   });
 }
