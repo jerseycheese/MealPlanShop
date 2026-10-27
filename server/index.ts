@@ -55,7 +55,11 @@ import type {
   MealType,
 } from '../types';
 import { MEAL_TYPES, DAYS_OF_WEEK } from '../types';
-import { listFlyers, fetchFlyer, hasExpired } from './circular/sources/flipp';
+import {
+  listFlyers,
+  fetchFlyer,
+  isFlippCacheStale,
+} from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
 import {
   readJsonOrNull,
@@ -227,11 +231,10 @@ async function runScanAndPlan(
 }
 
 function readFlippCache(flyerId: number): ExtractionResult | null {
-  const data = readJsonOrNull<ExtractionResult>(
+  const data = readJsonOrNull<ExtractionResult & { _cachedAt?: unknown }>(
     path.join(FLIPP_CACHE_DIR, `${flyerId}.json`)
   );
-  if (!data) return null;
-  if (data.validThrough && hasExpired(data.validThrough)) return null;
+  if (!data || isFlippCacheStale(data)) return null;
   return {
     items: data.items,
     storeName: data.storeName,
