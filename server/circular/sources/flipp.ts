@@ -1,23 +1,26 @@
-import * as crypto from "node:crypto";
-import type { SaleItem, ExtractionResult } from "../../../types";
+import * as crypto from 'node:crypto';
+import type { SaleItem, ExtractionResult } from '../../../types';
 import {
   deduplicateItems,
   validateValidThrough,
-} from "../../../scripts/scan-circular";
-import { categorizeItems } from "../categorize";
-import { parseLocalDate } from "../../../parseLocalDate";
+} from '../../../scripts/scan-circular';
+import { categorizeItems } from '../categorize';
+import { parseLocalDate } from '../../../parseLocalDate';
 
-const BASE = "https://flyers-ng.flippback.com/api/flipp";
+const BASE = 'https://flyers-ng.flippback.com/api/flipp';
 const ITEM_BATCH = 10;
 const FLIPP_TIMEOUT_MS = 10_000;
 
-async function fetchWithTimeout(url: string, timeoutMs = FLIPP_TIMEOUT_MS): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs = FLIPP_TIMEOUT_MS
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { signal: controller.signal });
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(`Flipp request timed out after ${timeoutMs}ms: ${url}`);
     }
     throw err;
@@ -30,29 +33,29 @@ async function fetchWithTimeout(url: string, timeoutMs = FLIPP_TIMEOUT_MS): Prom
 // Restrict the picker to grocery chains — these are the only ones whose
 // flyers feed a meal plan. Names match the `merchant` field exactly.
 const GROCERY_MERCHANTS = new Set([
-  "ALDI",
-  "Costco",
-  "Food Lion",
-  "Grocery Outlet",
-  "Harris Teeter",
-  "Kroger",
-  "Lidl",
-  "Publix",
-  "Walmart",
+  'ALDI',
+  'Costco',
+  'Food Lion',
+  'Grocery Outlet',
+  'Harris Teeter',
+  'Kroger',
+  'Lidl',
+  'Publix',
+  'Walmart',
   "Wegman's",
-  "Wegmans",
-  "Whole Foods Market",
+  'Wegmans',
+  'Whole Foods Market',
   "Trader Joe's",
-  "ShopRite",
-  "Giant",
-  "Stop & Shop",
-  "Safeway",
-  "Albertsons",
-  "Sprouts Farmers Market",
-  "H-E-B",
-  "Meijer",
+  'ShopRite',
+  'Giant',
+  'Stop & Shop',
+  'Safeway',
+  'Albertsons',
+  'Sprouts Farmers Market',
+  'H-E-B',
+  'Meijer',
   "Sam's Club",
-  "Target",
+  'Target',
 ]);
 
 const LOYALTY_REGEX =
@@ -108,7 +111,7 @@ export interface FlippItemDetail {
 export function generateSid(): string {
   // Flipp's API only accepts numeric SIDs, so we can't use hex/UUID.
   // randomInt is unbiased, unlike `randomBytes() % 10`.
-  let s = "";
+  let s = '';
   for (let i = 0; i < 16; i++) s += crypto.randomInt(0, 10).toString();
   return s;
 }
@@ -118,18 +121,22 @@ export function generateSid(): string {
 // "In Store Ad" (ALDI's non-grocery insert), and "Monthly" lose. Ties broken
 // by valid_from so the freshest week wins among equals.
 function flyerScore(f: FlippFlyerRaw): number {
-  const name = (f.name ?? "").toLowerCase();
+  const name = (f.name ?? '').toLowerCase();
   let score = 0;
   if (/\bweekly\b/.test(name)) score += 100;
   if (/\bgrocery\b/.test(name)) score += 100;
   if (/\bweekly flyer\b/.test(name)) score += 20;
   if (/\bweekly ad\b/.test(name)) score += 20;
-  if (/\b(home|apparel|outdoor|monthly|in store ad|electronics|seasonal|book)\b/.test(name)) {
+  if (
+    /\b(home|apparel|outdoor|monthly|in store ad|electronics|seasonal|book)\b/.test(
+      name
+    )
+  ) {
     score -= 80;
   }
   // Tiebreaker: encode valid_from as a numeric suffix (epoch days) so ranking
   // is deterministic without comparing two fields separately.
-  const t = new Date(f.valid_from ?? "").getTime();
+  const t = new Date(f.valid_from ?? '').getTime();
   if (Number.isFinite(t)) score += t / 86_400_000_000; // tiny nudge, never overwhelms category signal
   return score;
 }
@@ -158,6 +165,21 @@ export function hasExpired(dateOnly: string, now: Date = new Date()): boolean {
   return now.getTime() >= end.getTime();
 }
 
+// Flyers run a week, so a cache entry older than this is stale even when its
+// validThrough couldn't be parsed (null), which hasExpired alone never expires.
+const FLIPP_CACHE_MAX_AGE_MS = 8 * 24 * 60 * 60 * 1000;
+
+export function isFlippCacheStale(
+  entry: { validThrough?: string | null; _cachedAt?: unknown },
+  now: Date = new Date()
+): boolean {
+  if (entry.validThrough && hasExpired(entry.validThrough, now)) return true;
+  return (
+    typeof entry._cachedAt === 'number' &&
+    now.getTime() - entry._cachedAt > FLIPP_CACHE_MAX_AGE_MS
+  );
+}
+
 export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
   const sid = generateSid();
   const url = `${BASE}/data?locale=en&postal_code=${encodeURIComponent(postalCode)}&sid=${sid}`;
@@ -174,7 +196,7 @@ export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
   // falling back to latest valid_from when names are equally vague.
   const byMerchant = new Map<string, FlippFlyerRaw>();
   for (const f of flyers) {
-    const name = (f.merchant ?? "").trim();
+    const name = (f.merchant ?? '').trim();
     if (!name) continue;
     if (!GROCERY_MERCHANTS.has(name)) continue;
     const existing = byMerchant.get(name);
@@ -183,16 +205,25 @@ export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
     }
   }
 
+  return toMerchants(byMerchant.values());
+}
+
+// Picker rows, soonest-ending first. Expired flyers are dropped: daysUntil
+// clamps a past date to 0, so one left in would sort to the top as "Ends today".
+export function toMerchants(
+  flyers: Iterable<FlippFlyerRaw>,
+  now: Date = new Date()
+): FlippMerchant[] {
   const merchants: FlippMerchant[] = [];
-  for (const f of byMerchant.values()) {
-    if (!f.valid_to) continue;
+  for (const f of flyers) {
+    if (!f.valid_to || hasExpired(f.valid_to, now)) continue;
     merchants.push({
       flyerId: f.id,
       merchantId: f.merchant_id ?? null,
-      name: (f.merchant ?? "").trim(),
-      validFrom: f.valid_from ?? "",
+      name: (f.merchant ?? '').trim(),
+      validFrom: f.valid_from ?? '',
       validTo: f.valid_to,
-      daysLeft: daysUntil(f.valid_to),
+      daysLeft: daysUntil(f.valid_to, now),
       logoUrl: f.merchant_logo ?? null,
     });
   }
@@ -200,7 +231,10 @@ export async function listFlyers(postalCode: string): Promise<FlippMerchant[]> {
   return merchants;
 }
 
-async function fetchItemList(flyerId: number, sid: string): Promise<FlippListItem[]> {
+async function fetchItemList(
+  flyerId: number,
+  sid: string
+): Promise<FlippListItem[]> {
   const url = `${BASE}/flyers/${flyerId}/flyer_items?locale=en&sid=${sid}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Flipp fetchItemList ${res.status}`);
@@ -208,17 +242,20 @@ async function fetchItemList(flyerId: number, sid: string): Promise<FlippListIte
   return Array.isArray(data) ? (data as FlippListItem[]) : [];
 }
 
-async function fetchItemDetail(itemId: number, sid: string): Promise<FlippItemDetail | null> {
+async function fetchItemDetail(
+  itemId: number,
+  sid: string
+): Promise<FlippItemDetail | null> {
   const url = `${BASE}/flyer_items/${itemId}?locale=en&sid=${sid}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) return null;
   const data = await res.json();
-  return data && typeof data === "object" ? (data as FlippItemDetail) : null;
+  return data && typeof data === 'object' ? (data as FlippItemDetail) : null;
 }
 
 async function fetchDetailsBatched(
   ids: number[],
-  sid: string,
+  sid: string
 ): Promise<Map<number, FlippItemDetail>> {
   const out = new Map<number, FlippItemDetail>();
   for (let i = 0; i < ids.length; i += ITEM_BATCH) {
@@ -226,11 +263,11 @@ async function fetchDetailsBatched(
     // allSettled so one timed-out/failed detail fetch doesn't abort the whole
     // flyer — we just drop that item and keep the rest.
     const results = await Promise.allSettled(
-      chunk.map((id) => fetchItemDetail(id, sid)),
+      chunk.map((id) => fetchItemDetail(id, sid))
     );
     for (let j = 0; j < chunk.length; j++) {
       const r = results[j];
-      const detail = r.status === "fulfilled" ? r.value : null;
+      const detail = r.status === 'fulfilled' ? r.value : null;
       if (detail) out.set(chunk[j], detail);
     }
   }
@@ -241,36 +278,36 @@ async function fetchDetailsBatched(
 
 export function detectLoyalty(
   prePriceText: string | null | undefined,
-  disclaimerText: string | null | undefined,
+  disclaimerText: string | null | undefined
 ): boolean {
-  const pre = prePriceText ?? "";
-  const dis = disclaimerText ?? "";
+  const pre = prePriceText ?? '';
+  const dis = disclaimerText ?? '';
   // Skip boilerplate disclaimers that mention "card" only incidentally.
-  const disForCheck = BOILERPLATE_DISCLAIMER.test(dis) ? "" : dis;
+  const disForCheck = BOILERPLATE_DISCLAIMER.test(dis) ? '' : dis;
   return LOYALTY_REGEX.test(pre) || LOYALTY_REGEX.test(disForCheck);
 }
 
 export function parseUnit(
   priceText: string | null | undefined,
-  description: string | null | undefined,
+  description: string | null | undefined
 ): string {
-  const t = (priceText ?? "").toUpperCase();
-  if (/\bLB\b/.test(t) || /\bPER LB\b/.test(t)) return "per lb";
-  if (/\bOZ\b/.test(t)) return "per oz";
+  const t = (priceText ?? '').toUpperCase();
+  if (/\bLB\b/.test(t) || /\bPER LB\b/.test(t)) return 'per lb';
+  if (/\bOZ\b/.test(t)) return 'per oz';
   if (/\bEA\b/.test(t) || /\bEACH\b/.test(t)) {
     // Capture multi-buy modifier when present, e.g. "EA WHEN YOU BUY ANY 12".
     const m = t.match(/EA\s+(WHEN.*|W\/.*|WHEN YOU.*)/);
-    return m ? `each (${m[1].toLowerCase()})` : "each";
+    return m ? `each (${m[1].toLowerCase()})` : 'each';
   }
   // Fall back to a pack-size hint from description ("12 Oz." style).
-  const desc = (description ?? "").split("\n")[0]?.trim();
-  return desc || "each";
+  const desc = (description ?? '').split('\n')[0]?.trim();
+  return desc || 'each';
 }
 
 // pre_price_text "MVP 2/" means "2 for {list.price}"; "MVP 3/" means "3 for {price}".
 // Returns the multi-buy quantity if present, else null.
 function multiBuyQty(prePriceText: string | null | undefined): number | null {
-  const m = (prePriceText ?? "").match(/(\d+)\s*\/\s*$/);
+  const m = (prePriceText ?? '').match(/(\d+)\s*\/\s*$/);
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return Number.isFinite(n) && n > 1 ? n : null;
@@ -278,10 +315,11 @@ function multiBuyQty(prePriceText: string | null | undefined): number | null {
 
 export function effectivePrice(
   listPrice: string | number | null | undefined,
-  prePriceText: string | null | undefined,
+  prePriceText: string | null | undefined
 ): number | null {
-  if (listPrice === null || listPrice === undefined || listPrice === "") return null;
-  const raw = typeof listPrice === "string" ? parseFloat(listPrice) : listPrice;
+  if (listPrice === null || listPrice === undefined || listPrice === '')
+    return null;
+  const raw = typeof listPrice === 'string' ? parseFloat(listPrice) : listPrice;
   if (!Number.isFinite(raw) || raw <= 0) return null;
   const qty = multiBuyQty(prePriceText);
   if (qty) return Math.round((raw / qty) * 100) / 100;
@@ -290,34 +328,34 @@ export function effectivePrice(
 
 export function buildPriceNote(
   detail: FlippItemDetail,
-  listPrice?: string | number | null,
+  listPrice?: string | number | null
 ): string | undefined {
   const parts: string[] = [];
-  const sale = (detail.sale_story ?? "").trim();
+  const sale = (detail.sale_story ?? '').trim();
   if (sale && !/^HOT SALE!*$/i.test(sale)) parts.push(sale);
 
   const qty = multiBuyQty(detail.pre_price_text);
   // detail.price is almost always null from Flipp; the real price lives on
   // the list payload, so the caller passes it through here.
   const total = detail.price ?? listPrice;
-  if (qty && total !== null && total !== undefined && total !== "") {
+  if (qty && total !== null && total !== undefined && total !== '') {
     parts.push(`${qty} for $${total}`);
   }
 
-  const dis = (detail.disclaimer_text ?? "").trim();
+  const dis = (detail.disclaimer_text ?? '').trim();
   if (dis && !BOILERPLATE_DISCLAIMER.test(dis)) {
     // Disclaimers often include the non-loyalty price and limits — both useful.
-    const cleaned = dis.replace(/\s*\n+\s*/g, " · ");
+    const cleaned = dis.replace(/\s*\n+\s*/g, ' · ');
     parts.push(cleaned);
   }
-  return parts.length ? parts.join(" · ") : undefined;
+  return parts.length ? parts.join(' · ') : undefined;
 }
 
 export function parseItem(
   listItem: FlippListItem,
-  detail: FlippItemDetail | undefined,
+  detail: FlippItemDetail | undefined
 ): SaleItem | null {
-  const name = (listItem.name ?? "").trim();
+  const name = (listItem.name ?? '').trim();
   if (!name) return null;
   const d = detail ?? ({} as FlippItemDetail);
   const price = effectivePrice(listItem.price, d.pre_price_text);
@@ -326,7 +364,7 @@ export function parseItem(
     item: name,
     price,
     unit: parseUnit(d.price_text, d.description),
-    category: "other", // filled in by the categorize step
+    category: 'other', // filled in by the categorize step
     priceNote: buildPriceNote(d, listItem.price),
     requiresLoyaltyCard: detectLoyalty(d.pre_price_text, d.disclaimer_text),
   };
@@ -339,14 +377,16 @@ export interface FetchFlyerOptions {
 
 export async function fetchFlyer(
   flyerId: number,
-  opts: FetchFlyerOptions = {},
+  opts: FetchFlyerOptions = {}
 ): Promise<ExtractionResult> {
   const sid = generateSid();
   const list = await fetchItemList(flyerId, sid);
 
   // Pre-filter list to items that have any chance of being a real product:
   // a name AND a real price. (Cuts out "Shop & Earn", "Digital Coupons" rows.)
-  const eligible = list.filter((i) => i.name && i.price && i.price !== "0" && i.price !== "0.00");
+  const eligible = list.filter(
+    (i) => i.name && i.price && i.price !== '0' && i.price !== '0.00'
+  );
   const ids = eligible.map((i) => i.id);
   const details = await fetchDetailsBatched(ids, sid);
 
@@ -364,8 +404,8 @@ export async function fetchFlyer(
     const categories = await categorizeItems(items.map((i) => i.item));
     const kept: SaleItem[] = [];
     for (let i = 0; i < items.length; i++) {
-      const cat = categories[i] ?? "other";
-      if (cat === "skip") continue;
+      const cat = categories[i] ?? 'other';
+      if (cat === 'skip') continue;
       kept.push({ ...items[i], category: cat });
     }
     items = kept;
