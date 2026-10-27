@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { UploadCircular } from "./UploadCircular";
-import { API } from "./endpoints";
-import { fetchJson } from "./fetchJson";
-import { formatDateRange } from "./formatDateRange";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { UploadCircular } from './UploadCircular';
+import { API } from './endpoints';
+import { fetchJson } from './fetchJson';
+import { formatDateRange } from './formatDateRange';
 
 export interface FlippMerchant {
   flyerId: number;
@@ -16,29 +16,32 @@ export interface FlippMerchant {
 
 interface StorePickerProps {
   onFetch: (m: FlippMerchant) => void;
+  onCompare?: (includeAll: boolean) => void;
   onUploadFile?: (file: File) => void;
   disabled?: boolean;
   pdfSupported?: boolean;
 }
 
 function expiryLabel(daysLeft: number): string {
-  if (daysLeft <= 0) return "Ends today";
-  if (daysLeft === 1) return "Ends in 1 day";
+  if (daysLeft <= 0) return 'Ends today';
+  if (daysLeft === 1) return 'Ends in 1 day';
   return `Ends in ${daysLeft} days`;
 }
 
 export function StorePicker({
   onFetch,
+  onCompare,
   onUploadFile,
   disabled,
   pdfSupported = true,
 }: StorePickerProps) {
-  const [zip, setZip] = useState("");
+  const [zip, setZip] = useState('');
   const [merchants, setMerchants] = useState<FlippMerchant[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFallback, setShowFallback] = useState(false);
   const [activeZip, setActiveZip] = useState<string | null>(null);
+  const [compareAll, setCompareAll] = useState(false);
   const autoTriggered = useRef(false);
 
   const runFetch = useCallback(async (code: string) => {
@@ -47,8 +50,8 @@ export function StorePicker({
     setActiveZip(code);
     try {
       const res = await fetch(API.circularFlippStores, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postalCode: code }),
       });
       const data = await res.json();
@@ -59,7 +62,9 @@ export function StorePicker({
         setMerchants(data.merchants ?? []);
       }
     } catch {
-      setError("Couldn't reach the circular service. Try again or upload a PDF.");
+      setError(
+        "Couldn't reach the circular service. Try again or upload a PDF."
+      );
       setMerchants(null);
     } finally {
       setLoading(false);
@@ -72,7 +77,8 @@ export function StorePicker({
     fetchJson<{ postalCode?: unknown }>(API.circularPrefs)
       .then((data) => {
         if (cancelled) return;
-        const code = typeof data?.postalCode === "string" ? data.postalCode : "";
+        const code =
+          typeof data?.postalCode === 'string' ? data.postalCode : '';
         if (code) {
           setZip(code);
           if (!autoTriggered.current) {
@@ -92,7 +98,7 @@ export function StorePicker({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{5}$/.test(zip)) {
-      setError("Enter a 5-digit ZIP code");
+      setError('Enter a 5-digit ZIP code');
       return;
     }
     void runFetch(zip);
@@ -115,7 +121,9 @@ export function StorePicker({
           maxLength={5}
           autoComplete="postal-code"
           value={zip}
-          onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+          onChange={(e) =>
+            setZip(e.target.value.replace(/\D/g, '').slice(0, 5))
+          }
           disabled={disabled || loading}
           aria-label="ZIP code"
         />
@@ -129,7 +137,7 @@ export function StorePicker({
       </form>
 
       <div
-        className={`store-picker__status ${loading ? "store-picker__status--loading" : ""} ${error ? "store-picker__status--error" : ""}`}
+        className={`store-picker__status ${loading ? 'store-picker__status--loading' : ''} ${error ? 'store-picker__status--error' : ''}`}
         role="status"
         aria-live="polite"
       >
@@ -137,22 +145,28 @@ export function StorePicker({
         {!loading && error && error}
         {!loading && !error && merchants && merchants.length > 0 && (
           <>
-            {merchants.length} {merchants.length === 1 ? "store" : "stores"} near{" "}
-            <span className="store-picker__tabular">{activeZip}</span>
+            {merchants.length} {merchants.length === 1 ? 'store' : 'stores'}{' '}
+            near <span className="store-picker__tabular">{activeZip}</span>
           </>
         )}
         {!loading && !error && merchants && merchants.length === 0 && (
-          <>No flyers found near {activeZip}. Double-check your ZIP or upload a PDF.</>
+          <>
+            No flyers found near {activeZip}. Double-check your ZIP or upload a
+            PDF.
+          </>
         )}
       </div>
 
       {merchants && merchants.length > 0 && (
-        <ul className="store-picker__merchant-grid" aria-label="Available stores">
+        <ul
+          className="store-picker__merchant-grid"
+          aria-label="Available stores"
+        >
           {merchants.map((m) => (
             <li key={m.flyerId}>
               <button
                 type="button"
-                className={`merchant-card ${m.daysLeft <= 2 ? "merchant-card--expiring" : ""}`}
+                className={`merchant-card ${m.daysLeft <= 2 ? 'merchant-card--expiring' : ''}`}
                 onClick={() => onFetch(m)}
                 disabled={disabled}
                 aria-label={`Use ${m.name} circular, ${expiryLabel(m.daysLeft).toLowerCase()}`}
@@ -162,13 +176,41 @@ export function StorePicker({
                   {formatDateRange(m.validFrom, m.validTo)}
                 </span>
                 {m.daysLeft <= 2 && (
-                  <span className="merchant-card__expiry-pill">{expiryLabel(m.daysLeft)}</span>
+                  <span className="merchant-card__expiry-pill">
+                    {expiryLabel(m.daysLeft)}
+                  </span>
                 )}
                 <span className="merchant-card__cta">Use this circular</span>
               </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {onCompare && merchants && merchants.length > 1 && (
+        <div className="store-picker__compare">
+          <button
+            type="button"
+            className="store-picker__compare-button"
+            onClick={() => onCompare(compareAll)}
+            disabled={disabled}
+          >
+            Compare stores
+          </button>
+          <label className="store-picker__compare-toggle">
+            <input
+              type="checkbox"
+              checked={compareAll}
+              onChange={(e) => setCompareAll(e.target.checked)}
+              disabled={disabled}
+            />
+            Include warehouse clubs and flyers ending today
+          </label>
+          <p className="store-picker__compare-hint">
+            Plans a week at each store and ranks them by estimated cost. Takes
+            about 20 seconds per store and doesn't change your current plan.
+          </p>
+        </div>
       )}
 
       <div className="store-picker__fallback">
@@ -179,7 +221,9 @@ export function StorePicker({
             onClick={() => setShowFallback(true)}
             disabled={disabled}
           >
-            {pdfSupported ? "Or upload a PDF instead" : "Or upload an image instead"}
+            {pdfSupported
+              ? 'Or upload a PDF instead'
+              : 'Or upload an image instead'}
           </button>
         ) : (
           onUploadFile && (

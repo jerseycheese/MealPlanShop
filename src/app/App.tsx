@@ -13,6 +13,7 @@ import { UploadCircular } from './UploadCircular';
 import { Preferences } from './Preferences';
 import { StorePicker, type FlippMerchant } from './StorePicker';
 import { PlanWithoutCircular } from './PlanWithoutCircular';
+import { StoreCompare, type StoreComparisonView } from './StoreCompare';
 import { ApiKeyEntry } from './ApiKeyEntry';
 import { WeekView } from './WeekView';
 import { API } from './endpoints';
@@ -98,6 +99,8 @@ function progressLabel(p: ScanProgress): string | null {
         : `Scanning page ${p.page} of ${p.pages}...`;
     case 'fetching':
       return `Fetching ${p.merchant} circular...`;
+    case 'comparing':
+      return `Comparing stores: ${p.merchant} (${p.index} of ${p.total})...`;
     case 'planning':
       return 'Building meal plan...';
     default:
@@ -144,6 +147,9 @@ export function App() {
     message: string;
   } | null>(null);
   const [showStorePicker, setShowStorePicker] = useState(false);
+  const [comparison, setComparison] = useState<StoreComparisonView | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [pickedUp, setPickedUp] = useState<{
     day: string;
@@ -487,6 +493,57 @@ export function App() {
       setError('Failed to fetch circular');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Reuses the uploading flag so the progress poller shows which store is
+  // being planned.
+  const handleCompare = async (includeAll: boolean) => {
+    setShowStorePicker(false);
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await fetch(API.circularCompare, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAll }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || 'Compare failed');
+      } else {
+        setComparison({ ranked: data.ranked, skipped: data.skipped });
+      }
+    } catch {
+      setError('Failed to compare stores');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUseComparedStore = async (flyerId: number) => {
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(API.circularCompareUse, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flyerId }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || 'Could not switch stores');
+      } else {
+        setComparison(null);
+        await fetchMealPlan();
+        await fetchCircular();
+        setExpandedMeals(new Set());
+        setSelectedDay(0);
+      }
+    } catch {
+      setError('Could not switch stores');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -876,6 +933,7 @@ export function App() {
             </button>
             <StorePicker
               onFetch={handleFlippFetch}
+              onCompare={handleCompare}
               onUploadFile={handleUpload}
               disabled={busy}
               pdfSupported={pdfSupported}
@@ -918,6 +976,15 @@ export function App() {
         </div>
       )}
 
+      {comparison && (
+        <StoreCompare
+          comparison={comparison}
+          onUse={handleUseComparedStore}
+          onDismiss={() => setComparison(null)}
+          disabled={busy}
+        />
+      )}
+
       {busyLabel && (
         <div className="processing-banner">
           {busyLabel}{' '}
@@ -939,6 +1006,7 @@ export function App() {
           <div className="empty-state__picker">
             <StorePicker
               onFetch={handleFlippFetch}
+              onCompare={handleCompare}
               onUploadFile={handleUpload}
               disabled={busy}
               pdfSupported={pdfSupported}

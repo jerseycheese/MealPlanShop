@@ -62,6 +62,11 @@ import {
 } from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
 import {
+  compareStores,
+  eligibleFlyers,
+  readComparedStore,
+} from './compareStores';
+import {
   readJsonOrNull,
   writeJsonAtomic,
   writeJsonAtomicWithBackup,
@@ -219,15 +224,42 @@ async function runScanAndPlan(
       loadPreferences,
       generate: generateMealPlan,
       decorate: decorateMealPlan,
-      commit: (ext, plan) => {
-        ensureOutputDir();
-        writeJsonAtomic(EXTRACTION_PATH, ext);
-        writeJsonAtomic(MEAL_PLAN_PATH, plan);
-        clearShoppingListState();
-      },
+      commit: commitPlan,
     },
     opts
   );
+}
+
+function commitPlan(ext: ExtractionResult, plan: MealPlanResult) {
+  ensureOutputDir();
+  writeJsonAtomic(EXTRACTION_PATH, ext);
+  writeJsonAtomic(MEAL_PLAN_PATH, plan);
+  clearShoppingListState();
+}
+
+// Cache-first: Flipp is an unofficial endpoint, so each flyer is fetched at most
+// once until its cache entry goes stale.
+async function getFlyerExtraction(
+  flyerId: number,
+  merchantName: string,
+  validThrough: string | null
+): Promise<ExtractionResult> {
+  const cached = readFlippCache(flyerId);
+  if (cached) {
+    // Carry through caller-supplied store/validThrough in case the cached
+    // metadata is missing (e.g. early cache entries).
+    return {
+      items: cached.items,
+      storeName: cached.storeName ?? merchantName,
+      validThrough: cached.validThrough ?? validThrough,
+    };
+  }
+  const extraction = await fetchFlyer(flyerId, {
+    storeName: merchantName,
+    validThrough,
+  });
+  writeFlippCache(flyerId, extraction);
+  return extraction;
 }
 
 function readFlippCache(flyerId: number): ExtractionResult | null {
@@ -1026,22 +1058,11 @@ app.post(
 
       try {
         scanProgress = { stage: 'fetching', merchant: merchantName };
-        let extraction = readFlippCache(flyerId);
-        if (extraction) {
-          // Carry through caller-supplied store/validThrough in case the cached
-          // metadata is missing (e.g. early cache entries).
-          extraction = {
-            items: extraction.items,
-            storeName: extraction.storeName ?? merchantName,
-            validThrough: extraction.validThrough ?? validThrough,
-          };
-        } else {
-          extraction = await fetchFlyer(flyerId, {
-            storeName: merchantName,
-            validThrough,
-          });
-          writeFlippCache(flyerId, extraction);
-        }
+        const extraction = await getFlyerExtraction(
+          flyerId,
+          merchantName,
+          validThrough
+        );
 
         if (extraction.items.length === 0) {
           throw new HttpError(
@@ -1057,6 +1078,84 @@ app.post(
       } finally {
         scanProgress = { stage: 'idle' };
       }
+    })
+  )
+);
+
+// Plan a week at every eligible nearby store and rank them by estimated cost.
+// Writes only output/store-compare.json; the active plan is untouched until the
+// user picks a store via /api/circular/compare/use.
+app.post(
+  '/api/circular/compare',
+  asyncRoute(
+    withSerial(async (req, res) => {
+      const body = req.body as { includeAll?: unknown } | undefined;
+      const postalCode = loadCircularPrefs().postalCode;
+      if (!postalCode) {
+        throw new HttpError(400, 'Find stores by ZIP first.');
+      }
+      let merchants;
+      try {
+        merchants = await listFlyers(postalCode);
+      } catch (err) {
+        throw new HttpError(
+          502,
+          err instanceof Error ? err.message : 'Failed to fetch stores'
+        );
+      }
+      const flyers = eligibleFlyers(merchants, {
+        includeAll: body?.includeAll === true,
+      });
+      if (flyers.length === 0) {
+        throw new HttpError(422, 'No eligible stores to compare.');
+      }
+      try {
+        const result = await compareStores(flyers, OUTPUT_DIR, {
+          loadPreferences,
+          generate: generateMealPlan,
+          decorate: decorateMealPlan,
+          getExtraction: (m) =>
+            getFlyerExtraction(m.flyerId, m.name, m.validTo || null),
+          onStore: (m, index, total) => {
+            scanProgress = {
+              stage: 'comparing',
+              merchant: m.name,
+              index,
+              total,
+            };
+          },
+        });
+        res.json({
+          success: true,
+          ranked: result.ranked.map(
+            ({ extraction: _e, plan: _p, ...row }) => row
+          ),
+          skipped: result.skipped,
+        });
+      } finally {
+        scanProgress = { stage: 'idle' };
+      }
+    })
+  )
+);
+
+app.post(
+  '/api/circular/compare/use',
+  asyncRoute(
+    withSerial(async (req, res) => {
+      const body = req.body as { flyerId?: unknown } | undefined;
+      const flyerId = typeof body?.flyerId === 'number' ? body.flyerId : NaN;
+      const picked = Number.isFinite(flyerId)
+        ? readComparedStore(OUTPUT_DIR, flyerId)
+        : null;
+      if (!picked) {
+        throw new HttpError(404, 'That store is not in the last comparison.');
+      }
+      commitPlan(picked.extraction, picked.plan);
+      if (typeof picked.merchantId === 'number') {
+        saveCircularPrefs({ lastMerchantId: picked.merchantId });
+      }
+      res.json({ success: true, storeName: picked.storeName });
     })
   )
 );

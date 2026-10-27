@@ -2077,6 +2077,126 @@ body {
   color: var(--color-text);
 }
 
+.store-picker__compare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.store-picker__compare-button,
+.store-compare__use {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.store-compare__use {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.store-picker__compare-button:hover:not(:disabled),
+.store-compare__use:hover:not(:disabled) {
+  background: var(--color-primary-light);
+}
+
+.store-picker__compare-button:disabled,
+.store-compare__use:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.store-picker__compare-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.store-picker__compare-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Store comparison ──────────────────────────── */
+
+.store-compare {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.store-compare__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.store-compare__title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.store-compare__dismiss {
+  font: inherit;
+  font-size: 0.9rem;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.store-compare__note,
+.store-compare__skipped {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.store-compare__skipped {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.store-compare__scroll {
+  overflow-x: auto;
+}
+
+.store-compare__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.store-compare__table th,
+.store-compare__table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.store-compare__table thead th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
 /* Store picker modal ──────────────────────────── */
 
 .store-picker-modal__backdrop {

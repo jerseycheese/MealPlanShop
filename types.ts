@@ -136,4 +136,5 @@ export type ScanProgress =
   | { stage: 'preparing' }
   | { stage: 'scanning'; page: number; pages: number; storeName: string | null }
   | { stage: 'fetching'; merchant: string }
+  | { stage: 'comparing'; merchant: string; index: number; total: number }
   | { stage: 'planning' };
