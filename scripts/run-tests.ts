@@ -5,6 +5,7 @@ const SUITES = [
   'parseLocalDate.test.ts',
   'scripts/excludedCategories.test.ts',
   'scripts/findExcludedViolations.test.ts',
+  'scripts/exclusionRetry.test.ts',
   'scripts/validateValidThrough.test.ts',
   'scripts/deduplicateItems.test.ts',
   'scripts/writeOutputs.test.ts',

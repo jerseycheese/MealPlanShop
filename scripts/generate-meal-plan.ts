@@ -300,13 +300,15 @@ export function formatViolationsForRetry(
 
 // Call the model, and if the result contains excluded-ingredient violations,
 // retry exactly once with a correction note. The plan and swap paths shared this
-// call → check → retry-once → log flow verbatim; only the model call and the
-// violation finder differ, so they're passed in. `label` tags the warning.
-async function callModelWithExclusionRetry<T>(
+// call → check → retry-once flow verbatim; only the model call and the
+// violation finder differ, so they're passed in. `label` tags the log line.
+// Violations that survive the retry come back with the result, so the caller
+// can flag the meals rather than ship them as if they were clean.
+export async function callModelWithExclusionRetry<T>(
   callModel: (extraNote?: string) => Promise<T>,
   findViolations: (result: T) => ExcludedViolation[],
   label: string
-): Promise<T> {
+): Promise<{ result: T; violations: ExcludedViolation[] }> {
   let result = await callModel();
   let violations = findViolations(result);
   if (violations.length > 0) {
@@ -315,14 +317,45 @@ async function callModelWithExclusionRetry<T>(
     );
     result = await callModel(formatViolationsForRetry(violations));
     violations = findViolations(result);
-    if (violations.length > 0) {
-      console.warn(
-        `Retry still produced ${violations.length} violations:`,
-        violations.slice(0, 5)
+  }
+  return { result, violations };
+}
+
+function describeViolation(v: ExcludedViolation): string {
+  const what = v.ingredient ? `"${v.ingredient}"` : `"${v.mealName}"`;
+  const excluded = v.sourceCategory ?? v.term;
+  return v.forMember
+    ? `${what} in the version for ${v.forMember} is on their won't-eat list (${excluded})`
+    : `${what} is on your excluded list (${excluded})`;
+}
+
+// Stamp a meal with the excluded ingredients it still contains after the retry.
+// The warning lives on the meal, so it moves with a drag-and-drop move and goes
+// away when the meal is swapped out.
+export function flagExcludedMeal(
+  meal: Meal,
+  violations: ExcludedViolation[]
+): void {
+  if (violations.length === 0) return;
+  meal.excludedWarnings = Array.from(
+    new Set(violations.map(describeViolation))
+  );
+}
+
+export function flagExcludedMeals(
+  plan: MealPlanResult,
+  violations: ExcludedViolation[]
+): void {
+  for (const day of plan.weekPlan) {
+    for (const slot of MEAL_TYPES) {
+      const meal = day[slot];
+      if (!meal) continue;
+      flagExcludedMeal(
+        meal,
+        violations.filter((v) => v.day === day.day && v.slot === slot)
       );
     }
   }
-  return result;
 }
 
 // -- Schema for structured output --
@@ -592,7 +625,7 @@ export async function generateMealPlan(
     return assertMealPlanShape(JSON.parse(response.text ?? '{}'));
   };
 
-  const result = await callModelWithExclusionRetry(
+  const { result, violations } = await callModelWithExclusionRetry(
     callModel,
     (r) => [
       ...findExcludedViolations(r, preferences.excludedIngredients),
@@ -602,6 +635,7 @@ export async function generateMealPlan(
   ).catch((err: unknown) => {
     throw toReadableGeminiError(err, GEMINI_MODEL);
   });
+  flagExcludedMeals(result, violations);
 
   console.log(`Generated plan with ${result.weekPlan.length} days`);
   console.log(`Shopping list: ${result.shoppingList.length} items`);
@@ -696,7 +730,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
     return assertSwapShape(JSON.parse(response.text ?? '{}'));
   };
 
-  const parsed = await callModelWithExclusionRetry(
+  const { result: parsed, violations } = await callModelWithExclusionRetry(
     callModel,
     (r) => [
       ...findMealViolations(r.meal, preferences.excludedIngredients),
@@ -706,6 +740,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
   ).catch((err: unknown) => {
     throw toReadableGeminiError(err, GEMINI_MODEL);
   });
+  flagExcludedMeal(parsed.meal, violations);
 
   console.log(`Replacement: ${parsed.meal.name}`);
   console.log(`Shopping list: ${parsed.shoppingList.length} items`);

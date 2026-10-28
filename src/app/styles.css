@@ -435,6 +435,16 @@ body {
   border-top: 1px solid var(--color-border);
 }
 
+/* The model kept an excluded ingredient even after the retry. */
+.meal-card__excluded-warning {
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-accent-light);
+  padding: 8px 16px;
+  border-top: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+}
+
 .meal-card__name {
   font-family: var(--font-display);
   font-size: 18px;
