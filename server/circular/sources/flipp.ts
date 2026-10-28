@@ -381,10 +381,16 @@ export interface FetchFlyerOptions {
   validThrough?: string | null;
 }
 
+export interface FetchFlyerResult {
+  extraction: ExtractionResult;
+  // Categorization fell back for some items; don't cache this extraction.
+  degraded: boolean;
+}
+
 export async function fetchFlyer(
   flyerId: number,
   opts: FetchFlyerOptions = {}
-): Promise<ExtractionResult> {
+): Promise<FetchFlyerResult> {
   const sid = generateSid();
   const list = await fetchItemList(flyerId, sid);
 
@@ -406,8 +412,11 @@ export async function fetchFlyer(
 
   // Categorize as a single batched Gemini call. Returns same-length array
   // including a "skip" sentinel for non-food items so we can drop them.
+  let degraded = false;
   if (items.length) {
-    const categories = await categorizeItems(items.map((i) => i.item));
+    const result = await categorizeItems(items.map((i) => i.item));
+    const categories = result.categories;
+    degraded = result.degraded;
     const kept: SaleItem[] = [];
     for (let i = 0; i < items.length; i++) {
       const cat = categories[i] ?? 'other';
@@ -418,8 +427,11 @@ export async function fetchFlyer(
   }
 
   return {
-    items,
-    storeName: opts.storeName ?? null,
-    validThrough: validateValidThrough(opts.validThrough ?? null),
+    extraction: {
+      items,
+      storeName: opts.storeName ?? null,
+      validThrough: validateValidThrough(opts.validThrough ?? null),
+    },
+    degraded,
   };
 }

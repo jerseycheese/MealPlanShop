@@ -61,6 +61,7 @@ import {
   isFlippCacheStale,
 } from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
+import { fetchAndCacheFlyer } from './circular/cacheFlyer';
 import {
   compareStores,
   eligibleFlyers,
@@ -254,12 +255,10 @@ async function getFlyerExtraction(
       validThrough: cached.validThrough ?? validThrough,
     };
   }
-  const extraction = await fetchFlyer(flyerId, {
-    storeName: merchantName,
-    validThrough,
-  });
-  writeFlippCache(flyerId, extraction);
-  return extraction;
+  return fetchAndCacheFlyer(
+    () => fetchFlyer(flyerId, { storeName: merchantName, validThrough }),
+    (extraction) => writeFlippCache(flyerId, extraction)
+  );
 }
 
 function readFlippCache(flyerId: number): ExtractionResult | null {

@@ -13,6 +13,7 @@ const SUITES = [
   'scripts/estimate-extra-prices.test.ts',
   'server/circular/flipp.test.ts',
   'server/circular/categorize.test.ts',
+  'server/circular/cacheFlyer.test.ts',
   'server/mergeShoppingList.test.ts',
   'server/scanAndPlan.test.ts',
   'server/compareStores.test.ts',
