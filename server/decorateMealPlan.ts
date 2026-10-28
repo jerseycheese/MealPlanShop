@@ -12,8 +12,9 @@ import { computePrefsFingerprint } from './prefs-fingerprint';
 // loyalty-card flag and the per-unit price label (lb vs each, issue #121)
 // from the circular's sale items onto on-sale shopping-list rows — the meal
 // plan prompt doesn't know about either — then stamps planId/fingerprint.
-// This is the one seam all three generate paths (upload, Flipp, regenerate)
-// share via runScanAndPlan; a route that bypassed it is how #142 happened.
+// This is the one seam every generate path shares: the server's three
+// (upload, Flipp, regenerate) via runScanAndPlan, and the plan/pipeline CLIs
+// via writeMealPlan. A path that bypassed it is how #142 and #155 happened.
 export function decorateMealPlan(
   mealPlan: MealPlanResult,
   extraction: ExtractionResult,

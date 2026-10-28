@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import type {
   Meal,
@@ -25,7 +24,7 @@ import { GEMINI_MODEL } from './env';
 import { requireGeminiKey } from '../server/secrets';
 import { toReadableGeminiError } from '../server/geminiErrors';
 import { loadPreferences } from '../server/dataDir';
-import { computePrefsFingerprint } from '../server/prefs-fingerprint';
+import { decorateMealPlan } from '../server/decorateMealPlan';
 export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
@@ -714,18 +713,20 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
   return parsed;
 }
 
-// Stamp a fresh planId and the prefs fingerprint, then write the plan where the
-// server reads it. Shared by the plan and pipeline CLIs.
+// Finalize the plan through decorateMealPlan, the same step the server's
+// generate paths use, then write it where the server reads it. Shared by the
+// plan and pipeline CLIs.
 export function writeMealPlan(
   plan: MealPlanResult,
+  saleItems: SaleItem[],
   preferences: UserPreferences,
   outputPath = path.join(__dirname, '../output/meal-plan.json')
 ): { result: MealPlanResult; outputPath: string } {
-  const result: MealPlanResult = {
-    ...plan,
-    planId: crypto.randomUUID(),
-    prefsFingerprint: computePrefsFingerprint(preferences),
-  };
+  const result = decorateMealPlan(
+    plan,
+    { items: saleItems, storeName: null, validThrough: null },
+    preferences
+  );
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
   return { result, outputPath };
@@ -752,6 +753,7 @@ async function main() {
   const preferences = loadPreferences(DEFAULT_PREFERENCES);
   const { result, outputPath } = writeMealPlan(
     await generateMealPlan(saleItems, preferences),
+    saleItems,
     preferences
   );
   console.log(`\nOutput written to: ${outputPath}`);

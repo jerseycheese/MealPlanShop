@@ -40,6 +40,7 @@ async function main() {
 
   const { result: mealPlan, outputPath } = writeMealPlan(
     await generateMealPlan(extraction.items, preferences),
+    extraction.items,
     preferences
   );
   console.log(`Meal plan written to: ${outputPath}`);
