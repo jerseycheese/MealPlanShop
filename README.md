@@ -1,6 +1,6 @@
 # MealPlanShop
 
-An AI-powered meal planner that scans grocery store weekly sale circulars and generates a weekly meal plan around what's on sale. Point it at a store's weekly ad (PDF or photo), and it extracts every sale item, then builds a 7-day meal plan that prioritizes those deals — complete with cooking instructions and calorie estimates.
+An AI-powered meal planner that scans grocery store weekly sale circulars and generates a weekly meal plan around what's on sale. Point it at a store's weekly ad (PDF or photo), and it extracts every sale item, then builds a 7-day meal plan that prioritizes those deals — complete with cooking instructions, calorie estimates, and an estimated cost per meal.
 
 ## How it works
 
@@ -136,7 +136,9 @@ Saved values live in `~/.config/mealplanshop/preferences.json` — outside the g
       "unit": "per lb",
       "category": "meat"
     }
-  ]
+  ],
+  "storeName": "Food Lion",
+  "validThrough": "2026-03-10"
 }
 ```
 
@@ -150,6 +152,7 @@ Saved values live in `~/.config/mealplanshop/preferences.json` — outside the g
       "breakfast": {
         "name": "Strawberry and Cream Cheese Sourdough Toast",
         "estimatedCalories": 320,
+        "estimatedCost": 4.25,
         "activeTime": 5,
         "totalTime": 10,
         "ingredients": [
@@ -226,6 +229,6 @@ output/                     # Generated output (gitignored)
 
 ## Current status
 
-Scanning, planning, the web UI, and circular auto-fetch all work. The pipeline has been tested against real Food Lion and ALDI weekly ads — both manually uploaded and auto-fetched by ZIP via Flipp's JSON API (store picker in the UI). It extracts sale items, categorizes them, and generates a meal plan with per-meal cooking instructions and calorie estimates — all via Gemini, no recipe API needed. A standalone web UI lets you fetch, view, and regenerate the plan without touching the CLI.
+Scanning, planning, the web UI, and circular auto-fetch all work. The pipeline has been tested against real Food Lion and ALDI weekly ads — both manually uploaded and auto-fetched by ZIP via Flipp's JSON API (store picker in the UI). It extracts sale items, categorizes them, and generates a meal plan with per-meal cooking instructions, calorie estimates, and cost estimates — all via Gemini, no recipe API needed. A standalone web UI lets you fetch, view, and regenerate the plan without touching the CLI.
 
 **Next:** Polish the UI based on real usage, then decide the JackOS Dashboard integration path ([#16](https://github.com/jerseycheese/MealPlanShop/issues/16)).

@@ -384,7 +384,7 @@ app.put(
   })
 );
 
-// Shopping-list edits that keep pantryStaples in step (see server/pantryStaples.ts).
+// Shopping-list edits that keep pantryStaples in step (see src/app/pantryStaples.ts).
 // Saves through the same validate + backup path as PUT /api/preferences.
 //
 // Staleness: pantryStaples feeds generation, so changing it normally flips the prefs
@@ -440,16 +440,16 @@ app.post(
   })
 );
 
-// Gemini API key, stored in secrets.json (separate from preferences so it never
-// rides the export). The status endpoint only ever returns a masked key — the
-// raw value never leaves the server.
 // Lets the UI hide PDF upload when poppler (pdftoppm) isn't installed, so a PDF
 // pick can't fail with an opaque error. Image upload / Flipp / no-circular are
-// unaffected.
+// unaffected. `reminders` does the same for Send to Reminders off macOS.
 app.get('/api/capabilities', (_req, res) => {
   res.json({ pdf: hasPoppler(), reminders: hasReminders() });
 });
 
+// Gemini API key, stored in secrets.json (separate from preferences so it never
+// rides the export). The status endpoint only ever returns a masked key — the
+// raw value never leaves the server.
 app.get('/api/secrets/status', (_req, res) => {
   const key = resolveGeminiKey();
   res.json({ hasKey: !!key, masked: key ? maskKey(key) : null });
