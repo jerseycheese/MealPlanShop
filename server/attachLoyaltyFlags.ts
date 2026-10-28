@@ -1,30 +1,21 @@
 import type { SaleItem, ShoppingListItem } from '../types';
-import { containsWholeWord } from '../scripts/excludedCategories';
+import { matchSaleItem } from './matchSaleItem';
 
 // The meal-plan prompt doesn't know about the loyalty-card flag, so re-join it
-// from the circular's sale items by name — the same fuzzy whole-word match
-// attachSaleUnits uses for the per-unit price. Mutates and returns the rows.
+// from the circular's sale items by name. Mutates and returns the rows.
 export function attachLoyaltyFlags(
   rows: ShoppingListItem[],
   saleItems: SaleItem[]
 ): ShoppingListItem[] {
-  const loyaltyByName = new Set<string>();
+  const loyaltyByName = new Map<string, true>();
   for (const sale of saleItems) {
-    if (sale.requiresLoyaltyCard) loyaltyByName.add(sale.item.toLowerCase());
+    if (sale.requiresLoyaltyCard)
+      loyaltyByName.set(sale.item.toLowerCase(), true);
   }
   if (loyaltyByName.size === 0) return rows;
 
   for (const row of rows) {
-    const rowName = row.name.toLowerCase();
-    for (const saleName of loyaltyByName) {
-      if (
-        containsWholeWord(rowName, saleName) ||
-        containsWholeWord(saleName, rowName)
-      ) {
-        row.requiresLoyaltyCard = true;
-        break;
-      }
-    }
+    if (matchSaleItem(row, loyaltyByName)) row.requiresLoyaltyCard = true;
   }
   return rows;
 }

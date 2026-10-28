@@ -68,6 +68,15 @@ test('no match leaves requiresLoyaltyCard undefined', () => {
   assert.equal(rows[0].requiresLoyaltyCard, undefined);
 });
 
+// A regular-price row has no sale price to unlock, so a whole-word overlap with
+// a card-only sale item must not flag it.
+test('non-sale row overlapping a card-only sale stays unflagged', () => {
+  const rows = [sli('peanut butter', { onSale: false }), sli('butter')];
+  attachLoyaltyFlags(rows, [sale('butter')]);
+  assert.equal(rows[0].requiresLoyaltyCard, undefined);
+  assert.equal(rows[1].requiresLoyaltyCard, true);
+});
+
 // Empty sale-item list is a no-op.
 test('no sale items is a no-op', () => {
   const rows = [sli('ribeye steak')];
