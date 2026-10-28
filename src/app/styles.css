@@ -835,9 +835,11 @@ body {
   white-space: nowrap;
   margin-left: 8px;
   /* Long unit text (e.g. "Fully Cooked, Select Varieties, 2 lb") must not force
-     its full nowrap width — without min-width:0 a flex item can't shrink below
-     its content size, which starves .shopping-list__item-name down to near zero
-     and makes it wrap one character per line. Truncate instead. */
+     its full nowrap width, or it starves .shopping-list__item-name down to one
+     character per line: cap it at 45% and truncate. flex-shrink: 0 keeps short
+     prices ("$6.49") whole when a wrapping name asks for more room; only the
+     cap truncates, never the flex shortfall. */
+  flex-shrink: 0;
   min-width: 0;
   max-width: 45%;
   overflow: hidden;
