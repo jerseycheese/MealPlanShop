@@ -39,6 +39,9 @@ export interface Meal {
   estimatedCost: number;
   // Present only when the meal is split for one or more members' exclusions.
   variants?: MealVariant[];
+  // Excluded ingredients the model kept in this meal even after the retry. Set
+  // by the generator so the card can say so instead of shipping it silently.
+  excludedWarnings?: string[];
 }
 
 export interface DayPlan {

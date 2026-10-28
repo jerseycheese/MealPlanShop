@@ -1,4 +1,4 @@
-import type { Meal } from "../../types";
+import type { Meal } from '../../types';
 
 function formatMinutes(total: number): string {
   if (total < 60) return `${total} min`;
@@ -35,12 +35,12 @@ export function MealCard({
   const saleCount = meal.ingredients.filter((i) => i.onSale).length;
   const variants = meal.variants ?? [];
   const variantMembers = Array.from(
-    new Set(variants.flatMap((v) => v.forMembers)),
-  ).join(", ");
+    new Set(variants.flatMap((v) => v.forMembers))
+  ).join(', ');
 
   return (
     <article
-      className={`meal-card ${expanded ? "meal-card--expanded" : ""}`}
+      className={`meal-card ${expanded ? 'meal-card--expanded' : ''}`}
       style={{ animationDelay: `${animationDelay}ms` }}
     >
       <div className="meal-card__header">
@@ -55,7 +55,7 @@ export function MealCard({
           className="meal-card__toggle"
           onClick={onToggle}
           aria-expanded={expanded}
-          aria-label={`${expanded ? "Collapse" : "Expand"} ${type}: ${meal.name}`}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${type}: ${meal.name}`}
         />
         <div className="meal-card__header-top">
           <span className="meal-card__type">{type}</span>
@@ -66,29 +66,32 @@ export function MealCard({
                 aria-label={`Swap ${type}`}
                 aria-busy={swapping}
                 aria-disabled={swapping || swapDisabled}
-                title={swapDisabled && swapDisabledReason ? swapDisabledReason : undefined}
-                className={`meal-card__swap ${swapping ? "meal-card__swap--loading" : ""}`}
+                title={
+                  swapDisabled && swapDisabledReason
+                    ? swapDisabledReason
+                    : undefined
+                }
+                className={`meal-card__swap ${swapping ? 'meal-card__swap--loading' : ''}`}
                 onClick={() => {
                   if (swapping || swapDisabled) return;
                   onSwap();
                 }}
               >
-                {swapping ? "Swapping..." : "Swap"}
+                {swapping ? 'Swapping...' : 'Swap'}
               </button>
             )}
             <span className="meal-card__chevron" aria-hidden="true">
-              {expanded ? "▲" : "▼"}
+              {expanded ? '▲' : '▼'}
             </span>
           </div>
         </div>
         <h3 className="meal-card__name">{meal.name}</h3>
         <div className="meal-card__meta">
           <span className="meal-card__pill meal-card__pill--time">
-            {formatMinutes(meal.activeTime)} active / {formatMinutes(meal.totalTime)} total
+            {formatMinutes(meal.activeTime)} active /{' '}
+            {formatMinutes(meal.totalTime)} total
           </span>
-          <span className="meal-card__pill">
-            {meal.estimatedCalories} cal
-          </span>
+          <span className="meal-card__pill">{meal.estimatedCalories} cal</span>
           {saleCount > 0 && (
             <span className="meal-card__pill">
               ~${(meal.estimatedCost ?? 0).toFixed(2)}
@@ -107,6 +110,13 @@ export function MealCard({
         </div>
       </div>
 
+      {meal.excludedWarnings && meal.excludedWarnings.length > 0 && (
+        <div className="meal-card__excluded-warning" role="note">
+          <strong>Has an excluded ingredient.</strong>{' '}
+          {meal.excludedWarnings.join('; ')}. Swap this meal to replace it.
+        </div>
+      )}
+
       {swapError && (
         <div className="meal-card__swap-error" role="alert">
           {swapError}
@@ -121,11 +131,15 @@ export function MealCard({
               {meal.ingredients.map((ing) => (
                 <li
                   key={`${ing.name}|${ing.quantity}`}
-                  className={`meal-card__ingredient ${ing.onSale ? "meal-card__ingredient--sale" : ""}`}
+                  className={`meal-card__ingredient ${ing.onSale ? 'meal-card__ingredient--sale' : ''}`}
                 >
-                  <span className="meal-card__ingredient-qty">{ing.quantity}</span>
+                  <span className="meal-card__ingredient-qty">
+                    {ing.quantity}
+                  </span>
                   <span className="meal-card__ingredient-name">{ing.name}</span>
-                  {ing.onSale && <span className="meal-card__sale-badge">Sale</span>}
+                  {ing.onSale && (
+                    <span className="meal-card__sale-badge">Sale</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -148,23 +162,32 @@ export function MealCard({
               className="meal-card__section meal-card__variant"
             >
               <h4 className="meal-card__section-title meal-card__variant-title">
-                For {variant.forMembers.join(", ")}: {variant.name}
+                For {variant.forMembers.join(', ')}: {variant.name}
               </h4>
               <ul className="meal-card__ingredients">
                 {variant.ingredients.map((ing) => (
                   <li
                     key={`${ing.name}|${ing.quantity}`}
-                    className={`meal-card__ingredient ${ing.onSale ? "meal-card__ingredient--sale" : ""}`}
+                    className={`meal-card__ingredient ${ing.onSale ? 'meal-card__ingredient--sale' : ''}`}
                   >
-                    <span className="meal-card__ingredient-qty">{ing.quantity}</span>
-                    <span className="meal-card__ingredient-name">{ing.name}</span>
-                    {ing.onSale && <span className="meal-card__sale-badge">Sale</span>}
+                    <span className="meal-card__ingredient-qty">
+                      {ing.quantity}
+                    </span>
+                    <span className="meal-card__ingredient-name">
+                      {ing.name}
+                    </span>
+                    {ing.onSale && (
+                      <span className="meal-card__sale-badge">Sale</span>
+                    )}
                   </li>
                 ))}
               </ul>
               <ol className="meal-card__instructions">
                 {variant.instructions.map((step, i) => (
-                  <li key={`variant-${vi}-step-${i}`} className="meal-card__step">
+                  <li
+                    key={`variant-${vi}-step-${i}`}
+                    className="meal-card__step"
+                  >
                     {step}
                   </li>
                 ))}
