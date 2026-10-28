@@ -15,6 +15,7 @@ const SUITES = [
   'server/circular/categorize.test.ts',
   'server/mergeShoppingList.test.ts',
   'server/scanAndPlan.test.ts',
+  'server/compareStores.test.ts',
   'server/attachSaleUnits.test.ts',
   'server/attachLoyaltyFlags.test.ts',
   'server/decorateMealPlan.test.ts',
