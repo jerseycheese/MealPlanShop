@@ -3,6 +3,7 @@ import {
   applyStapleChanges,
   pantryItemsToRestock,
   planUsesStaples,
+  stapleChangeKeepsPlanFresh,
 } from './pantryStaples';
 import { extraKey, shoppingItemKey } from './shoppingItemKey';
 import type { DayPlan, ExtraItem, Meal, ShoppingListItem } from '../../types';
@@ -102,6 +103,16 @@ test('pantryItemsToRestock keeps only checked pantry-category items', () => {
     'soy sauce',
     'Olive Oil',
   ]);
+});
+
+// Only a pure drop of staples the plan doesn't use keeps a fresh plan fresh.
+test('stapleChangeKeepsPlanFresh: adds and used drops go stale', () => {
+  const plan: DayPlan[] = [
+    { day: 'Monday', dinner: mealWith('chicken', 'olive oil') },
+  ];
+  assert.equal(stapleChangeKeepsPlanFresh(plan, [], ['salt']), true);
+  assert.equal(stapleChangeKeepsPlanFresh(plan, ['flour'], []), false);
+  assert.equal(stapleChangeKeepsPlanFresh(plan, [], ['olive oil']), false);
 });
 
 console.log(`pantryStaples: ${passed}/${total} passed`);

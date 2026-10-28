@@ -18,15 +18,14 @@ import {
   computePrefsFingerprint,
   isPlanFingerprintStale,
 } from './prefs-fingerprint';
-import { mergeShoppingListAfterSwap } from './mergeShoppingList';
-import { attachSaleJoins, decorateMealPlan } from './decorateMealPlan';
+import { decorateMealPlan } from './decorateMealPlan';
+import { swapMeal } from './swapMeal';
 import { moveMealInWeekPlan } from './moveMeal';
-import { normalize } from '../normalize';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
 import {
   applyStapleChanges,
-  planUsesStaples,
+  stapleChangeKeepsPlanFresh,
   withStaples,
 } from '../src/app/pantryStaples';
 import {
@@ -422,8 +421,7 @@ app.post(
       if (
         plan &&
         wasFresh &&
-        changes.add.length === 0 &&
-        !planUsesStaples(plan.weekPlan, dropped)
+        stapleChangeKeepsPlanFresh(plan.weekPlan, changes.add, dropped)
       ) {
         writeJsonAtomic(MEAL_PLAN_PATH, {
           ...plan,
@@ -764,17 +762,7 @@ app.post(
         );
       }
 
-      const dayIndex = plan.weekPlan.findIndex(
-        (d) => normalize(d.day) === normalize(day)
-      );
-      if (dayIndex === -1) {
-        throw new HttpError(400, `Day not found in plan: ${day}`);
-      }
-      const slotKey = mealType as 'breakfast' | 'lunch' | 'dinner';
-      if (!plan.weekPlan[dayIndex][slotKey]) {
-        throw new HttpError(400, `No ${mealType} in current plan for ${day}`);
-      }
-
+      const slotKey = mealType as MealType;
       const preferences = loadPreferences();
       const mealsForDay =
         preferences.mealsByDay[day.toLowerCase() as DayOfWeek] ?? [];
@@ -797,27 +785,9 @@ app.post(
 
       const saleItems = extraction.items || extraction;
 
-      const result = await generateMealSwap(
-        plan,
-        day,
-        slotKey,
-        saleItems,
-        preferences
+      await swapMeal(plan, day, slotKey, saleItems, (p, d, slot, items) =>
+        generateMealSwap(p, d, slot, items, preferences)
       );
-
-      const mergedShoppingList = mergeShoppingListAfterSwap({
-        weekPlan: plan.weekPlan,
-        swappedDayIndex: dayIndex,
-        swappedSlot: slotKey,
-        newMeal: result.meal,
-        priorList: plan.shoppingList,
-        regeneratedList: result.shoppingList,
-      });
-      // Retained rows keep the unit and loyalty flag they were generated with;
-      // re-join both for any ingredient the swap newly introduced.
-      attachSaleJoins(mergedShoppingList, saleItems);
-      plan.weekPlan[dayIndex][slotKey] = result.meal;
-      plan.shoppingList = mergedShoppingList;
 
       ensureOutputDir();
       writeJsonAtomic(MEAL_PLAN_PATH, plan);
