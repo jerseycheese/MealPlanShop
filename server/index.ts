@@ -164,8 +164,7 @@ function ensureDataDir() {
 }
 
 // Throw this from a route to send a specific HTTP status; the error middleware
-// at the bottom serializes it. Replaces the per-route `res.status(n).json({
-// success:false, error })` + `return` guards that were copy-pasted everywhere.
+// at the bottom serializes it.
 class HttpError extends Error {
   constructor(
     public statusCode: number,
@@ -193,9 +192,10 @@ function withSerial(
 ): (req: express.Request, res: express.Response) => Promise<void> {
   return async (req, res) => {
     if (processing) {
-      res
-        .status(409)
-        .json({ success: false, error: 'Already processing a request' });
+      res.status(409).json({
+        success: false,
+        error: 'Still working on the last request. Try again when it finishes.',
+      });
       return;
     }
     processing = true;

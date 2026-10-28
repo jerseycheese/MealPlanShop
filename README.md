@@ -226,6 +226,6 @@ output/                     # Generated output (gitignored)
 
 ## Current status
 
-Phases 1–3 are complete, plus circular auto-fetch. The pipeline has been tested against real Food Lion and ALDI weekly ads — both manually uploaded and auto-fetched by ZIP via Flipp's JSON API (store picker in the UI). It extracts sale items, categorizes them, and generates a meal plan with per-meal cooking instructions and calorie estimates — all via Gemini, no recipe API needed. A standalone web UI lets you fetch, view, and regenerate the plan without touching the CLI.
+Scanning, planning, the web UI, and circular auto-fetch all work. The pipeline has been tested against real Food Lion and ALDI weekly ads — both manually uploaded and auto-fetched by ZIP via Flipp's JSON API (store picker in the UI). It extracts sale items, categorizes them, and generates a meal plan with per-meal cooking instructions and calorie estimates — all via Gemini, no recipe API needed. A standalone web UI lets you fetch, view, and regenerate the plan without touching the CLI.
 
 **Next:** Polish the UI based on real usage, then decide the JackOS Dashboard integration path ([#16](https://github.com/jerseycheese/MealPlanShop/issues/16)).
