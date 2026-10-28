@@ -2,11 +2,26 @@ import * as crypto from 'node:crypto';
 import type {
   ExtractionResult,
   MealPlanResult,
+  SaleItem,
+  ShoppingListItem,
   UserPreferences,
 } from '../types';
 import { attachLoyaltyFlags } from './attachLoyaltyFlags';
 import { attachSaleUnits } from './attachSaleUnits';
 import { computePrefsFingerprint } from './prefs-fingerprint';
+
+// Joins the loyalty-card flag and the per-unit price label from the circular's
+// sale items onto shopping-list rows. Neither the plan prompt nor the swap prompt
+// knows about them. Both decorateMealPlan and the swap route call this, so a new
+// row-level join lands on every path at once (#159). Mutates and returns rows.
+export function attachSaleJoins(
+  rows: ShoppingListItem[],
+  saleItems: SaleItem[]
+): ShoppingListItem[] {
+  attachLoyaltyFlags(rows, saleItems);
+  attachSaleUnits(rows, saleItems);
+  return rows;
+}
 
 // Finalizes a freshly generated plan before it's committed: joins the
 // loyalty-card flag and the per-unit price label (lb vs each, issue #121)
@@ -21,8 +36,7 @@ export function decorateMealPlan(
   prefs: UserPreferences
 ): MealPlanResult {
   if (Array.isArray(mealPlan.shoppingList)) {
-    attachLoyaltyFlags(mealPlan.shoppingList, extraction.items);
-    attachSaleUnits(mealPlan.shoppingList, extraction.items);
+    attachSaleJoins(mealPlan.shoppingList, extraction.items);
   }
 
   return {

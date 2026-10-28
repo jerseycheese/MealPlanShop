@@ -19,8 +19,7 @@ import {
   isPlanFingerprintStale,
 } from './prefs-fingerprint';
 import { mergeShoppingListAfterSwap } from './mergeShoppingList';
-import { attachSaleUnits } from './attachSaleUnits';
-import { decorateMealPlan } from './decorateMealPlan';
+import { attachSaleJoins, decorateMealPlan } from './decorateMealPlan';
 import { moveMealInWeekPlan } from './moveMeal';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
@@ -811,9 +810,9 @@ app.post(
         priorList: plan.shoppingList,
         regeneratedList: result.shoppingList,
       });
-      // Retained rows keep the unit they were generated with; re-join it for any
-      // ingredient the swap newly introduced. Issue #121.
-      attachSaleUnits(mergedShoppingList, saleItems);
+      // Retained rows keep the unit and loyalty flag they were generated with;
+      // re-join both for any ingredient the swap newly introduced.
+      attachSaleJoins(mergedShoppingList, saleItems);
       plan.weekPlan[dayIndex][slotKey] = result.meal;
       plan.shoppingList = mergedShoppingList;
 
