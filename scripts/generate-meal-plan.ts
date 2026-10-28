@@ -95,7 +95,7 @@ export interface ExcludedViolation {
 }
 
 // Match a dish name + its ingredient list against an expanded term set. Shared by
-// the household scan and the per-member variant scan (issue #125). Order is the
+// the household scan and the per-member variant scan. Order is the
 // name hit first, then ingredients in array order; sourceCategory is omitted
 // unless the term came from a category, and forMember is set only for member hits.
 function scanNameAndIngredients(
@@ -176,7 +176,7 @@ function findMealViolations(
   return scanMealForViolations(meal, expanded);
 }
 
-// -- Per-member (soft-tier) variant validation (issue #125) --
+// -- Per-member (soft-tier) variant validation --
 //
 // The household scan above enforces the absolute excluded list against everything,
 // variants included. This adds the soft tier: a variant exists for specific members,
@@ -386,7 +386,7 @@ const mealSchema = {
     },
     estimatedCalories: { type: 'number' as const },
     estimatedCost: { type: 'number' as const },
-    // Optional per-member alternative dishes (issue #74). Only present when a
+    // Optional per-member alternative dishes. Only present when a
     // meal includes something a household member excludes.
     variants: {
       type: 'array' as const,
@@ -483,7 +483,7 @@ export function formatMealsByDay(
     .join('\n');
 }
 
-// Renders the per-member roster as a prompt block (issue #74). Empty when no
+// Renders the per-member roster as a prompt block. Empty when no
 // members are set, so single-profile households read exactly as before. Member
 // exclusions are *personal* — they ask for a per-member variant dish, not a
 // house-wide ban (that's what the Excluded ingredients line above is for).

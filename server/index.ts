@@ -73,7 +73,7 @@ import {
 } from './lib/jsonStore';
 
 // No startup key guard: the server boots without a Gemini key so a first-run
-// user reaches the UI and can paste one in (issue #96). A missing key surfaces
+// user reaches the UI and can paste one in. A missing key surfaces
 // as a readable error at request time via requireGeminiKey() in the call sites.
 
 const app = express();
@@ -83,7 +83,7 @@ const OUTPUT_DIR = path.join(PROJECT_ROOT, 'output');
 const MEAL_PLAN_PATH = path.join(OUTPUT_DIR, 'meal-plan.json');
 const EXTRACTION_PATH = path.join(OUTPUT_DIR, 'extraction.json');
 // Preferences live outside the gitignored, per-checkout output/ so every
-// worktree and the main tree share one set (issue #91). Override the location
+// worktree and the main tree share one set. Override the location
 // with MEALPLANSHOP_DATA_DIR.
 const DATA_DIR = resolveDataDir();
 const PREFERENCES_PATH = path.join(DATA_DIR, 'preferences.json');
@@ -217,7 +217,7 @@ async function runScanAndPlan(
   scanProgress = { stage: 'planning' };
   // Generate first, then write the extraction and the plan together (commit), so a
   // generation failure or interruption can't leave a new circular paired with the
-  // old plan — the UI would otherwise show a fresh store banner over a stale plan (#123).
+  // old plan — the UI would otherwise show a fresh store banner over a stale plan.
   return scanAndPlan(
     extraction,
     {
@@ -688,7 +688,7 @@ app.post(
       const saleItems = extraction.items || extraction;
       // Route through the same decorate (loyalty/unit joins) and commit as
       // upload/Flipp, instead of writing the plan straight out — that's what
-      // dropped the loyalty chips and per-unit prices on regenerate (#142).
+      // dropped the loyalty chips and per-unit prices on regenerate.
       // allowEmpty mirrors the old behavior: regenerating a no-circular/
       // prefs-only plan never errored on zero sale items.
       const result = await runScanAndPlan(

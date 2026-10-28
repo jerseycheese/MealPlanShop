@@ -13,7 +13,7 @@ import { computePrefsFingerprint } from './prefs-fingerprint';
 // Joins the loyalty-card flag and the per-unit price label from the circular's
 // sale items onto shopping-list rows. Neither the plan prompt nor the swap prompt
 // knows about them. Both decorateMealPlan and the swap route call this, so a new
-// row-level join lands on every path at once (#159). Mutates and returns rows.
+// row-level join lands on every path at once. Mutates and returns rows.
 export function attachSaleJoins(
   rows: ShoppingListItem[],
   saleItems: SaleItem[]
@@ -24,12 +24,12 @@ export function attachSaleJoins(
 }
 
 // Finalizes a freshly generated plan before it's committed: joins the
-// loyalty-card flag and the per-unit price label (lb vs each, issue #121)
+// loyalty-card flag and the per-unit price label (lb vs each)
 // from the circular's sale items onto on-sale shopping-list rows — the meal
 // plan prompt doesn't know about either — then stamps planId/fingerprint.
 // This is the one seam every generate path shares: the server's three
 // (upload, Flipp, regenerate) via runScanAndPlan, and the plan/pipeline CLIs
-// via writeMealPlan. A path that bypassed it is how #142 and #155 happened.
+// via writeMealPlan. A path that bypassed it dropped the loyalty chips and unit labels.
 export function decorateMealPlan(
   mealPlan: MealPlanResult,
   extraction: ExtractionResult,

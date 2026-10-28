@@ -10,7 +10,7 @@ import type {
 import type { FlippMerchant } from './circular/sources/flipp';
 import { readJsonOrNull, writeJsonAtomic } from './lib/jsonStore';
 
-// "Which nearby store makes this week cheapest" (#133). Plans one week per store
+// "Which nearby store makes this week cheapest". Plans one week per store
 // and ranks them by estimated cost. Results go to their own file so comparing
 // never touches the active extraction.json / meal-plan.json; picking a store
 // later commits that store's saved extraction + plan.

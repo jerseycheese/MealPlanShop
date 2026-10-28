@@ -77,7 +77,7 @@ assert.ok(
   "expected preferences to drive the prompt when there are no sale items",
 );
 
-// Per-member needs (issue #74) render into the prompt so the model can offer a
+// Per-member needs render into the prompt so the model can offer a
 // variant for the member who won't eat fish.
 const withMembers = buildMealPlanUserPrompt(saleItems, {
   ...base,
@@ -103,7 +103,7 @@ assert.ok(
   "expected no per-member block when members are unset",
 );
 
-// Per-member cuisine preferences (issue #74 phase 2a) render as a soft "prefers"
+// Per-member cuisine preferences render as a soft "prefers"
 // lean for that member; a member without them emits no "prefers:" clause.
 const withMemberCuisine = buildMealPlanUserPrompt(saleItems, {
   ...base,
@@ -121,7 +121,7 @@ assert.ok(
   "expected no 'prefers' clause for a member without cuisine preferences",
 );
 
-// Per-member sizing hints (issue #74 phase 2b) render as soft "target"/"portion"
+// Per-member sizing hints render as soft "target"/"portion"
 // leans for that member; a member without them emits neither clause.
 const withMemberSizing = buildMealPlanUserPrompt(saleItems, {
   ...base,

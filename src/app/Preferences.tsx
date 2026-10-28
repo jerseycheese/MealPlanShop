@@ -122,7 +122,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const handleSaveAndRegenerate = () => persistAnd({ regenerate: true });
 
   // Download the current preferences as JSON — a portable backup that survives
-  // checkout churn and seeds a fresh machine (issue #91).
+  // checkout churn and seeds a fresh machine.
   const handleExport = () => {
     if (!prefs) return;
     const blob = new Blob([JSON.stringify(prefs, null, 2)], {
@@ -184,7 +184,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
 
   const members = prefs?.members ?? [];
 
-  // Roster model (issue #74): the member list *is* the household, so household
+  // Roster model: the member list *is* the household, so household
   // size follows its length. Dropping the last member frees the manual size field.
   const setMembers = (next: HouseholdMember[]) => {
     if (!prefs) return;

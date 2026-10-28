@@ -131,7 +131,7 @@ function validateMealsByDay(
   return out;
 }
 
-// Validates the per-member roster (issue #74). Each member's excluded-ingredients,
+// Validates the per-member roster. Each member's excluded-ingredients,
 // dietary-restrictions, and cuisine-preferences lists go through the
 // same validateStringArray as the household-wide lists; the per-member
 // caloriesPerMeal and portionMultiplier sizing hints go through

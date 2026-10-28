@@ -6,7 +6,7 @@ import { readJsonOrNull } from './lib/jsonStore';
 // Where the app keeps state that must outlive any single git checkout —
 // preferences above all. Prefs used to live in the gitignored, per-checkout
 // `output/`, so every worktree (and the main tree) silently got its own copy or
-// fell back to defaults (issue #91). This resolves to a stable per-user dir
+// fell back to defaults. This resolves to a stable per-user dir
 // instead. Override with MEALPLANSHOP_DATA_DIR to point it anywhere — that's
 // also how the tests pin it to a temp dir.
 //
@@ -26,7 +26,7 @@ export function preferencesPath(env: NodeJS.ProcessEnv = process.env): string {
 
 // Resolve the user's saved preferences, falling back to `defaults` for a
 // missing file or for fields a stored (possibly older) preferences.json
-// doesn't have. Shared by the server routes and the CLI scripts (issue #141)
+// doesn't have. Shared by the server routes and the CLI scripts
 // so both plan from the same preferences instead of the CLI silently using
 // `defaults` alone.
 export function loadPreferences(
