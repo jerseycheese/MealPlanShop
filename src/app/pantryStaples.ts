@@ -57,6 +57,17 @@ export function planUsesStaples(
   );
 }
 
+// After a staple edit on a fresh plan, can the plan stay fresh? Only a pure drop
+// of staples no meal uses: an add, or a drop the plan relies on, could change
+// what generation would produce, so the plan has to go stale.
+export function stapleChangeKeepsPlanFresh(
+  weekPlan: DayPlan[],
+  added: string[],
+  dropped: string[]
+): boolean {
+  return added.length === 0 && !planUsesStaples(weekPlan, dropped);
+}
+
 export function withStaples(
   prefs: UserPreferences,
   staples: string[]

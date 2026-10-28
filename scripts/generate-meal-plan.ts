@@ -82,7 +82,7 @@ export function filterExcludedSaleItems(
   );
 }
 
-interface ExcludedViolation {
+export interface ExcludedViolation {
   day?: string;
   slot?: string;
   mealName: string;
@@ -651,7 +651,11 @@ export async function generateMealSwap(
   mealType: 'breakfast' | 'lunch' | 'dinner',
   saleItems: SaleItem[],
   preferences: UserPreferences
-): Promise<{ meal: Meal; shoppingList: ShoppingListItem[] }> {
+): Promise<{
+  meal: Meal;
+  shoppingList: ShoppingListItem[];
+  violations: ExcludedViolation[];
+}> {
   const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
 
   const systemPrompt = loadPrompt('../prompts/meal-swap.md');
@@ -740,12 +744,12 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
   ).catch((err: unknown) => {
     throw toReadableGeminiError(err, GEMINI_MODEL);
   });
-  flagExcludedMeal(parsed.meal, violations);
-
   console.log(`Replacement: ${parsed.meal.name}`);
   console.log(`Shopping list: ${parsed.shoppingList.length} items`);
 
-  return parsed;
+  // The caller flags leftover violations (server/swapMeal.ts), so that step is
+  // testable without a model call.
+  return { ...parsed, violations };
 }
 
 // Finalize the plan through decorateMealPlan, the same step the server's
