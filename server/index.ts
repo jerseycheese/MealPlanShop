@@ -61,6 +61,7 @@ import {
   isFlippCacheStale,
 } from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
+import { fetchAndCacheFlyer } from './circular/cacheFlyer';
 import {
   compareStores,
   eligibleFlyers,
@@ -254,14 +255,10 @@ async function getFlyerExtraction(
       validThrough: cached.validThrough ?? validThrough,
     };
   }
-  const { extraction, degraded } = await fetchFlyer(flyerId, {
-    storeName: merchantName,
-    validThrough,
-  });
-  // A degraded categorization let non-food items through as "other". Serve it
-  // this once, but re-fetch next time instead of pinning it for days.
-  if (!degraded) writeFlippCache(flyerId, extraction);
-  return extraction;
+  return fetchAndCacheFlyer(
+    () => fetchFlyer(flyerId, { storeName: merchantName, validThrough }),
+    (extraction) => writeFlippCache(flyerId, extraction)
+  );
 }
 
 function readFlippCache(flyerId: number): ExtractionResult | null {
