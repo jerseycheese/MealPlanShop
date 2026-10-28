@@ -21,6 +21,7 @@ import { fetchJson, postAction } from './fetchJson';
 import { formatValidThrough } from './formatValidThrough';
 import { matchesPantryStaple } from './matchesPantryStaple';
 import { applyStapleChanges, type StapleChanges } from './pantryStaples';
+import { applyPriceEstimates, type PriceEstimate } from './applyPriceEstimates';
 import { normalize } from '../../normalize';
 
 const SAVED_HINT_DISMISS_MS = 3500;
@@ -498,7 +499,10 @@ export function App() {
     setUploading(true);
     setError(null);
     try {
-      const { ok, data, error } = await postAction<StoreComparisonView>(API.circularCompare, { includeAll });
+      const { ok, data, error } = await postAction<StoreComparisonView>(
+        API.circularCompare,
+        { includeAll }
+      );
       if (!ok) {
         setError(error || 'Compare failed');
       } else {
@@ -707,23 +711,12 @@ export function App() {
       .then((res) =>
         res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))
       )
-      .then((data: { prices?: ExtraItem[] }) => {
-        const estimated = new Map<string, ExtraItem>();
-        for (const p of data.prices ?? []) {
-          if (p && typeof p.name === 'string')
-            estimated.set(normalize(p.name), p);
-        }
-        const merged = nextExtras.map((e) => {
-          const hit = estimated.get(normalize(e.name));
-          return hit
-            ? {
-                ...e,
-                price: typeof hit.price === 'number' ? hit.price : null,
-                category:
-                  typeof hit.category === 'string' ? hit.category : e.category,
-              }
-            : e;
-        });
+      .then((data: { prices?: PriceEstimate[] }) => {
+        // Merge into the list as it is now: the user may have added or removed
+        // rows while this estimate was pending. Update the ref too, so a second
+        // estimate landing before the next render builds on this one.
+        const merged = applyPriceEstimates(extrasRef.current, data.prices);
+        extrasRef.current = merged;
         setExtras(merged);
         persistExtras(merged);
       })
