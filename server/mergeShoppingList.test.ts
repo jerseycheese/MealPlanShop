@@ -256,7 +256,7 @@ test("merged list preserves prior order then appends new in meal order", () => {
   );
 });
 
-// A meal split for a member: a main dish plus a per-member variant (issue #74).
+// A meal split for a member: a main dish plus a per-member variant.
 function splitMeal(
   name: string,
   ingredients: Ingredient[],

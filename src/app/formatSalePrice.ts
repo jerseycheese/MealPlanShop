@@ -4,7 +4,7 @@
 // units read as a trailing " ea", a measured unit reads as a per-unit "/unit"
 // (a leading "per " is stripped first). No unit, or one that isn't a
 // recognized measure, falls back to the bare price — that text belongs in
-// priceNote instead. Issue #121, #143.
+// priceNote instead.
 const COUNT_UNITS = new Set(['each', 'ea', 'count', 'ct']);
 // A unit with digits, a $, or parentheses is a deal condition or pack size,
 // not a measure — e.g. "3 for $9", "12 Oz.", "each (when you buy any 12)".

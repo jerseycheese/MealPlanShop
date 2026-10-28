@@ -45,8 +45,6 @@ assert.throws(
   ValidationError
 );
 
-// --- mealsByDay ---
-
 // A valid map round-trips in canonical order: days in week order, meals in
 // breakfast/lunch/dinner order, regardless of the order sent.
 assert.deepEqual(
@@ -90,8 +88,6 @@ assert.throws(
   ValidationError
 );
 
-// --- notes ---
-
 // Absent notes are valid and omitted from the result.
 assert.equal(validatePreferences(base).notes, undefined);
 
@@ -116,8 +112,6 @@ assert.throws(
   () => validatePreferences({ ...base, notes: 'x'.repeat(1001) }),
   ValidationError
 );
-
-// --- members (issue #74) ---
 
 // A roster round-trips, and householdSize is derived from the member count —
 // the sent householdSize (1) is overridden by the two members.
@@ -212,8 +206,6 @@ assert.throws(
   ValidationError
 );
 
-// --- per-member cuisinePreferences (issue #74 phase 2a) ---
-
 // A per-member cuisine list round-trips and is trimmed, same as the other lists.
 assert.deepEqual(
   validatePreferences({
@@ -280,8 +272,6 @@ assert.throws(
     }),
   ValidationError
 );
-
-// --- per-member sizing hints: caloriesPerMeal + portionMultiplier (phase 2b) ---
 
 // Both fields round-trip. portionMultiplier is a fractional value to prove a
 // non-integer positive number is accepted (unlike the integer calorie target).

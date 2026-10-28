@@ -3,7 +3,7 @@ import { MEAL_TYPES } from "../types";
 import { normalize } from "../normalize";
 
 // Every ingredient a meal needs to be shopped for, including those introduced by
-// per-member variants (issue #74). A split meal — salmon for the house, a chicken
+// per-member variants. A split meal — salmon for the house, a chicken
 // swap for one member — has to put both proteins on the list.
 function mealIngredients(meal: Meal): Ingredient[] {
   return [

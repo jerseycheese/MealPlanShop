@@ -37,7 +37,7 @@ export interface ScanAndPlanResult {
 // (Gemini error/timeout) or an interruption mid-call leaves the prior extraction and
 // plan untouched, instead of committing the new circular and then dying before the
 // plan is written — which left the UI showing a fresh store banner over a stale
-// plan, with no staleness flag (#123).
+// plan, with no staleness flag.
 export async function scanAndPlan(
   extraction: ExtractionResult,
   deps: ScanAndPlanDeps,

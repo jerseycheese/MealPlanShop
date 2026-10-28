@@ -280,8 +280,6 @@ async function fetchDetailsBatched(
   return out;
 }
 
-// ---- Parsing ----
-
 export function detectLoyalty(
   prePriceText: string | null | undefined,
   disclaimerText: string | null | undefined

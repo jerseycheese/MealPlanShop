@@ -4,7 +4,7 @@ import { resolveDataDir } from "./dataDir";
 import { readJsonOrNull, writeJsonAtomic } from "./lib/jsonStore";
 
 // The Gemini API key lives in the data dir next to preferences, but in its own
-// secrets.json so it never rides the preferences export/import path (#91) into a
+// secrets.json so it never rides the preferences export/import path into a
 // downloaded backup. Plaintext, same local trust model as .env — the status
 // endpoint only ever returns a masked value, never the raw key.
 //
