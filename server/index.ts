@@ -625,7 +625,7 @@ app.post(
     }
     // sendToReminders throws a 422-tagged error (missing osascript / TCC denial /
     // AppleScript failure) that the error middleware turns into a readable message.
-    sendToReminders(REMINDERS_LIST_NAME, items);
+    await sendToReminders(REMINDERS_LIST_NAME, items);
     res.json({ success: true, count: items.length });
   })
 );

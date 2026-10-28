@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { GoogleGenAI } from '@google/genai';
 import type { SaleItem, ExtractionResult } from '../types';
 import { GEMINI_MODEL } from './env';
@@ -109,14 +110,15 @@ async function scanImage(
 
 // -- PDF conversion --
 
-function convertPdfToImages(pdfPath: string): string[] {
+const execFileAsync = promisify(execFile);
+
+// Async so the API keeps answering (progress poll included) while pdftoppm runs.
+async function convertPdfToImages(pdfPath: string): Promise<string[]> {
   const tmpDir = path.join(path.dirname(pdfPath), '.pdf-tmp');
   fs.mkdirSync(tmpDir, { recursive: true });
 
   const prefix = path.join(tmpDir, 'page');
-  execFileSync('pdftoppm', ['-r', '150', '-jpeg', pdfPath, prefix], {
-    stdio: 'pipe',
-  });
+  await execFileAsync('pdftoppm', ['-r', '150', '-jpeg', pdfPath, prefix]);
 
   const files = fs
     .readdirSync(tmpDir)
@@ -228,7 +230,7 @@ export async function scanCircular(
   if (!hasPoppler()) throw popplerRequiredError();
   console.log(`Scanning PDF circular: ${filePath}`);
   onProgress?.({ type: 'preparing' });
-  const pageImages = convertPdfToImages(filePath);
+  const pageImages = await convertPdfToImages(filePath);
 
   const allItems: SaleItem[] = [];
   let storeName: string | null = null;

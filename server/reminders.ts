@@ -1,4 +1,7 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 // One-tap "Send to Apple Reminders": push the shopping list onto the phone by
 // shelling out to macOS osascript. macOS-only by nature. Mirrors the
@@ -89,34 +92,45 @@ export function remindersErrorMessage(detail: string): string {
 // Reminders.app creates items one AppleScript call at a time — no batch API —
 // so wall-clock time scales with list length (observed ~0.8s/item on a 52-line
 // push). A flat timeout works until the list grows past it, then every send
-// fails with an unhelpful "unknown error" (execFileSync kills the process on
-// timeout, so there's no stderr to explain why). Scale with titles.length
+// fails with an unhelpful "unknown error" (the timeout kills the process, so
+// there's no stderr to explain why). Scale with titles.length
 // instead of guessing a single constant, capped so a runaway call still ends.
 function reminderTimeoutMs(itemCount: number): number {
   return Math.min(300_000, 10_000 + itemCount * 1_500);
 }
 
-// Map an execFileSync failure to the detail remindersErrorMessage reads.
-// ENOENT = osascript isn't on PATH (non-macOS). ETIMEDOUT = our timeout fired;
-// Node kills the process with SIGTERM and leaves no stderr (and doesn't set
-// `killed` for the sync API). Otherwise the script ran and failed, and the
-// reason is in stderr (commonly the TCC "not authorized").
+// Map an osascript failure to the detail remindersErrorMessage reads.
+// ENOENT = osascript isn't on PATH (non-macOS). A fired timeout kills the
+// process and leaves no stderr: the async API marks it `killed` with a signal,
+// the sync API (still used by the hasReminders probe) sets code ETIMEDOUT.
+// Otherwise the script ran and failed, and the reason is in stderr (commonly
+// the TCC "not authorized").
 export function osascriptFailureDetail(err: unknown): string {
-  const e = err as { stderr?: Buffer | string; code?: string };
-  if (e.code === 'ETIMEDOUT') return 'TIMEOUT';
+  const e = err as {
+    stderr?: Buffer | string;
+    code?: string | number | null;
+    killed?: boolean;
+    signal?: string | null;
+  };
+  if (e.code === 'ETIMEDOUT' || (e.killed && e.signal)) return 'TIMEOUT';
   if (e.code === 'ENOENT') return REMINDERS_UNSUPPORTED_MESSAGE;
   return String(e.stderr ?? '');
 }
 
 // Push the titles into the named Reminders list (replace semantics). Throws a
 // plain Error tagged statusCode 422 — honored by the server error middleware —
-// with a readable message on any osascript failure.
-export function sendToReminders(listName: string, titles: string[]): void {
+// with a readable message on any osascript failure. Async on purpose: a long
+// list takes tens of seconds, and a sync call would freeze every other request.
+export async function sendToReminders(
+  listName: string,
+  titles: string[]
+): Promise<void> {
   try {
-    execFileSync('osascript', ['-e', REMINDERS_SCRIPT, listName, ...titles], {
-      stdio: ['ignore', 'ignore', 'pipe'],
-      timeout: reminderTimeoutMs(titles.length),
-    });
+    await execFileAsync(
+      'osascript',
+      ['-e', REMINDERS_SCRIPT, listName, ...titles],
+      { timeout: reminderTimeoutMs(titles.length) }
+    );
   } catch (err) {
     const detail = osascriptFailureDetail(err);
     const wrapped = new Error(remindersErrorMessage(detail)) as Error & {
