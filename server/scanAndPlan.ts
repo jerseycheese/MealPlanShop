@@ -5,9 +5,8 @@ import type {
   UserPreferences,
 } from '../types';
 
-// Extracted from index.ts so the generate-then-commit ordering can be unit-tested
+// A sibling module so the generate-then-commit ordering can be unit-tested
 // without booting the Express server (index.ts calls app.listen() at module load).
-// Mirrors the validatePreferences / mergeShoppingList / moveMeal sibling-module pattern.
 
 export interface ScanAndPlanDeps {
   // Resolve current preferences, read fresh so a mid-session change is honored.
