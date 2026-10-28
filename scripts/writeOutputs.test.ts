@@ -24,8 +24,30 @@ try {
     extraction
   );
 
+  // The CLI plan must carry the same sale-item decoration the server adds
+  // (loyalty flag and per-lb unit), or the UI loses both on a CLI run.
   const { result, outputPath } = writeMealPlan(
-    { weekPlan: [], shoppingList: [] },
+    {
+      weekPlan: [],
+      shoppingList: [
+        {
+          name: 'chicken breast',
+          quantity: '2 lb',
+          onSale: true,
+          salePrice: 1.99,
+          category: 'meat',
+        },
+      ],
+    },
+    [
+      {
+        item: 'chicken breast',
+        price: 1.99,
+        unit: 'lb',
+        category: 'meat',
+        requiresLoyaltyCard: true,
+      },
+    ],
     DEFAULT_PREFERENCES,
     path.join(dir, 'meal-plan.json')
   );
@@ -36,6 +58,8 @@ try {
     onDisk.prefsFingerprint,
     computePrefsFingerprint(DEFAULT_PREFERENCES)
   );
+  assert.equal(onDisk.shoppingList[0].requiresLoyaltyCard, true);
+  assert.equal(onDisk.shoppingList[0].unit, 'lb');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
