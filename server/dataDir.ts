@@ -10,9 +10,9 @@ import { readJsonOrNull } from './lib/jsonStore';
 // instead. Override with MEALPLANSHOP_DATA_DIR to point it anywhere — that's
 // also how the tests pin it to a temp dir.
 //
-// Extracted as a sibling module (like validatePreferences / prefs-fingerprint)
-// so it can be unit-tested without booting index.ts, which hard-exits without
-// GEMINI_API_KEY and calls app.listen() at module load.
+// A sibling module (like validatePreferences / prefs-fingerprint)
+// so it can be unit-tested without booting index.ts, which calls app.listen()
+// at module load.
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.MEALPLANSHOP_DATA_DIR?.trim();
   if (override) return override;

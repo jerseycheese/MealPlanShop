@@ -20,9 +20,9 @@ Verify before working: `lsof -iTCP:3101 -sTCP:LISTEN` shows the API process and 
 CLI pipeline (no UI needed):
 
 ```bash
-npm run scan       # samples/ circular -> Gemini vision -> output/extraction.json
-npm run plan       # extraction + preferences -> output/meal-plan.json
-npm run pipeline   # both, end to end
+npm run scan -- samples/flyer-1.pdf       # circular -> Gemini vision -> output/extraction.json
+npm run plan                              # extraction + preferences -> output/meal-plan.json
+npm run pipeline -- samples/flyer-1.pdf   # both, end to end
 ```
 
 ## Test and lint
@@ -33,16 +33,16 @@ npm test           # tsx scripts/run-tests.ts — custom runner, NOT jest/vitest
 
 - The runner imports a hardcoded list of suites in `scripts/run-tests.ts`. A new test file does nothing until it's added to that list.
 - Sync suites assert at import time; async suites export `run()`. The runner collects all failures and exits 1 if any failed.
-- Passing looks like: every suite reported, exit 0. Run it before every commit — CI (`.github/workflows/ci.yml`) runs the same thing.
+- Passing looks like: every suite reported, exit 0. Run it before every commit. CI (`.github/workflows/ci.yml`) runs more than `npm test`, so a green local run can still go red there. The full CI set: `npx tsc --noEmit`, `npm run lint`, `npm run knip`, `npm test`, `npm run build:client`.
 
 ## Env and data
 
 - `GEMINI_API_KEY` — required for scan/plan/swap. Two sources, in priority order:
   1. Stored key in `~/.config/mealplanshop/secrets.json` (set via the in-app Settings modal) — wins.
   2. `.env` in the repo root (see `.env.example`).
-  A 400 saying "No Gemini API key set. Add one in Settings, or set GEMINI_API_KEY." means neither is present. Resolution logic lives in `server/secrets.ts`.
+     A 400 saying "No Gemini API key set. Add one in Settings, or set GEMINI_API_KEY." means neither is present. Resolution logic lives in `server/secrets.ts`.
 - App data lives OUTSIDE the repo in `~/.config/mealplanshop/` (`preferences.json`, `secrets.json`); override the location with `MEALPLANSHOP_DATA_DIR`. Shared across all worktrees on purpose.
-- `output/extraction.json` and `output/meal-plan.json` are per-checkout and gitignored. `npm run plan` reuses the last extraction — if items look stale, `npm run scan` first.
+- `output/extraction.json` and `output/meal-plan.json` are per-checkout and gitignored. `npm run plan` reuses the last extraction — if items look stale, `npm run scan -- <circular>` first.
 
 ## Layout
 
@@ -72,7 +72,7 @@ Worktrees live in `.claude/worktrees/`. There is NO per-worktree port scheme her
 
 ## Common tasks
 
-1. Tune extraction or planning quality: edit the prompt in `prompts/`, then `npm run scan` / `npm run plan` against `samples/`, and diff the JSON in `output/`.
+1. Tune extraction or planning quality: edit the prompt in `prompts/`, then `npm run scan -- samples/<file>` / `npm run plan`, and diff the JSON in `output/`.
 2. Add an API endpoint: route in `server/index.ts`, client call via `src/app/endpoints.ts` + `fetchJson.ts`.
 3. Add a preference field: `server/validatePreferences.ts` + `src/app/Preferences.tsx`; check `server/prefs-fingerprint.ts` so change detection still works. Verify: save in the UI, confirm `~/.config/mealplanshop/preferences.json` updated.
 4. Add a test: write the file, register it in `scripts/run-tests.ts`, confirm the `npm test` suite count went up.
