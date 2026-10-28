@@ -1,4 +1,5 @@
 import type { DayPlan, MealType } from "../types";
+import { normalize } from "../normalize";
 
 export interface MoveSpec {
   from: { day: string; mealType: MealType };
@@ -30,16 +31,16 @@ export function moveMealInWeekPlan(
 ): MoveOutcome {
   const { from, to } = spec;
 
-  if (from.day === to.day && from.mealType === to.mealType) {
+  if (normalize(from.day) === normalize(to.day) && from.mealType === to.mealType) {
     return { ok: false, code: "SAME_SLOT" };
   }
   if (from.mealType !== to.mealType) {
     return { ok: false, code: "CROSS_TYPE" };
   }
 
-  const fromIdx = weekPlan.findIndex((d) => d.day === from.day);
+  const fromIdx = weekPlan.findIndex((d) => normalize(d.day) === normalize(from.day));
   if (fromIdx === -1) return { ok: false, code: "FROM_DAY_MISSING" };
-  const toIdx = weekPlan.findIndex((d) => d.day === to.day);
+  const toIdx = weekPlan.findIndex((d) => normalize(d.day) === normalize(to.day));
   if (toIdx === -1) return { ok: false, code: "TO_DAY_MISSING" };
 
   const movingMeal = weekPlan[fromIdx][from.mealType];

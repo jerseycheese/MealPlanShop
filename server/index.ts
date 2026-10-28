@@ -21,6 +21,7 @@ import {
 import { mergeShoppingListAfterSwap } from './mergeShoppingList';
 import { attachSaleJoins, decorateMealPlan } from './decorateMealPlan';
 import { moveMealInWeekPlan } from './moveMeal';
+import { normalize } from '../normalize';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
 import {
@@ -763,7 +764,9 @@ app.post(
         );
       }
 
-      const dayIndex = plan.weekPlan.findIndex((d) => d.day === day);
+      const dayIndex = plan.weekPlan.findIndex(
+        (d) => normalize(d.day) === normalize(day)
+      );
       if (dayIndex === -1) {
         throw new HttpError(400, `Day not found in plan: ${day}`);
       }

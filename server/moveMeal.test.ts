@@ -165,6 +165,24 @@ test("the set of meals across the week is unchanged by a move", () => {
   for (const m of before) assert.ok(after.has(m), `meal ${m.name} should survive the move`);
 });
 
+// The API validates days case-insensitively, so lookup has to match the same way.
+test("day lookup ignores case", () => {
+  const week = sampleWeek();
+  const result = moveMealInWeekPlan(week, {
+    from: { day: "Tuesday", mealType: "dinner" },
+    to: { day: "SUNDAY", mealType: "dinner" },
+  });
+  if (!result.ok) throw new Error(`expected ok, got ${result.code}`);
+  assert.equal(result.weekPlan[2].dinner, week[0].dinner);
+  assert.deepEqual(
+    moveMealInWeekPlan(week, {
+      from: { day: "Tuesday", mealType: "dinner" },
+      to: { day: "tuesday", mealType: "dinner" },
+    }),
+    { ok: false, code: "SAME_SLOT" },
+  );
+});
+
 console.log(`moveMeal: ${passed}/${total} passed`);
 if (failures.length > 0) {
   throw new Error(`moveMeal: ${failures.length} test(s) failed: ${failures.join(", ")}`);

@@ -4,6 +4,7 @@ import { CATEGORY_ENUM } from "./scan-circular";
 import { GEMINI_MODEL } from "./env";
 import { requireGeminiKey } from "../server/secrets";
 import { toReadableGeminiError } from "../server/geminiErrors";
+import { normalize } from "../normalize";
 
 // Allowed aisle for an extra item — the same vocabulary the meal-plan shopping
 // list uses, so extras slot into existing sections. Non-food (paper towels, dish
@@ -85,14 +86,14 @@ export async function estimateExtraItemPrices(
     const byName = new Map<string, { price: number | null; category: string }>();
     for (const p of arr) {
       if (p && typeof p.name === "string") {
-        byName.set(p.name.trim().toLowerCase(), {
+        byName.set(normalize(p.name), {
           price: parsePrice(p.price),
           category: normalizeCategory(p.category),
         });
       }
     }
     return clean.map((name) => {
-      const hit = byName.get(name.toLowerCase());
+      const hit = byName.get(normalize(name));
       return { name, price: hit?.price ?? null, category: hit?.category ?? "other" };
     });
   } catch (err) {

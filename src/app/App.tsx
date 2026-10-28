@@ -17,7 +17,7 @@ import { StoreCompare, type StoreComparisonView } from './StoreCompare';
 import { ApiKeyEntry } from './ApiKeyEntry';
 import { WeekView } from './WeekView';
 import { API } from './endpoints';
-import { fetchJson } from './fetchJson';
+import { fetchJson, postAction } from './fetchJson';
 import { formatValidThrough } from './formatValidThrough';
 import { matchesPantryStaple } from './matchesPantryStaple';
 import { applyStapleChanges, type StapleChanges } from './pantryStaples';
@@ -358,10 +358,9 @@ export function App() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch(API.mealPlanGenerate, { method: 'POST' });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || 'Generation failed');
+      const { ok, error } = await postAction(API.mealPlanGenerate);
+      if (!ok) {
+        setError(error || 'Generation failed');
       } else {
         await fetchMealPlan();
         setExpandedMeals(new Set());
@@ -381,14 +380,12 @@ export function App() {
     setSwappingKey(key);
     setSwapError(null);
     try {
-      const res = await fetch(API.mealPlanSwap, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ day: dayName, mealType }),
+      const { ok, error } = await postAction(API.mealPlanSwap, {
+        day: dayName,
+        mealType,
       });
-      const data = await res.json();
-      if (!data.success) {
-        setSwapError({ key, message: data.error || 'Swap failed' });
+      if (!ok) {
+        setSwapError({ key, message: error || 'Swap failed' });
       } else {
         await fetchMealPlan();
       }
@@ -410,14 +407,9 @@ export function App() {
     setMovingPair({ from: from.day, to: to.day, mealType: from.mealType });
     setMoveError(null);
     try {
-      const res = await fetch(API.mealPlanMove, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setMoveError(data.error || 'Move failed');
+      const { ok, error } = await postAction(API.mealPlanMove, { from, to });
+      if (!ok) {
+        setMoveError(error || 'Move failed');
       } else {
         await fetchMealPlan();
         // A moved meal's `${day}-${type}` key no longer points at the same slot,
@@ -465,30 +457,31 @@ export function App() {
     }
   };
 
+  // A new plan landed (new circular, store switch, or prefs-only plan): reload
+  // both and reset the view to the first day with nothing expanded.
+  const afterNewPlan = async () => {
+    await fetchMealPlan();
+    await fetchCircular();
+    setExpandedMeals(new Set());
+    setSelectedDay(0);
+  };
+
   const handleFlippFetch = async (m: FlippMerchant) => {
     setShowStorePicker(false);
     setComparison(null);
     setUploading(true);
     setError(null);
     try {
-      const res = await fetch(API.circularFlippFetch, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          flyerId: m.flyerId,
-          merchantId: typeof m.merchantId === 'number' ? m.merchantId : null,
-          merchantName: m.name,
-          validThrough: m.validTo,
-        }),
+      const { ok, error } = await postAction(API.circularFlippFetch, {
+        flyerId: m.flyerId,
+        merchantId: typeof m.merchantId === 'number' ? m.merchantId : null,
+        merchantName: m.name,
+        validThrough: m.validTo,
       });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || 'Fetch failed');
+      if (!ok) {
+        setError(error || 'Fetch failed');
       } else {
-        await fetchMealPlan();
-        await fetchCircular();
-        setExpandedMeals(new Set());
-        setSelectedDay(0);
+        await afterNewPlan();
       }
     } catch {
       setError('Failed to fetch circular');
@@ -505,14 +498,9 @@ export function App() {
     setUploading(true);
     setError(null);
     try {
-      const res = await fetch(API.circularCompare, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ includeAll }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || 'Compare failed');
+      const { ok, data, error } = await postAction<StoreComparisonView>(API.circularCompare, { includeAll });
+      if (!ok) {
+        setError(error || 'Compare failed');
       } else {
         setComparison({ ranked: data.ranked, skipped: data.skipped });
       }
@@ -527,20 +515,14 @@ export function App() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch(API.circularCompareUse, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flyerId }),
+      const { ok, error } = await postAction(API.circularCompareUse, {
+        flyerId,
       });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || 'Could not switch stores');
+      if (!ok) {
+        setError(error || 'Could not switch stores');
       } else {
         setComparison(null);
-        await fetchMealPlan();
-        await fetchCircular();
-        setExpandedMeals(new Set());
-        setSelectedDay(0);
+        await afterNewPlan();
       }
     } catch {
       setError('Could not switch stores');
@@ -556,18 +538,11 @@ export function App() {
     try {
       const formData = new FormData();
       formData.append('circular', file);
-      const res = await fetch(API.circularUpload, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || 'Upload failed');
+      const { ok, error } = await postAction(API.circularUpload, formData);
+      if (!ok) {
+        setError(error || 'Upload failed');
       } else {
-        await fetchMealPlan();
-        await fetchCircular();
-        setExpandedMeals(new Set());
-        setSelectedDay(0);
+        await afterNewPlan();
       }
     } catch {
       setError('Failed to upload circular');
@@ -581,19 +556,13 @@ export function App() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch(API.mealPlanGenerateNoCircular, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeName: storeName.trim() || null }),
+      const { ok, error } = await postAction(API.mealPlanGenerateNoCircular, {
+        storeName: storeName.trim() || null,
       });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || 'Generation failed');
+      if (!ok) {
+        setError(error || 'Generation failed');
       } else {
-        await fetchMealPlan();
-        await fetchCircular();
-        setExpandedMeals(new Set());
-        setSelectedDay(0);
+        await afterNewPlan();
       }
     } catch {
       setError('Failed to generate meal plan from preferences');
@@ -742,10 +711,10 @@ export function App() {
         const estimated = new Map<string, ExtraItem>();
         for (const p of data.prices ?? []) {
           if (p && typeof p.name === 'string')
-            estimated.set(p.name.toLowerCase(), p);
+            estimated.set(normalize(p.name), p);
         }
         const merged = nextExtras.map((e) => {
-          const hit = estimated.get(e.name.toLowerCase());
+          const hit = estimated.get(normalize(e.name));
           return hit
             ? {
                 ...e,
@@ -778,7 +747,7 @@ export function App() {
 
   const removeExtra = (name: string) => {
     const nextExtras = extras.filter(
-      (e) => e.name.toLowerCase() !== name.toLowerCase()
+      (e) => normalize(e.name) !== normalize(name)
     );
     setExtras(nextExtras);
     persistExtras(nextExtras);
@@ -791,18 +760,10 @@ export function App() {
     lines: string[]
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const res = await fetch(API.reminders, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: lines }),
-      });
-      const data = await res.json();
-      return data?.success
+      const { ok, error } = await postAction(API.reminders, { items: lines });
+      return ok
         ? { success: true }
-        : {
-            success: false,
-            error: data?.error || "Couldn't send to Reminders.",
-          };
+        : { success: false, error: error || "Couldn't send to Reminders." };
     } catch {
       return {
         success: false,
