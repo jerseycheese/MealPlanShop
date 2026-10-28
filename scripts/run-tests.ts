@@ -38,6 +38,7 @@ const SUITES = [
   'src/app/matchesPantryStaple.test.ts',
   'src/app/shoppingItemKey.test.ts',
   'src/app/pantryStaples.test.ts',
+  'src/app/applyPriceEstimates.test.ts',
 ];
 
 async function main() {
