@@ -20,33 +20,35 @@ const MAX_LIST_ITEM_LEN = 40;
 const MAX_MEMBERS = 20;
 // Sanity ceiling for the active-time cap; nothing weeknight-realistic needs more.
 const MAX_ACTIVE_TIME = 240;
-// Sanity ceilings for the per-member sizing hints (issue #74 phase 2b).
+// Sanity ceilings for the per-member sizing hints (calories and portion size).
 const MAX_MEAL_CALORIES = 5000; // a per-serving target; anything higher is a typo
 const MAX_PORTION_MULTIPLIER = 10; // 10x a normal portion is already absurd
 // Ceiling for the free-text notes field — a few sentences of instructions, not an essay.
 const MAX_NOTES_LEN = 1000;
 
+// `label` is the field's name as the Preferences UI shows it, since these
+// messages reach the user verbatim (save errors and bad import files).
 function validateStringArray(
-  key: string,
+  label: string,
   value: unknown,
   opts: { maxItems: number; maxLen: number }
 ): string[] {
   if (!Array.isArray(value))
-    throw new ValidationError(`${key} must be an array`);
+    throw new ValidationError(`${label} must be a list`);
   if (value.length > opts.maxItems) {
     throw new ValidationError(
-      `${key} can have at most ${opts.maxItems} entries`
+      `${label} can have at most ${opts.maxItems} entries`
     );
   }
   const cleaned: string[] = [];
   for (const v of value) {
     if (typeof v !== 'string')
-      throw new ValidationError(`${key} entries must be strings`);
+      throw new ValidationError(`${label} entries must be text`);
     const trimmed = v.trim();
-    if (!trimmed) throw new ValidationError(`${key} entries cannot be empty`);
+    if (!trimmed) throw new ValidationError(`${label} entries cannot be empty`);
     if (trimmed.length > opts.maxLen) {
       throw new ValidationError(
-        `${key} entries must be ${opts.maxLen} chars or fewer`
+        `${label} entries must be ${opts.maxLen} characters or fewer`
       );
     }
     cleaned.push(trimmed);
@@ -58,21 +60,21 @@ function validateStringArray(
 // in-range, integer when asked (calorie targets) or any positive number otherwise
 // (portion multipliers like 1.5). Returns undefined for absent/null/0 so the field
 // is omitted from stored prefs, keeping the member shape (and fingerprint) stable
-// for households that don't use it (issue #74 phase 2b, skip-migrations).
+// for households that don't use it.
 function validateOptionalPositiveNumber(
-  key: string,
+  label: string,
   value: unknown,
   opts: { integer: boolean; max: number }
 ): number | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new ValidationError(`${key} must be a number`);
+    throw new ValidationError(`${label} must be a number`);
   }
   if (opts.integer && !Number.isInteger(value)) {
-    throw new ValidationError(`${key} must be an integer`);
+    throw new ValidationError(`${label} must be a whole number`);
   }
   if (value < 0 || value > opts.max) {
-    throw new ValidationError(`${key} must be between 0 and ${opts.max}`);
+    throw new ValidationError(`${label} must be between 0 and ${opts.max}`);
   }
   return value > 0 ? value : undefined; // 0 = "unset", omitted like maxActiveTime
 }
@@ -130,8 +132,8 @@ function validateMealsByDay(
 }
 
 // Validates the per-member roster (issue #74). Each member's excluded-ingredients,
-// dietary-restrictions, and (phase 2a) cuisine-preferences lists go through the
-// same validateStringArray as the household-wide lists; the (phase 2b) per-member
+// dietary-restrictions, and cuisine-preferences lists go through the
+// same validateStringArray as the household-wide lists; the per-member
 // caloriesPerMeal and portionMultiplier sizing hints go through
 // validateOptionalPositiveNumber. All three optional fields are omitted when empty/
 // unset, so existing rosters that predate them validate unchanged and keep their
@@ -169,35 +171,35 @@ function validateMembers(
     const member: HouseholdMember = {
       name,
       excludedIngredients: validateStringArray(
-        'member excludedIngredients',
+        "Member won't-eat list",
         rec.excludedIngredients,
         listOpts
       ),
       dietaryRestrictions: validateStringArray(
-        'member dietaryRestrictions',
+        'Member dietary needs',
         rec.dietaryRestrictions,
         listOpts
       ),
     };
-    // Optional per-member cuisine lean (phase 2a). Tolerate it being absent on
+    // Optional per-member cuisine lean. Tolerate it being absent on
     // rosters saved before this field existed, and omit it when empty so the
     // stored shape (and fingerprint) for members who don't use it is unchanged.
     const cuisine = validateStringArray(
-      'member cuisinePreferences',
+      'Member cuisine preferences',
       rec.cuisinePreferences ?? [],
       listOpts
     );
     if (cuisine.length > 0) member.cuisinePreferences = cuisine;
-    // Optional per-member sizing hints (phase 2b). Validated like maxActiveTime and
+    // Optional per-member sizing hints. Validated like maxActiveTime and
     // omitted when unset/0, so a member who sets neither stays shape-identical.
     const calories = validateOptionalPositiveNumber(
-      'member caloriesPerMeal',
+      'Member calories/meal',
       rec.caloriesPerMeal,
       { integer: true, max: MAX_MEAL_CALORIES }
     );
     if (calories !== undefined) member.caloriesPerMeal = calories;
     const portion = validateOptionalPositiveNumber(
-      'member portionMultiplier',
+      'Member portion size',
       rec.portionMultiplier,
       { integer: false, max: MAX_PORTION_MULTIPLIER }
     );
@@ -242,27 +244,27 @@ export function validatePreferences(input: unknown): UserPreferences {
   const listOpts = { maxItems: MAX_LIST_ITEMS, maxLen: MAX_LIST_ITEM_LEN };
   const members = validateMembers(p.members, listOpts);
   const dietary = validateStringArray(
-    'dietaryRestrictions',
+    'Dietary preferences',
     p.dietaryRestrictions,
     listOpts
   );
   const cuisine = validateStringArray(
-    'cuisinePreferences',
+    'Cuisine preferences',
     p.cuisinePreferences,
     listOpts
   );
   const excluded = validateStringArray(
-    'excludedIngredients',
+    'Excluded ingredients',
     p.excludedIngredients,
     listOpts
   );
   const pantry = validateStringArray(
-    'pantryStaples',
+    'Pantry staples',
     p.pantryStaples,
     listOpts
   );
   const useUp = validateStringArray(
-    'useUpIngredients',
+    'Use these up',
     p.useUpIngredients,
     listOpts
   );

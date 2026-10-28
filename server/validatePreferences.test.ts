@@ -1,17 +1,17 @@
-import * as assert from "node:assert/strict";
-import { validatePreferences, ValidationError } from "./validatePreferences";
+import * as assert from 'node:assert/strict';
+import { validatePreferences, ValidationError } from './validatePreferences';
 
 // A complete, valid preferences body (no maxActiveTime set).
 const base = {
   householdSize: 2,
-  dietaryRestrictions: ["vegetarian"],
-  cuisinePreferences: ["italian"],
-  excludedIngredients: ["shellfish"],
-  pantryStaples: ["olive oil", "salt"],
-  useUpIngredients: ["spinach"],
+  dietaryRestrictions: ['vegetarian'],
+  cuisinePreferences: ['italian'],
+  excludedIngredients: ['shellfish'],
+  pantryStaples: ['olive oil', 'salt'],
+  useUpIngredients: ['spinach'],
   mealsByDay: {
-    monday: ["breakfast", "lunch", "dinner"],
-    wednesday: ["dinner"],
+    monday: ['breakfast', 'lunch', 'dinner'],
+    wednesday: ['dinner'],
   },
 };
 
@@ -30,19 +30,19 @@ assert.equal(zeroCap.maxActiveTime, undefined);
 // A negative cap is rejected.
 assert.throws(
   () => validatePreferences({ ...base, maxActiveTime: -5 }),
-  ValidationError,
+  ValidationError
 );
 
 // A non-numeric cap is rejected.
 assert.throws(
-  () => validatePreferences({ ...base, maxActiveTime: "fast" }),
-  ValidationError,
+  () => validatePreferences({ ...base, maxActiveTime: 'fast' }),
+  ValidationError
 );
 
 // A non-integer cap is rejected.
 assert.throws(
   () => validatePreferences({ ...base, maxActiveTime: 15.5 }),
-  ValidationError,
+  ValidationError
 );
 
 // --- mealsByDay ---
@@ -52,42 +52,42 @@ assert.throws(
 assert.deepEqual(
   validatePreferences({
     ...base,
-    mealsByDay: { wednesday: ["dinner", "breakfast"], monday: ["dinner"] },
+    mealsByDay: { wednesday: ['dinner', 'breakfast'], monday: ['dinner'] },
   }).mealsByDay,
-  { monday: ["dinner"], wednesday: ["breakfast", "dinner"] },
+  { monday: ['dinner'], wednesday: ['breakfast', 'dinner'] }
 );
 
 // Day keys are normalized (trim + lowercase), meals deduped, empty days dropped.
 assert.deepEqual(
   validatePreferences({
     ...base,
-    mealsByDay: { " Monday ": ["dinner", "dinner"], friday: [] },
+    mealsByDay: { ' Monday ': ['dinner', 'dinner'], friday: [] },
   }).mealsByDay,
-  { monday: ["dinner"] },
+  { monday: ['dinner'] }
 );
 
 // An unknown day name is rejected.
 assert.throws(
-  () => validatePreferences({ ...base, mealsByDay: { funday: ["dinner"] } }),
-  ValidationError,
+  () => validatePreferences({ ...base, mealsByDay: { funday: ['dinner'] } }),
+  ValidationError
 );
 
 // An unknown meal type is rejected.
 assert.throws(
-  () => validatePreferences({ ...base, mealsByDay: { monday: ["brunch"] } }),
-  ValidationError,
+  () => validatePreferences({ ...base, mealsByDay: { monday: ['brunch'] } }),
+  ValidationError
 );
 
 // A map with no planned days (every list empty) is rejected.
 assert.throws(
   () => validatePreferences({ ...base, mealsByDay: { monday: [] } }),
-  ValidationError,
+  ValidationError
 );
 
 // A non-object mealsByDay is rejected.
 assert.throws(
-  () => validatePreferences({ ...base, mealsByDay: ["monday"] }),
-  ValidationError,
+  () => validatePreferences({ ...base, mealsByDay: ['monday'] }),
+  ValidationError
 );
 
 // --- notes ---
@@ -97,23 +97,24 @@ assert.equal(validatePreferences(base).notes, undefined);
 
 // A valid note round-trips, trimmed.
 assert.equal(
-  validatePreferences({ ...base, notes: "  cook double for leftovers  " }).notes,
-  "cook double for leftovers",
+  validatePreferences({ ...base, notes: '  cook double for leftovers  ' })
+    .notes,
+  'cook double for leftovers'
 );
 
 // Empty / whitespace-only notes are dropped, not stored as "".
-assert.equal(validatePreferences({ ...base, notes: "   " }).notes, undefined);
+assert.equal(validatePreferences({ ...base, notes: '   ' }).notes, undefined);
 
 // A non-string note is rejected.
 assert.throws(
   () => validatePreferences({ ...base, notes: 42 }),
-  ValidationError,
+  ValidationError
 );
 
 // An over-length note is rejected.
 assert.throws(
-  () => validatePreferences({ ...base, notes: "x".repeat(1001) }),
-  ValidationError,
+  () => validatePreferences({ ...base, notes: 'x'.repeat(1001) }),
+  ValidationError
 );
 
 // --- members (issue #74) ---
@@ -124,23 +125,29 @@ const roster = validatePreferences({
   ...base,
   householdSize: 1,
   members: [
-    { name: "Me", excludedIngredients: [], dietaryRestrictions: [] },
-    { name: "Partner", excludedIngredients: ["fish"], dietaryRestrictions: [] },
+    { name: 'Me', excludedIngredients: [], dietaryRestrictions: [] },
+    { name: 'Partner', excludedIngredients: ['fish'], dietaryRestrictions: [] },
   ],
 });
 assert.equal(roster.householdSize, 2);
 assert.deepEqual(roster.members, [
-  { name: "Me", excludedIngredients: [], dietaryRestrictions: [] },
-  { name: "Partner", excludedIngredients: ["fish"], dietaryRestrictions: [] },
+  { name: 'Me', excludedIngredients: [], dietaryRestrictions: [] },
+  { name: 'Partner', excludedIngredients: ['fish'], dietaryRestrictions: [] },
 ]);
 
 // Member name and lists are trimmed, the same way the household-wide lists are.
 assert.deepEqual(
   validatePreferences({
     ...base,
-    members: [{ name: "  Bo  ", excludedIngredients: ["  fish  "], dietaryRestrictions: [] }],
+    members: [
+      {
+        name: '  Bo  ',
+        excludedIngredients: ['  fish  '],
+        dietaryRestrictions: [],
+      },
+    ],
   }).members,
-  [{ name: "Bo", excludedIngredients: ["fish"], dietaryRestrictions: [] }],
+  [{ name: 'Bo', excludedIngredients: ['fish'], dietaryRestrictions: [] }]
 );
 
 // No members → field omitted and householdSize is left as sent.
@@ -154,7 +161,7 @@ assert.throws(
       ...base,
       members: [{ excludedIngredients: [], dietaryRestrictions: [] }],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // A blank member name is rejected.
@@ -162,15 +169,17 @@ assert.throws(
   () =>
     validatePreferences({
       ...base,
-      members: [{ name: "  ", excludedIngredients: [], dietaryRestrictions: [] }],
+      members: [
+        { name: '  ', excludedIngredients: [], dietaryRestrictions: [] },
+      ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // A non-object member entry is rejected.
 assert.throws(
-  () => validatePreferences({ ...base, members: ["Me"] }),
-  ValidationError,
+  () => validatePreferences({ ...base, members: ['Me'] }),
+  ValidationError
 );
 
 // An over-length per-member list entry is rejected (same cap as household lists).
@@ -178,9 +187,15 @@ assert.throws(
   () =>
     validatePreferences({
       ...base,
-      members: [{ name: "X", excludedIngredients: ["y".repeat(41)], dietaryRestrictions: [] }],
+      members: [
+        {
+          name: 'X',
+          excludedIngredients: ['y'.repeat(41)],
+          dietaryRestrictions: [],
+        },
+      ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // More than the member cap is rejected.
@@ -194,7 +209,7 @@ assert.throws(
         dietaryRestrictions: [],
       })),
     }),
-  ValidationError,
+  ValidationError
 );
 
 // --- per-member cuisinePreferences (issue #74 phase 2a) ---
@@ -205,21 +220,21 @@ assert.deepEqual(
     ...base,
     members: [
       {
-        name: "Me",
+        name: 'Me',
         excludedIngredients: [],
         dietaryRestrictions: [],
-        cuisinePreferences: ["  Thai  ", "Indian"],
+        cuisinePreferences: ['  Thai  ', 'Indian'],
       },
     ],
   }).members,
   [
     {
-      name: "Me",
+      name: 'Me',
       excludedIngredients: [],
       dietaryRestrictions: [],
-      cuisinePreferences: ["Thai", "Indian"],
+      cuisinePreferences: ['Thai', 'Indian'],
     },
-  ],
+  ]
 );
 
 // An empty per-member cuisine list is omitted, leaving the member shape (and its
@@ -228,10 +243,15 @@ assert.deepEqual(
   validatePreferences({
     ...base,
     members: [
-      { name: "Me", excludedIngredients: [], dietaryRestrictions: [], cuisinePreferences: [] },
+      {
+        name: 'Me',
+        excludedIngredients: [],
+        dietaryRestrictions: [],
+        cuisinePreferences: [],
+      },
     ],
   }).members,
-  [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+  [{ name: 'Me', excludedIngredients: [], dietaryRestrictions: [] }]
 );
 
 // A member saved before this field existed (no cuisinePreferences key) still
@@ -239,9 +259,9 @@ assert.deepEqual(
 assert.deepEqual(
   validatePreferences({
     ...base,
-    members: [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+    members: [{ name: 'Me', excludedIngredients: [], dietaryRestrictions: [] }],
   }).members,
-  [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+  [{ name: 'Me', excludedIngredients: [], dietaryRestrictions: [] }]
 );
 
 // An over-length per-member cuisine entry is rejected (same 40-char cap).
@@ -251,14 +271,14 @@ assert.throws(
       ...base,
       members: [
         {
-          name: "X",
+          name: 'X',
           excludedIngredients: [],
           dietaryRestrictions: [],
-          cuisinePreferences: ["z".repeat(41)],
+          cuisinePreferences: ['z'.repeat(41)],
         },
       ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // --- per-member sizing hints: caloriesPerMeal + portionMultiplier (phase 2b) ---
@@ -270,7 +290,7 @@ assert.deepEqual(
     ...base,
     members: [
       {
-        name: "Me",
+        name: 'Me',
         excludedIngredients: [],
         dietaryRestrictions: [],
         caloriesPerMeal: 600,
@@ -280,13 +300,13 @@ assert.deepEqual(
   }).members,
   [
     {
-      name: "Me",
+      name: 'Me',
       excludedIngredients: [],
       dietaryRestrictions: [],
       caloriesPerMeal: 600,
       portionMultiplier: 1.5,
     },
-  ],
+  ]
 );
 
 // 0 (and absent) sizing fields are omitted, leaving the member byte-identical to
@@ -296,7 +316,7 @@ assert.deepEqual(
     ...base,
     members: [
       {
-        name: "Me",
+        name: 'Me',
         excludedIngredients: [],
         dietaryRestrictions: [],
         caloriesPerMeal: 0,
@@ -304,7 +324,7 @@ assert.deepEqual(
       },
     ],
   }).members,
-  [{ name: "Me", excludedIngredients: [], dietaryRestrictions: [] }],
+  [{ name: 'Me', excludedIngredients: [], dietaryRestrictions: [] }]
 );
 
 // A non-integer calorie target is rejected (the field is whole-number only).
@@ -313,10 +333,15 @@ assert.throws(
     validatePreferences({
       ...base,
       members: [
-        { name: "X", excludedIngredients: [], dietaryRestrictions: [], caloriesPerMeal: 15.5 },
+        {
+          name: 'X',
+          excludedIngredients: [],
+          dietaryRestrictions: [],
+          caloriesPerMeal: 15.5,
+        },
       ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // A negative calorie target is rejected.
@@ -325,10 +350,15 @@ assert.throws(
     validatePreferences({
       ...base,
       members: [
-        { name: "X", excludedIngredients: [], dietaryRestrictions: [], caloriesPerMeal: -100 },
+        {
+          name: 'X',
+          excludedIngredients: [],
+          dietaryRestrictions: [],
+          caloriesPerMeal: -100,
+        },
       ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // An over-ceiling calorie target is rejected.
@@ -337,10 +367,15 @@ assert.throws(
     validatePreferences({
       ...base,
       members: [
-        { name: "X", excludedIngredients: [], dietaryRestrictions: [], caloriesPerMeal: 5001 },
+        {
+          name: 'X',
+          excludedIngredients: [],
+          dietaryRestrictions: [],
+          caloriesPerMeal: 5001,
+        },
       ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // A non-numeric portion multiplier is rejected.
@@ -349,10 +384,15 @@ assert.throws(
     validatePreferences({
       ...base,
       members: [
-        { name: "X", excludedIngredients: [], dietaryRestrictions: [], portionMultiplier: "big" },
+        {
+          name: 'X',
+          excludedIngredients: [],
+          dietaryRestrictions: [],
+          portionMultiplier: 'big',
+        },
       ],
     }),
-  ValidationError,
+  ValidationError
 );
 
 // An over-ceiling portion multiplier is rejected.
@@ -361,10 +401,32 @@ assert.throws(
     validatePreferences({
       ...base,
       members: [
-        { name: "X", excludedIngredients: [], dietaryRestrictions: [], portionMultiplier: 11 },
+        {
+          name: 'X',
+          excludedIngredients: [],
+          dietaryRestrictions: [],
+          portionMultiplier: 11,
+        },
       ],
     }),
-  ValidationError,
+  ValidationError
 );
 
-console.log("validatePreferences: 36/36 passed");
+// List errors reach the user verbatim, so they name the field the way the UI
+// does, not by its camelCase key.
+assert.throws(
+  () =>
+    validatePreferences({
+      ...base,
+      members: [
+        { name: 'Sam', excludedIngredients: [], dietaryRestrictions: 'vegan' },
+      ],
+    }),
+  { message: 'Member dietary needs must be a list' }
+);
+assert.throws(
+  () => validatePreferences({ ...base, cuisinePreferences: ['x'.repeat(41)] }),
+  { message: 'Cuisine preferences entries must be 40 characters or fewer' }
+);
+
+console.log('validatePreferences: 38/38 passed');

@@ -90,10 +90,10 @@ export interface HouseholdMember {
   name: string;
   excludedIngredients: string[];
   dietaryRestrictions: string[];
-  // Optional soft lean for this member's variant dish (issue #74 phase 2a).
+  // Optional soft lean for this member's variant dish.
   // Absent = fall back to the household-wide cuisinePreferences for this member.
   cuisinePreferences?: string[];
-  // Optional soft sizing hints for this member's variant dish (issue #74 phase 2b).
+  // Optional soft sizing hints for this member's variant dish.
   // Absent = the member's variant is sized like the main meal (no per-member sizing).
   caloriesPerMeal?: number; // rough per-serving calorie target
   portionMultiplier?: number; // relative portion size, e.g. 1.5 = 50% larger
