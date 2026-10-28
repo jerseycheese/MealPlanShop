@@ -7,8 +7,10 @@
   --color-text-muted: #8c7e6e;
   --color-primary: #3d5a3e;
   --color-primary-light: #e8f0e8;
+  --color-primary-hover: #4a6e4c;
   --color-accent: #c75b2b;
   --color-accent-light: #fff0e8;
+  --color-on-accent: #ffffff;
   --color-border: #e8e2d8;
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
@@ -28,8 +30,10 @@
     --color-text-muted: #a89a86;
     --color-primary: #8fb893;
     --color-primary-light: #2a3a2c;
+    --color-primary-hover: #a8cdac;
     --color-accent: #e8845a;
     --color-accent-light: #3d2418;
+    --color-on-accent: #1a1612;
     --color-border: #3a342c;
     --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.4);
     --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.55);
@@ -125,11 +129,11 @@ body {
 .day-tabs__tab--active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-bg);
 }
 
 .day-tabs__tab--active:hover {
-  color: #fff;
+  color: var(--color-bg);
 }
 
 /* ─── Day View ──────────────────────────────────── */
@@ -179,7 +183,7 @@ body {
 .view-toggle__btn--active:hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-bg);
 }
 
 /* ─── Week View ─────────────────────────────────── */
@@ -409,7 +413,7 @@ body {
 
 .meal-card__swap:hover {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-bg);
 }
 
 .meal-card__swap[aria-disabled='true'] {
@@ -534,7 +538,7 @@ body {
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -831,7 +835,7 @@ body {
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   white-space: nowrap;
   margin-left: 8px;
   /* Long unit text (e.g. "Fully Cooked, Select Varieties, 2 lb") must not force
@@ -1631,11 +1635,11 @@ body {
 .preferences-modal__regenerate {
   border: none;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-bg);
 }
 
 .preferences-modal__regenerate:hover:not(:disabled) {
-  background: #4a6e4c;
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -1758,7 +1762,7 @@ body {
   border-radius: var(--radius-pill);
   border: none;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-bg);
   cursor: pointer;
   transition:
     background 0.15s,
@@ -1766,7 +1770,7 @@ body {
 }
 
 .api-key-entry__save:hover:not(:disabled) {
-  background: #4a6e4c;
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -1884,23 +1888,6 @@ body {
 
   .shopping-list__grid {
     columns: 1;
-  }
-}
-
-/* ─── Dark Mode Rule Overrides ──────────────────── */
-/* Primary is light enough on dark bg for foreground use, so swap button
-   labels to dark text to keep AA contrast on primary-bg controls. */
-
-@media (prefers-color-scheme: dark) {
-  .preferences-modal__regenerate,
-  .day-tabs__tab--active,
-  .day-tabs__tab--active:hover {
-    color: var(--color-bg);
-  }
-
-  .preferences-modal__regenerate:hover:not(:disabled) {
-    background: #a8cdac;
-    color: var(--color-bg);
   }
 }
 
