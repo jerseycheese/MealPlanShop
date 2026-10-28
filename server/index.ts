@@ -254,11 +254,13 @@ async function getFlyerExtraction(
       validThrough: cached.validThrough ?? validThrough,
     };
   }
-  const extraction = await fetchFlyer(flyerId, {
+  const { extraction, degraded } = await fetchFlyer(flyerId, {
     storeName: merchantName,
     validThrough,
   });
-  writeFlippCache(flyerId, extraction);
+  // A degraded categorization let non-food items through as "other". Serve it
+  // this once, but re-fetch next time instead of pinning it for days.
+  if (!degraded) writeFlippCache(flyerId, extraction);
   return extraction;
 }
 
