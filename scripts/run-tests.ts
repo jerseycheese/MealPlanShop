@@ -32,6 +32,7 @@ const SUITES = [
   'server/reminders.test.ts',
   'server/lib/jsonStore.test.ts',
   'src/app/preferenceConflicts.test.ts',
+  'src/app/ChipField.test.ts',
   'src/app/formatValidThrough.test.ts',
   'src/app/formatDateRange.test.ts',
   'src/app/formatShoppingListText.test.ts',

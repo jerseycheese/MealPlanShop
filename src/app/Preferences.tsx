@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type {
   UserPreferences,
   HouseholdMember,
@@ -593,7 +593,8 @@ interface ChipFieldProps {
   onChange: (next: string[]) => void;
 }
 
-function ChipField({ label, hint, values, onChange }: ChipFieldProps) {
+export function ChipField({ label, hint, values, onChange }: ChipFieldProps) {
+  const inputId = useId();
   const [draft, setDraft] = useState("");
 
   const commit = () => {
@@ -608,7 +609,9 @@ function ChipField({ label, hint, values, onChange }: ChipFieldProps) {
 
   return (
     <div className="preferences-modal__field">
-      <label className="preferences-modal__label">{label}</label>
+      <label htmlFor={inputId} className="preferences-modal__label">
+        {label}
+      </label>
       <div className="preferences-modal__chips">
         {values.map((v, i) => (
           <span key={`${v}-${i}`} className="preferences-modal__chip">
@@ -624,6 +627,7 @@ function ChipField({ label, hint, values, onChange }: ChipFieldProps) {
           </span>
         ))}
         <input
+          id={inputId}
           type="text"
           className="preferences-modal__chip-input"
           value={draft}
