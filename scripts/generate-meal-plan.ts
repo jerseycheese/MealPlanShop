@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { GoogleGenAI } from '@google/genai';
 import type {
   Meal,
   MealPlanResult,
@@ -20,9 +19,7 @@ import {
   matchExpandedTerm,
   type ExpandedTerm,
 } from './excludedCategories';
-import { GEMINI_MODEL } from './env';
-import { requireGeminiKey } from '../server/secrets';
-import { toReadableGeminiError } from '../server/geminiErrors';
+import { generateStructured } from '../server/generateStructured';
 import { loadPreferences } from '../server/dataDir';
 import { decorateMealPlan } from '../server/decorateMealPlan';
 export type { SaleItem, UserPreferences };
@@ -562,8 +559,6 @@ export async function generateMealPlan(
   saleItems: SaleItem[],
   preferences: UserPreferences
 ): Promise<MealPlanResult> {
-  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
-
   const systemPrompt = loadPrompt('../prompts/meal-plan-generation.md');
 
   const filteredSaleItems = filterExcludedSaleItems(
@@ -612,17 +607,13 @@ export async function generateMealPlan(
 
   const callModel = async (extraNote?: string): Promise<MealPlanResult> => {
     const contents = extraNote ? `${extraNote}\n\n${userPrompt}` : userPrompt;
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: 'application/json',
-        responseJsonSchema: mealPlanSchema,
-        httpOptions: { timeout: 120_000 },
-      },
+    const parsed = await generateStructured({
+      systemPrompt,
+      prompt: contents,
+      schema: mealPlanSchema,
+      timeoutMs: 120_000,
     });
-    return assertMealPlanShape(JSON.parse(response.text ?? '{}'));
+    return assertMealPlanShape(parsed);
   };
 
   const { result, violations } = await callModelWithExclusionRetry(
@@ -632,9 +623,7 @@ export async function generateMealPlan(
       ...findMemberViolations(r, preferences.members),
     ],
     'Plan'
-  ).catch((err: unknown) => {
-    throw toReadableGeminiError(err, GEMINI_MODEL);
-  });
+  );
   flagExcludedMeals(result, violations);
 
   console.log(`Generated plan with ${result.weekPlan.length} days`);
@@ -656,8 +645,6 @@ export async function generateMealSwap(
   shoppingList: ShoppingListItem[];
   violations: ExcludedViolation[];
 }> {
-  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
-
   const systemPrompt = loadPrompt('../prompts/meal-swap.md');
 
   const filteredSaleItems = filterExcludedSaleItems(
@@ -721,17 +708,13 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
     extraNote?: string
   ): Promise<{ meal: Meal; shoppingList: ShoppingListItem[] }> => {
     const contents = extraNote ? `${extraNote}\n\n${userPrompt}` : userPrompt;
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: 'application/json',
-        responseJsonSchema: swapSchema,
-        httpOptions: { timeout: 60_000 },
-      },
+    const parsed = await generateStructured({
+      systemPrompt,
+      prompt: contents,
+      schema: swapSchema,
+      timeoutMs: 60_000,
     });
-    return assertSwapShape(JSON.parse(response.text ?? '{}'));
+    return assertSwapShape(parsed);
   };
 
   const { result: parsed, violations } = await callModelWithExclusionRetry(
@@ -741,9 +724,7 @@ Generate one replacement meal for the slot above, plus the regenerated full-week
       ...findMemberVariantViolations(r.meal, preferences.members),
     ],
     'Swap'
-  ).catch((err: unknown) => {
-    throw toReadableGeminiError(err, GEMINI_MODEL);
-  });
+  );
   console.log(`Replacement: ${parsed.meal.name}`);
   console.log(`Shopping list: ${parsed.shoppingList.length} items`);
 

@@ -70,7 +70,7 @@ import {
 
 // No startup key guard: the server boots without a Gemini key so a first-run
 // user reaches the UI and can paste one in. A missing key surfaces
-// as a readable error at request time via requireGeminiKey() in the call sites.
+// as a readable error at request time via requireGeminiKey() in generateStructured.
 
 const app = express();
 const PORT = parseInt(process.env.API_PORT ?? process.env.PORT ?? '3101', 10);

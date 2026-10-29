@@ -28,6 +28,7 @@ const SUITES = [
   'server/dataDir.test.ts',
   'server/secrets.test.ts',
   'server/geminiErrors.test.ts',
+  'server/generateStructured.test.ts',
   'server/poppler.test.ts',
   'server/reminders.test.ts',
   'server/lib/jsonStore.test.ts',

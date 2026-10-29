@@ -3,11 +3,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { GoogleGenAI } from '@google/genai';
 import type { SaleItem, ExtractionResult } from '../types';
-import { GEMINI_MODEL } from './env';
-import { requireGeminiKey } from '../server/secrets';
-import { toReadableGeminiError } from '../server/geminiErrors';
+import { generateStructured } from '../server/generateStructured';
 import { hasPoppler, popplerRequiredError } from '../server/poppler';
 
 export const CATEGORY_ENUM = [
@@ -59,7 +56,6 @@ const extractionSchema = {
 // -- Single image scanning --
 
 async function scanImage(
-  ai: GoogleGenAI,
   imagePath: string,
   prompt: string
 ): Promise<ExtractionResult> {
@@ -75,31 +71,12 @@ async function scanImage(
   };
   const mimeType = mimeTypes[ext] || 'image/jpeg';
 
-  const response = await ai.models
-    .generateContent({
-      model: GEMINI_MODEL,
-      contents: [
-        {
-          inlineData: {
-            mimeType,
-            data: base64Image,
-          },
-        },
-        { text: prompt },
-      ],
-      config: {
-        responseMimeType: 'application/json',
-        responseJsonSchema: extractionSchema,
-        httpOptions: { timeout: 90_000 },
-      },
-    })
-    .catch((err: unknown) => {
-      throw toReadableGeminiError(err, GEMINI_MODEL);
-    });
-
-  const parsed = JSON.parse(
-    response.text ?? '{"items":[],"storeName":null,"validThrough":null}'
-  ) as Partial<ExtractionResult>;
+  const parsed = (await generateStructured({
+    prompt,
+    images: [{ mimeType, data: base64Image }],
+    schema: extractionSchema,
+    timeoutMs: 90_000,
+  })) as Partial<ExtractionResult>;
   return {
     items: Array.isArray(parsed.items) ? parsed.items : [],
     storeName: typeof parsed.storeName === 'string' ? parsed.storeName : null,
@@ -198,7 +175,6 @@ export async function scanCircular(
   filePath: string,
   onProgress?: (event: ScanProgressEvent) => void
 ): Promise<ExtractionResult> {
-  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
   const prompt = fs.readFileSync(
     path.join(__dirname, '../prompts/circular-extraction.md'),
     'utf-8'
@@ -213,7 +189,7 @@ export async function scanCircular(
     const size = fs.statSync(filePath).size;
     console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
     onProgress?.({ type: 'page', page: 1, pages: 1, storeName: null });
-    const result = await scanImage(ai, filePath, prompt);
+    const result = await scanImage(filePath, prompt);
     result.validThrough = validateValidThrough(result.validThrough);
     onProgress?.({
       type: 'page',
@@ -240,7 +216,7 @@ export async function scanCircular(
     const pageNum = i + 1;
     process.stdout.write(`  Page ${pageNum}/${pageImages.length}... `);
 
-    const result = await scanImage(ai, pageImages[i], prompt);
+    const result = await scanImage(pageImages[i], prompt);
     console.log(`${result.items.length} items`);
 
     allItems.push(...result.items);

@@ -1,9 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
 import type { ExtraItem } from "../types";
 import { CATEGORY_ENUM } from "./scan-circular";
-import { GEMINI_MODEL } from "./env";
-import { requireGeminiKey } from "../server/secrets";
-import { toReadableGeminiError } from "../server/geminiErrors";
+import { generateStructured } from "../server/generateStructured";
 import { normalize } from "../normalize";
 
 // Allowed aisle for an extra item — the same vocabulary the meal-plan shopping
@@ -61,42 +58,32 @@ export async function estimateExtraItemPrices(
   const clean = names.map((n) => n.trim()).filter(Boolean);
   if (clean.length === 0) return [];
 
-  try {
-    const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
-    const prompt =
-      "For each item below, give the typical current US grocery store price in US " +
-      "dollars (a realistic single-unit retail price — one carton, one bottle, one " +
-      "package) and the store aisle it belongs to, chosen from: " +
-      `${CATEGORY_ENUM.join(", ")}. Use "other" for non-food household goods ` +
-      "(paper towels, dish soap, etc.). Items:\n" +
-      clean.map((n) => `- ${n}`).join("\n");
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction:
-          "You estimate typical US grocery prices and aisle categories. Respond only with the requested JSON.",
-        responseMimeType: "application/json",
-        responseJsonSchema: priceSchema,
-        httpOptions: { timeout: 30_000 },
-      },
-    });
-    const parsed = JSON.parse(response.text ?? "{}");
-    const arr = Array.isArray(parsed?.prices) ? parsed.prices : [];
-    const byName = new Map<string, { price: number | null; category: string }>();
-    for (const p of arr) {
-      if (p && typeof p.name === "string") {
-        byName.set(normalize(p.name), {
-          price: parsePrice(p.price),
-          category: normalizeCategory(p.category),
-        });
-      }
+  const prompt =
+    "For each item below, give the typical current US grocery store price in US " +
+    "dollars (a realistic single-unit retail price — one carton, one bottle, one " +
+    "package) and the store aisle it belongs to, chosen from: " +
+    `${CATEGORY_ENUM.join(", ")}. Use "other" for non-food household goods ` +
+    "(paper towels, dish soap, etc.). Items:\n" +
+    clean.map((n) => `- ${n}`).join("\n");
+  const parsed = (await generateStructured({
+    systemPrompt:
+      "You estimate typical US grocery prices and aisle categories. Respond only with the requested JSON.",
+    prompt,
+    schema: priceSchema,
+    timeoutMs: 30_000,
+  })) as { prices?: unknown } | null;
+  const arr = Array.isArray(parsed?.prices) ? parsed.prices : [];
+  const byName = new Map<string, { price: number | null; category: string }>();
+  for (const p of arr) {
+    if (p && typeof p.name === "string") {
+      byName.set(normalize(p.name), {
+        price: parsePrice(p.price),
+        category: normalizeCategory(p.category),
+      });
     }
-    return clean.map((name) => {
-      const hit = byName.get(normalize(name));
-      return { name, price: hit?.price ?? null, category: hit?.category ?? "other" };
-    });
-  } catch (err) {
-    throw toReadableGeminiError(err, GEMINI_MODEL);
   }
+  return clean.map((name) => {
+    const hit = byName.get(normalize(name));
+    return { name, price: hit?.price ?? null, category: hit?.category ?? "other" };
+  });
 }
