@@ -1,7 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { CATEGORY_ENUM } from '../../scripts/scan-circular';
-import { GEMINI_MODEL } from '../../scripts/env';
-import { requireGeminiKey } from '../secrets';
+import { generateStructured } from '../generateStructured';
 
 // "skip" tells the caller to drop the item entirely (non-food/non-drink).
 // Anything else must be one of the existing CATEGORY_ENUM values; unknown
@@ -90,17 +88,11 @@ export async function categorizeInBatches(
 }
 
 async function classifyBatchViaGemini(names: string[]): Promise<unknown> {
-  const ai = new GoogleGenAI({ apiKey: requireGeminiKey() });
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [{ text: buildPrompt(names) }],
-    config: {
-      responseMimeType: 'application/json',
-      responseJsonSchema: SCHEMA,
-      httpOptions: { timeout: 30_000 },
-    },
-  });
-  const parsed = JSON.parse(response.text ?? '{"categories":[]}');
+  const parsed = (await generateStructured({
+    prompt: buildPrompt(names),
+    schema: SCHEMA,
+    timeoutMs: 30_000,
+  })) as { categories?: unknown } | null;
   return parsed?.categories;
 }
 
