@@ -54,13 +54,9 @@ import type {
   MealType,
 } from '../types';
 import { MEAL_TYPES, DAYS_OF_WEEK } from '../types';
-import {
-  listFlyers,
-  fetchFlyer,
-  isFlippCacheStale,
-} from './circular/sources/flipp';
+import { listFlyers, fetchFlyer } from './circular/sources/flipp';
 import { loadCircularPrefs, saveCircularPrefs } from './circular/prefs';
-import { fetchAndCacheFlyer } from './circular/cacheFlyer';
+import { getFlyerExtraction as getCachedFlyerExtraction } from './circular/cacheFlyer';
 import {
   compareStores,
   eligibleFlyers,
@@ -237,47 +233,18 @@ function commitPlan(ext: ExtractionResult, plan: MealPlanResult) {
   clearShoppingListState();
 }
 
-// Cache-first: Flipp is an unofficial endpoint, so each flyer is fetched at most
-// once until its cache entry goes stale.
-async function getFlyerExtraction(
+function getFlyerExtraction(
   flyerId: number,
   merchantName: string,
   validThrough: string | null
 ): Promise<ExtractionResult> {
-  const cached = readFlippCache(flyerId);
-  if (cached) {
-    // Carry through caller-supplied store/validThrough in case the cached
-    // metadata is missing (e.g. early cache entries).
-    return {
-      items: cached.items,
-      storeName: cached.storeName ?? merchantName,
-      validThrough: cached.validThrough ?? validThrough,
-    };
-  }
-  return fetchAndCacheFlyer(
-    () => fetchFlyer(flyerId, { storeName: merchantName, validThrough }),
-    (extraction) => writeFlippCache(flyerId, extraction)
+  return getCachedFlyerExtraction(
+    FLIPP_CACHE_DIR,
+    fetchFlyer,
+    flyerId,
+    merchantName,
+    validThrough
   );
-}
-
-function readFlippCache(flyerId: number): ExtractionResult | null {
-  const data = readJsonOrNull<ExtractionResult & { _cachedAt?: unknown }>(
-    path.join(FLIPP_CACHE_DIR, `${flyerId}.json`)
-  );
-  if (!data || isFlippCacheStale(data)) return null;
-  return {
-    items: data.items,
-    storeName: data.storeName,
-    validThrough: data.validThrough,
-  };
-}
-
-function writeFlippCache(flyerId: number, result: ExtractionResult) {
-  fs.mkdirSync(FLIPP_CACHE_DIR, { recursive: true });
-  writeJsonAtomic(path.join(FLIPP_CACHE_DIR, `${flyerId}.json`), {
-    ...result,
-    _cachedAt: Date.now(),
-  });
 }
 
 // A new plan invalidates the checked-off items (they key off the old plan's
