@@ -298,6 +298,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                   </div>
                   <ChipField
                     label="Won't eat"
+                    ariaLabel={`Member ${i + 1}: Won't eat`}
                     hint="e.g. fish, mushrooms"
                     values={member.excludedIngredients}
                     onChange={(next) =>
@@ -306,6 +307,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                   />
                   <ChipField
                     label="Dietary needs"
+                    ariaLabel={`Member ${i + 1}: Dietary needs`}
                     hint="e.g. vegetarian, gluten-free"
                     values={member.dietaryRestrictions}
                     onChange={(next) =>
@@ -314,6 +316,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                   />
                   <ChipField
                     label="Cuisine preferences"
+                    ariaLabel={`Member ${i + 1}: Cuisine preferences`}
                     hint="e.g. Thai, Indian"
                     values={member.cuisinePreferences ?? []}
                     onChange={(next) =>
@@ -588,12 +591,21 @@ function conflictMessage(conflicts: string[], listLabel: string): string | null 
 
 interface ChipFieldProps {
   label: string;
+  // Overrides the visible label as the input's name where the same field
+  // repeats, e.g. once per household member.
+  ariaLabel?: string;
   hint: string;
   values: string[];
   onChange: (next: string[]) => void;
 }
 
-export function ChipField({ label, hint, values, onChange }: ChipFieldProps) {
+export function ChipField({
+  label,
+  ariaLabel,
+  hint,
+  values,
+  onChange,
+}: ChipFieldProps) {
   const inputId = useId();
   const [draft, setDraft] = useState("");
 
@@ -628,6 +640,7 @@ export function ChipField({ label, hint, values, onChange }: ChipFieldProps) {
         ))}
         <input
           id={inputId}
+          aria-label={ariaLabel}
           type="text"
           className="preferences-modal__chip-input"
           value={draft}
