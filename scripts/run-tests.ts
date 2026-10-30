@@ -8,6 +8,7 @@ const SUITES = [
   'scripts/exclusionRetry.test.ts',
   'scripts/validateValidThrough.test.ts',
   'scripts/deduplicateItems.test.ts',
+  'scripts/scanCircularPdfTmp.test.ts',
   'scripts/writeOutputs.test.ts',
   'scripts/mealPlanShape.test.ts',
   'scripts/buildMealPlanUserPrompt.test.ts',

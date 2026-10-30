@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -90,12 +91,22 @@ async function scanImage(
 const execFileAsync = promisify(execFile);
 
 // Async so the API keeps answering (progress poll included) while pdftoppm runs.
-async function convertPdfToImages(pdfPath: string): Promise<string[]> {
-  const tmpDir = path.join(path.dirname(pdfPath), '.pdf-tmp');
-  fs.mkdirSync(tmpDir, { recursive: true });
-
-  const prefix = path.join(tmpDir, 'page');
+// The poppler guard lives here (not the route) so the CLI gets the same
+// readable message instead of an opaque ENOENT.
+async function runPdftoppm(pdfPath: string, prefix: string): Promise<void> {
+  if (!hasPoppler()) throw popplerRequiredError();
   await execFileAsync('pdftoppm', ['-r', '150', '-jpeg', pdfPath, prefix]);
+}
+
+// Each conversion gets its own folder. pdftoppm never clears the target and
+// its file names depend on page count, so a shared folder let a failed scan's
+// pages leak into the next one.
+async function convertPdfToImages(
+  pdfPath: string,
+  tmpDir: string,
+  pdftoppm: typeof runPdftoppm
+): Promise<string[]> {
+  await pdftoppm(pdfPath, path.join(tmpDir, 'page'));
 
   const files = fs
     .readdirSync(tmpDir)
@@ -105,13 +116,6 @@ async function convertPdfToImages(pdfPath: string): Promise<string[]> {
 
   console.log(`Converted PDF to ${files.length} page images`);
   return files;
-}
-
-function cleanupTmpImages(pdfPath: string) {
-  const tmpDir = path.join(path.dirname(pdfPath), '.pdf-tmp');
-  if (fs.existsSync(tmpDir)) {
-    fs.rmSync(tmpDir, { recursive: true });
-  }
 }
 
 // -- validThrough sanity check --
@@ -173,7 +177,11 @@ export function deduplicateItems(items: SaleItem[]): SaleItem[] {
 
 export async function scanCircular(
   filePath: string,
-  onProgress?: (event: ScanProgressEvent) => void
+  onProgress?: (event: ScanProgressEvent) => void,
+  deps: { pdftoppm: typeof runPdftoppm; scanImage: typeof scanImage } = {
+    pdftoppm: runPdftoppm,
+    scanImage,
+  }
 ): Promise<ExtractionResult> {
   const prompt = fs.readFileSync(
     path.join(__dirname, '../prompts/circular-extraction.md'),
@@ -189,7 +197,7 @@ export async function scanCircular(
     const size = fs.statSync(filePath).size;
     console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
     onProgress?.({ type: 'page', page: 1, pages: 1, storeName: null });
-    const result = await scanImage(filePath, prompt);
+    const result = await deps.scanImage(filePath, prompt);
     result.validThrough = validateValidThrough(result.validThrough);
     onProgress?.({
       type: 'page',
@@ -200,41 +208,46 @@ export async function scanCircular(
     return result;
   }
 
-  // PDF: convert to images, scan each page, merge results. Needs poppler
-  // (pdftoppm) — fail readable instead of an opaque ENOENT when it's missing.
-  // The guard is here (not the route) so the CLI gets the same message.
-  if (!hasPoppler()) throw popplerRequiredError();
+  // PDF: convert to images, scan each page, merge results.
   console.log(`Scanning PDF circular: ${filePath}`);
   onProgress?.({ type: 'preparing' });
-  const pageImages = await convertPdfToImages(filePath);
 
   const allItems: SaleItem[] = [];
   let storeName: string | null = null;
   let validThrough: string | null = null;
 
-  for (let i = 0; i < pageImages.length; i++) {
-    const pageNum = i + 1;
-    process.stdout.write(`  Page ${pageNum}/${pageImages.length}... `);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mealplanshop-pdf-'));
+  try {
+    const pageImages = await convertPdfToImages(
+      filePath,
+      tmpDir,
+      deps.pdftoppm
+    );
 
-    const result = await scanImage(pageImages[i], prompt);
-    console.log(`${result.items.length} items`);
+    for (let i = 0; i < pageImages.length; i++) {
+      const pageNum = i + 1;
+      process.stdout.write(`  Page ${pageNum}/${pageImages.length}... `);
 
-    allItems.push(...result.items);
+      const result = await deps.scanImage(pageImages[i], prompt);
+      console.log(`${result.items.length} items`);
 
-    // Capture store info from whichever page has it
-    if (result.storeName && !storeName) storeName = result.storeName;
-    if (result.validThrough && !validThrough)
-      validThrough = result.validThrough;
+      allItems.push(...result.items);
 
-    onProgress?.({
-      type: 'page',
-      page: pageNum,
-      pages: pageImages.length,
-      storeName,
-    });
+      // Capture store info from whichever page has it
+      if (result.storeName && !storeName) storeName = result.storeName;
+      if (result.validThrough && !validThrough)
+        validThrough = result.validThrough;
+
+      onProgress?.({
+        type: 'page',
+        page: pageNum,
+        pages: pageImages.length,
+        storeName,
+      });
+    }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-
-  cleanupTmpImages(filePath);
 
   validThrough = validateValidThrough(validThrough);
 
