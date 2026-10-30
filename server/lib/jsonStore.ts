@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
 
-// Shared file-backed JSON helpers. Both index.ts and circular/prefs.ts used to
-// carry their own identical copies of these — same tmp-file+rename write, same
-// ENOENT-tolerant read — which is exactly the kind of duplication that drifts.
+// Shared file-backed JSON helpers: one tmp-file+rename write and one
+// ENOENT-tolerant read for every server module that persists JSON.
 
 // Read + parse JSON, returning null instead of throwing when the file is missing
 // or unparseable. Missing is the common case (nothing generated yet); a parse
@@ -35,9 +34,8 @@ export function writeJsonAtomic(filePath: string, data: unknown): void {
 }
 
 // Like writeJsonAtomic, but first snapshots the existing file to a sibling .bak.
-// Use for hand-curated, non-regenerable data (preferences, and secrets once the
-// key UI lands) so a bad write or import always leaves a last-known-good copy to
-// restore from. The backup is best-effort: a missing source is the first-ever
+// Use for hand-curated, non-regenerable data (preferences) so a bad write or
+// import always leaves a last-known-good copy to restore from. The backup is best-effort: a missing source is the first-ever
 // write (nothing to back up), and any other copy failure is logged but must not
 // block the actual write.
 export function writeJsonAtomicWithBackup(filePath: string, data: unknown): void {

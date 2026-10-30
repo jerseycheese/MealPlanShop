@@ -26,8 +26,6 @@ export type ScanProgressEvent =
   | { type: 'preparing' }
   | { type: 'page'; page: number; pages: number; storeName: string | null };
 
-// -- Schema for structured output --
-
 const extractionSchema = {
   type: 'object' as const,
   properties: {
@@ -53,8 +51,6 @@ const extractionSchema = {
   },
   required: ['items', 'storeName', 'validThrough'],
 };
-
-// -- Single image scanning --
 
 async function scanImage(
   imagePath: string,
@@ -85,8 +81,6 @@ async function scanImage(
       typeof parsed.validThrough === 'string' ? parsed.validThrough : null,
   };
 }
-
-// -- PDF conversion --
 
 const execFileAsync = promisify(execFile);
 
@@ -159,8 +153,6 @@ export function validateValidThrough(
   return validThrough;
 }
 
-// -- Deduplication --
-
 export function deduplicateItems(items: SaleItem[]): SaleItem[] {
   const seen = new Map<string, SaleItem>();
   for (const item of items) {
@@ -172,8 +164,6 @@ export function deduplicateItems(items: SaleItem[]): SaleItem[] {
   }
   return Array.from(seen.values());
 }
-
-// -- Main export --
 
 export async function scanCircular(
   filePath: string,
@@ -192,7 +182,6 @@ export async function scanCircular(
   const isPdf = ext === '.pdf';
 
   if (!isPdf) {
-    // Single image
     console.log(`Scanning circular image: ${filePath}`);
     const size = fs.statSync(filePath).size;
     console.log(`Image size: ${(size / 1024).toFixed(0)} KB`);
@@ -272,8 +261,6 @@ export function writeExtraction(
   return outputPath;
 }
 
-// -- CLI entry point --
-
 async function main() {
   const filePath = process.argv[2];
 
@@ -294,7 +281,6 @@ async function main() {
   const outputPath = writeExtraction(result);
   console.log(`\nOutput written to: ${outputPath}`);
 
-  // Print summary table
   console.log('\n--- Sale Items ---');
   for (const item of result.items) {
     const priceStr = `$${item.price.toFixed(2)}`;
