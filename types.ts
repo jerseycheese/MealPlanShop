@@ -59,7 +59,7 @@ export interface ShoppingListItem {
   salePrice: number | null;
   // Per-unit label for the sale price ("lb", "each", "bunch"), re-joined from the
   // circular's SaleItem so a row can show "$1.29/lb" vs "$0.69 ea". Optional: old
-  // stored plans and non-sale rows simply omit it. Issue #121.
+  // stored plans and non-sale rows simply omit it.
   unit?: string;
   requiresLoyaltyCard?: boolean;
 }
@@ -85,7 +85,7 @@ export interface ExtraItem {
 // One person in the household, with their own dietary needs. These are *softer*
 // than the household-wide excluded list: rather than banning an ingredient for
 // everyone, an item a member excludes makes the planner offer them a variant
-// dish. Absent `members` = a single shared profile (the pre-#74 behavior).
+// dish. Absent `members` = a single shared profile (the single-profile behavior).
 export interface HouseholdMember {
   name: string;
   excludedIngredients: string[];

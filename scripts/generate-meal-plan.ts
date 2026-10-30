@@ -50,8 +50,6 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   ) as Record<DayOfWeek, MealType[]>,
 };
 
-// -- Prompt loading --
-
 // Single source of truth for category->members. The prompts carry a
 // {{CATEGORY_EXPANSIONS}} placeholder so the list lives only in
 // EXCLUDED_CATEGORIES, not hand-copied into the .md files.
@@ -65,8 +63,6 @@ function loadPrompt(relPath: string): string {
   const raw = fs.readFileSync(path.join(__dirname, relPath), 'utf-8');
   return raw.replace('{{CATEGORY_EXPANSIONS}}', buildCategoryExpansions());
 }
-
-// -- Exclusion helpers --
 
 export function filterExcludedSaleItems(
   items: SaleItem[],
@@ -173,7 +169,6 @@ function findMealViolations(
   return scanMealForViolations(meal, expanded);
 }
 
-// -- Per-member (soft-tier) variant validation --
 //
 // The household scan above enforces the absolute excluded list against everything,
 // variants included. This adds the soft tier: a variant exists for specific members,
@@ -355,8 +350,6 @@ export function flagExcludedMeals(
   }
 }
 
-// -- Schema for structured output --
-
 const ingredientsSchema = {
   type: 'array' as const,
   items: {
@@ -431,8 +424,6 @@ const shoppingListSchema = {
   },
 };
 
-// -- Response shape guards --
-
 // The model is asked for structured JSON, but a timeout, safety block, or empty
 // completion can yield "{}" or a wrong shape. Validate before we dereference so
 // callers get a clear error instead of "Cannot read properties of undefined".
@@ -463,8 +454,6 @@ export function assertSwapShape(value: unknown): {
   }
   return value as { meal: Meal; shoppingList: ShoppingListItem[] };
 }
-
-// -- Prompt building --
 
 // Renders the per-day meal selection as prompt lines, one per planned day in week
 // order: "  - Sunday: breakfast, dinner". Days with no meals are omitted. Shared
@@ -553,8 +542,6 @@ Generate a meal plan covering exactly the days and meals listed above.
 `;
 }
 
-// -- Main --
-
 export async function generateMealPlan(
   saleItems: SaleItem[],
   preferences: UserPreferences
@@ -631,8 +618,6 @@ export async function generateMealPlan(
 
   return result;
 }
-
-// -- Per-meal swap --
 
 export async function generateMealSwap(
   currentPlan: MealPlanResult,
@@ -752,10 +737,7 @@ export function writeMealPlan(
   return { result, outputPath };
 }
 
-// -- CLI entry point --
-
 async function main() {
-  // Load sale items from extraction output or a provided file
   const itemsPath =
     process.argv[2] || path.join(__dirname, '../output/extraction.json');
 
@@ -778,7 +760,6 @@ async function main() {
   );
   console.log(`\nOutput written to: ${outputPath}`);
 
-  // Print summary
   console.log('\n--- Weekly Meal Plan ---');
   for (const day of result.weekPlan) {
     console.log(`\n${day.day}:`);

@@ -8,9 +8,8 @@ import { readJsonOrNull, writeJsonAtomic } from "./lib/jsonStore";
 // downloaded backup. Plaintext, same local trust model as .env — the status
 // endpoint only ever returns a masked value, never the raw key.
 //
-// Extracted as a sibling module (like dataDir / validatePreferences) so the call
-// sites — server routes and CLI scripts both — resolve the key the same way
-// without booting index.ts.
+// A sibling module (like dataDir / validatePreferences) so server routes and
+// CLI scripts resolve the key the same way without booting index.ts.
 export interface Secrets {
   geminiApiKey?: string;
 }

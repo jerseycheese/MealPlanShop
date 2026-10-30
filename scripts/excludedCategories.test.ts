@@ -133,8 +133,6 @@ assert.equal(containsWholeWord('Olive Oil', 'oil'), true);
 assert.equal(containsWholeWord('anything', '  '), false);
 assert.equal(containsWholeWord('anything', ''), false);
 
-// -- Per-member variant validation --
-
 const members: HouseholdMember[] = [
   { name: 'Sam', excludedIngredients: ['fish'], dietaryRestrictions: [] },
 ];
