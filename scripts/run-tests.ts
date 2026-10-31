@@ -6,6 +6,7 @@ const SUITES = [
   'scripts/excludedCategories.test.ts',
   'scripts/findExcludedViolations.test.ts',
   'scripts/exclusionRetry.test.ts',
+  'scripts/planCoverage.test.ts',
   'scripts/validateValidThrough.test.ts',
   'scripts/deduplicateItems.test.ts',
   'scripts/scanCircularPdfTmp.test.ts',
