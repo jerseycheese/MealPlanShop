@@ -24,6 +24,7 @@ import { matchesPantryStaple } from './matchesPantryStaple';
 import { applyStapleChanges, type StapleChanges } from './pantryStaples';
 import { applyPriceEstimates, type PriceEstimate } from './applyPriceEstimates';
 import { normalize } from '../../normalize';
+import { submitMove, weekStatusMessage } from './weekMove';
 
 const SAVED_HINT_DISMISS_MS = 3500;
 const SCAN_PROGRESS_POLL_MS = 1500;
@@ -202,6 +203,9 @@ export function App() {
   }, []);
 
   const fetchMealPlan = useCallback(async () => {
+    // Any plan reload (regenerate, upload, swap, move) makes a past move's
+    // "Moved the..." status stale; a move sets its own status after this runs.
+    setMoveStatus(null);
     try {
       const data = await fetchJson<Record<string, unknown>>(API.mealPlan);
       if (data.exists === false) {
@@ -413,24 +417,19 @@ export function App() {
     }
     setMovingPair({ from: from.day, to: to.day, mealType: from.mealType });
     setMoveError(null);
-    setMoveStatus(null);
-    try {
-      const { ok, error } = await postAction(API.mealPlanMove, { from, to });
-      if (!ok) {
-        setMoveError(error || 'Move failed');
-      } else {
-        await fetchMealPlan();
-        setMoveStatus(`Moved the ${from.mealType} to ${to.day}.`);
-        // A moved meal's `${day}-${type}` key no longer points at the same slot,
-        // so reset Day-view expansion the same way generate/upload do.
-        setExpandedMeals(new Set());
-      }
-    } catch {
-      setMoveError('Failed to move meal');
-    } finally {
-      setMovingPair(null);
-      setPickedUp(null);
-    }
+    const { error, status } = await submitMove(
+      from,
+      to,
+      (body) => postAction(API.mealPlanMove, body),
+      fetchMealPlan
+    );
+    setMoveError(error);
+    setMoveStatus(status);
+    // A moved meal's `${day}-${type}` key no longer points at the same slot,
+    // so reset Day-view expansion the same way generate/upload do.
+    if (status) setExpandedMeals(new Set());
+    setMovingPair(null);
+    setPickedUp(null);
   };
 
   // Pick a meal up for moving. Cells render read-only when busy/stale, so this is
@@ -1128,13 +1127,11 @@ export function App() {
               pickedUp={pickedUp}
               movingPair={movingPair}
               interactionDisabled={busy || stale}
-              statusMessage={
-                movingPair
-                  ? 'Moving meal...'
-                  : pickedUp
-                    ? `Picked up the ${pickedUp.mealType} on ${pickedUp.day}. Choose where to move it, or press Escape to cancel.`
-                    : moveStatus
-              }
+              statusMessage={weekStatusMessage(
+                movingPair,
+                pickedUp,
+                moveStatus
+              )}
               moveError={moveError}
               onCellActivate={handleCellActivate}
               onCellPick={handleCellPick}
