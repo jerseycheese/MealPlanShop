@@ -19,7 +19,7 @@ import { useDialog } from './useDialog';
 import { WeekView } from './WeekView';
 import { API } from './endpoints';
 import { fetchJson, postAction } from './fetchJson';
-import { formatValidThrough } from './formatValidThrough';
+import { formatValidThrough, isCircularExpired } from './formatValidThrough';
 import { matchesPantryStaple } from './matchesPantryStaple';
 import { applyStapleChanges, type StapleChanges } from './pantryStaples';
 import { applyPriceEstimates, type PriceEstimate } from './applyPriceEstimates';
@@ -175,6 +175,7 @@ export function App() {
 
   const busy =
     generating || uploading || swappingKey !== null || movingPair !== null;
+  const circularEnded = isCircularExpired(circular?.validThrough ?? null);
 
   const fetchCircular = useCallback(async () => {
     try {
@@ -945,14 +946,28 @@ export function App() {
       {prefsError && <div className="error-banner">{prefsError}</div>}
 
       {circular && (circular.storeName || circular.validThrough) && (
-        <div className="circular-banner">
+        <div
+          className={`circular-banner${circularEnded ? ' circular-banner--ended' : ''}`}
+        >
           {circular.storeName && (
             <span className="circular-banner__store">{circular.storeName}</span>
           )}
           {circular.validThrough && (
             <span className="circular-banner__dates">
-              Valid through {formatValidThrough(circular.validThrough)}
+              {circularEnded ? 'Circular ended' : 'Valid through'}{' '}
+              {formatValidThrough(circular.validThrough)}
+              {circularEnded && ', so these sale prices may be gone'}
             </span>
+          )}
+          {circularEnded && (
+            <button
+              className="circular-banner__cta"
+              onClick={() => setShowStorePicker(true)}
+              disabled={busy}
+              type="button"
+            >
+              Pick this week's deals
+            </button>
           )}
           {mealPlan?.shoppingList.some((i) => i.requiresLoyaltyCard) && (
             <span className="circular-banner__loyalty">

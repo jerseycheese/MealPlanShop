@@ -3,36 +3,45 @@
 // midnight, which renders a day early in EDT — the fix builds a local date
 // instead. Node applies a runtime TZ change, so this is deterministic in CI.
 const originalTZ = process.env.TZ;
-process.env.TZ = "America/New_York";
+process.env.TZ = 'America/New_York';
 
-import * as assert from "node:assert/strict";
-import { formatValidThrough } from "./formatValidThrough";
+import * as assert from 'node:assert/strict';
+import { formatValidThrough, isCircularExpired } from './formatValidThrough';
 
-const opts = { month: "short", day: "numeric", year: "numeric" } as const;
+const opts = { month: 'short', day: 'numeric', year: 'numeric' } as const;
 // Reference built from local Y/M/D — matches the fix's output in any locale,
 // and differs from the buggy UTC-parse output under the forced EDT zone.
 const ref = (y: number, m: number, d: number) =>
   new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
 
 // Date-only ISO string renders the same calendar day it names (the bug).
-assert.equal(formatValidThrough("2026-06-12"), ref(2026, 6, 12));
+assert.equal(formatValidThrough('2026-06-12'), ref(2026, 6, 12));
 
 // Trailing time component is ignored — still the named calendar day.
-assert.equal(formatValidThrough("2026-06-12T23:59:59Z"), ref(2026, 6, 12));
+assert.equal(formatValidThrough('2026-06-12T23:59:59Z'), ref(2026, 6, 12));
 
 // Free-form PDF string passes through untouched.
-assert.equal(formatValidThrough("May 19, 2026"), "May 19, 2026");
+assert.equal(formatValidThrough('May 19, 2026'), 'May 19, 2026');
 
 // Null and non-date strings degrade gracefully.
 assert.equal(formatValidThrough(null), null);
-assert.equal(formatValidThrough("sometime soon"), "sometime soon");
+assert.equal(formatValidThrough('sometime soon'), 'sometime soon');
 
 // Date-shaped but invalid input falls back to the raw string, not a rolled-over
 // date.
-assert.equal(formatValidThrough("2026-13-45"), "2026-13-45");
+assert.equal(formatValidThrough('2026-13-45'), '2026-13-45');
+
+// Expiry: the circular is good through its whole validThrough day.
+const oct31 = new Date(2026, 9, 31, 9, 0);
+assert.equal(isCircularExpired('2026-10-20', oct31), true);
+assert.equal(isCircularExpired('2026-10-20T23:59:59-04:00', oct31), true);
+assert.equal(isCircularExpired('2026-10-31', oct31), false);
+assert.equal(isCircularExpired('2026-10-31T23:59:59-04:00', oct31), false);
+assert.equal(isCircularExpired('May 19, 2026', oct31), false);
+assert.equal(isCircularExpired(null, oct31), false);
 
 // Restore so the forced zone doesn't leak into suites that run after this one.
 if (originalTZ === undefined) delete process.env.TZ;
 else process.env.TZ = originalTZ;
 
-console.log("format-valid-through: 6/6 passed");
+console.log('format-valid-through: 12/12 passed');

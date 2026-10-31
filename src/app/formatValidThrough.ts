@@ -1,4 +1,4 @@
-import { parseLocalDate } from "../../parseLocalDate";
+import { parseLocalDate } from '../../parseLocalDate';
 
 // Renders a circular's "valid through" date for the meal-plan banner.
 //
@@ -12,8 +12,23 @@ export function formatValidThrough(raw: string | null): string | null {
   const d = parseLocalDate(raw);
   if (!d) return raw;
   return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
+}
+
+// True once the circular's last valid day is behind us. A circular is good
+// through the whole of its validThrough day, so it only counts as ended from
+// the next local midnight. Free-form strings parseLocalDate can't read return
+// false: unknown isn't the same as over.
+export function isCircularExpired(
+  raw: string | null,
+  now: Date = new Date()
+): boolean {
+  if (!raw) return false;
+  const d = parseLocalDate(raw);
+  if (!d) return false;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return d < today;
 }

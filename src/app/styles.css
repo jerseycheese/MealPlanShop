@@ -1243,6 +1243,31 @@ body {
   font-size: 13px;
 }
 
+.circular-banner--ended {
+  align-items: center;
+  background: var(--color-accent-light);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.circular-banner__cta {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  cursor: pointer;
+}
+
+.circular-banner__cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .preferences-modal__backdrop {
   position: fixed;
   inset: 0;
