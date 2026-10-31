@@ -22,6 +22,7 @@ import {
 import { generateStructured } from '../server/generateStructured';
 import { loadPreferences } from '../server/dataDir';
 import { decorateMealPlan } from '../server/decorateMealPlan';
+import { normalize } from '../normalize';
 export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
@@ -290,27 +291,56 @@ export function formatViolationsForRetry(
   return parts.join('\n\n');
 }
 
-// Call the model, and if the result contains excluded-ingredient violations,
-// retry exactly once with a correction note. The plan and swap paths shared this
-// call → check → retry-once flow verbatim; only the model call and the
-// violation finder differ, so they're passed in. `label` tags the log line.
-// Violations that survive the retry come back with the result, so the caller
-// can flag the meals rather than ship them as if they were clean.
+// The schema can't require per-day meals (days carry different meals), so
+// coverage is checked here. Returns "<day> <meal>" for every requested meal the
+// plan lacks; extra days or meals aren't gaps.
+export function findMissingMeals(
+  plan: MealPlanResult,
+  mealsByDay: Partial<Record<DayOfWeek, MealType[]>>
+): string[] {
+  const missing: string[] = [];
+  for (const day of DAYS_OF_WEEK) {
+    const entries = plan.weekPlan.filter((d) => normalize(d.day) === day);
+    for (const meal of mealsByDay[day] ?? []) {
+      if (!entries.some((d) => d[meal])) missing.push(`${day} ${meal}`);
+    }
+  }
+  return missing;
+}
+
+function formatMissingForRetry(missing: string[]): string {
+  return `Your previous response left out meals the user asked for: ${missing.join(', ')}. Regenerate the response with exactly the meals listed for each day, every day included.`;
+}
+
+// Call the model, and if the result contains excluded-ingredient violations or
+// (when findMissing is given) leaves out requested meals, retry exactly once
+// with a correction note. The plan and swap paths share this call → check →
+// retry-once flow; only the model call and the finders differ, so they're
+// passed in. `label` tags the log line. Violations that survive the retry come
+// back with the result, so the caller can flag the meals rather than ship them
+// as if they were clean; surviving gaps come back in `missing`.
 export async function callModelWithExclusionRetry<T>(
   callModel: (extraNote?: string) => Promise<T>,
   findViolations: (result: T) => ExcludedViolation[],
-  label: string
-): Promise<{ result: T; violations: ExcludedViolation[] }> {
+  label: string,
+  findMissing: (result: T) => string[] = () => []
+): Promise<{ result: T; violations: ExcludedViolation[]; missing: string[] }> {
   let result = await callModel();
   let violations = findViolations(result);
-  if (violations.length > 0) {
+  let missing = findMissing(result);
+  if (violations.length > 0 || missing.length > 0) {
     console.warn(
-      `${label} had ${violations.length} excluded-ingredient violations; retrying once.`
+      `${label} had ${violations.length} excluded-ingredient violations and ${missing.length} missing meals; retrying once.`
     );
-    result = await callModel(formatViolationsForRetry(violations));
+    const notes = [
+      violations.length > 0 ? formatViolationsForRetry(violations) : '',
+      missing.length > 0 ? formatMissingForRetry(missing) : '',
+    ].filter(Boolean);
+    result = await callModel(notes.join('\n\n'));
     violations = findViolations(result);
+    missing = findMissing(result);
   }
-  return { result, violations };
+  return { result, violations, missing };
 }
 
 function describeViolation(v: ExcludedViolation): string {
@@ -603,14 +633,22 @@ export async function generateMealPlan(
     return assertMealPlanShape(parsed);
   };
 
-  const { result, violations } = await callModelWithExclusionRetry(
+  const { result, violations, missing } = await callModelWithExclusionRetry(
     callModel,
     (r) => [
       ...findExcludedViolations(r, preferences.excludedIngredients),
       ...findMemberViolations(r, preferences.members),
     ],
-    'Plan'
+    'Plan',
+    (r) => findMissingMeals(r, preferences.mealsByDay)
   );
+  // A short plan would replace the last good one and price as the cheapest
+  // store, so refuse it the same way a failed Gemini call is refused.
+  if (missing.length > 0) {
+    throw new Error(
+      `Generated plan is missing meals you asked for: ${missing.join(', ')}.`
+    );
+  }
   flagExcludedMeals(result, violations);
 
   console.log(`Generated plan with ${result.weekPlan.length} days`);
