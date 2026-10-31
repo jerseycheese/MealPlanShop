@@ -14,8 +14,8 @@ export class ValidationError extends Error {}
 
 const VALID_MEAL_TYPES = new Set<string>(MEAL_TYPES);
 const VALID_DAYS_OF_WEEK = new Set<string>(DAYS_OF_WEEK);
-const MAX_LIST_ITEMS = 50;
-const MAX_LIST_ITEM_LEN = 40;
+export const MAX_LIST_ITEMS = 50;
+export const MAX_LIST_ITEM_LEN = 40;
 // Matches the householdSize ceiling — the member roster *is* the household.
 const MAX_MEMBERS = 20;
 // Sanity ceiling for the active-time cap; nothing weeknight-realistic needs more.
