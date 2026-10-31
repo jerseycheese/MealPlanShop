@@ -15,6 +15,7 @@ import { StorePicker, type FlippMerchant } from './StorePicker';
 import { PlanWithoutCircular } from './PlanWithoutCircular';
 import { StoreCompare, type StoreComparisonView } from './StoreCompare';
 import { ApiKeyEntry } from './ApiKeyEntry';
+import { useDialog } from './useDialog';
 import { WeekView } from './WeekView';
 import { API } from './endpoints';
 import { fetchJson, postAction } from './fetchJson';
@@ -148,6 +149,9 @@ export function App() {
     message: string;
   } | null>(null);
   const [showStorePicker, setShowStorePicker] = useState(false);
+  const storePickerRef = useRef<HTMLDivElement>(null);
+  const closeStorePicker = useCallback(() => setShowStorePicker(false), []);
+  useDialog(storePickerRef, closeStorePicker, showStorePicker);
   const [comparison, setComparison] = useState<StoreComparisonView | null>(
     null
   );
@@ -871,11 +875,13 @@ export function App() {
       {showStorePicker && (
         <div
           className="store-picker-modal__backdrop"
-          onClick={() => setShowStorePicker(false)}
+          onClick={closeStorePicker}
         >
           <div
+            ref={storePickerRef}
             className="store-picker-modal__dialog"
             role="dialog"
+            tabIndex={-1}
             aria-modal="true"
             aria-label="Change store"
             onClick={(e) => e.stopPropagation()}
@@ -883,7 +889,7 @@ export function App() {
             <button
               type="button"
               className="store-picker-modal__close"
-              onClick={() => setShowStorePicker(false)}
+              onClick={closeStorePicker}
               aria-label="Close"
             >
               x

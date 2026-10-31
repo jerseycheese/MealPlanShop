@@ -1,18 +1,19 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type {
   UserPreferences,
   HouseholdMember,
   MealType,
   DayOfWeek,
-} from "../../types";
-import { MEAL_TYPES, DAYS_OF_WEEK } from "../../types";
+} from '../../types';
+import { MEAL_TYPES, DAYS_OF_WEEK } from '../../types';
 import {
   findExcludedPantryConflicts,
   findExcludedUseUpConflicts,
-} from "./preferenceConflicts";
-import { API } from "./endpoints";
-import { fetchJson } from "./fetchJson";
-import { ApiKeyEntry } from "./ApiKeyEntry";
+} from './preferenceConflicts';
+import { API } from './endpoints';
+import { fetchJson } from './fetchJson';
+import { ApiKeyEntry } from './ApiKeyEntry';
+import { useDialog } from './useDialog';
 
 interface PreferencesProps {
   onClose: () => void;
@@ -20,40 +21,45 @@ interface PreferencesProps {
   canRegenerate?: boolean;
 }
 
-export function Preferences({ onClose, onSaved, canRegenerate = false }: PreferencesProps) {
+export function Preferences({
+  onClose,
+  onSaved,
+  canRegenerate = false,
+}: PreferencesProps) {
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const titleId = "preferences-title";
-  const conflictId = "preferences-conflicts";
+  const titleId = 'preferences-title';
+  const conflictId = 'preferences-conflicts';
   const householdRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const initialFocused = useRef(false);
   const pantryConflicts = useMemo(
     () =>
       prefs
         ? findExcludedPantryConflicts(
             prefs.excludedIngredients,
-            prefs.pantryStaples,
+            prefs.pantryStaples
           )
         : [],
-    [prefs],
+    [prefs]
   );
   const useUpConflicts = useMemo(
     () =>
       prefs
         ? findExcludedUseUpConflicts(
             prefs.excludedIngredients,
-            prefs.useUpIngredients,
+            prefs.useUpIngredients
           )
         : [],
-    [prefs],
+    [prefs]
   );
   const hasConflicts = pantryConflicts.length > 0 || useUpConflicts.length > 0;
   const conflictMessages = [
-    conflictMessage(pantryConflicts, "pantry staples"),
-    conflictMessage(useUpConflicts, "use-it-up ingredients"),
+    conflictMessage(pantryConflicts, 'pantry staples'),
+    conflictMessage(useUpConflicts, 'use-it-up ingredients'),
   ].filter((m): m is string => m !== null);
 
   useEffect(() => {
@@ -70,13 +76,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
     };
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialog(dialogRef, onClose);
 
   useEffect(() => {
     if (prefs && !initialFocused.current && householdRef.current) {
@@ -89,7 +89,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const persistAnd = async (opts: { regenerate: boolean }) => {
     if (!prefs) return;
     if (hasConflicts) {
-      setError("Resolve preference conflicts before saving.");
+      setError('Resolve preference conflicts before saving.');
       return;
     }
     if (opts.regenerate) setRegenerating(true);
@@ -97,8 +97,8 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
     setError(null);
     try {
       const res = await fetch(API.preferences, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prefs),
       });
       if (!res.ok && res.status >= 500) {
@@ -126,12 +126,12 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const handleExport = () => {
     if (!prefs) return;
     const blob = new Blob([JSON.stringify(prefs, null, 2)], {
-      type: "application/json",
+      type: 'application/json',
     });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = "mealplanshop-preferences.json";
+    a.download = 'mealplanshop-preferences.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -151,8 +151,8 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
     setSaving(true);
     try {
       const res = await fetch(API.preferences, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed),
       });
       const data = await res.json().catch(() => ({}));
@@ -202,7 +202,12 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   const addMember = () =>
     setMembers([
       ...members,
-      { name: "", excludedIngredients: [], dietaryRestrictions: [], cuisinePreferences: [] },
+      {
+        name: '',
+        excludedIngredients: [],
+        dietaryRestrictions: [],
+        cuisinePreferences: [],
+      },
     ]);
 
   const removeMember = (index: number) =>
@@ -215,8 +220,10 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
       role="presentation"
     >
       <div
+        ref={dialogRef}
         className="preferences-modal__card"
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
@@ -255,7 +262,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 disabled={members.length > 0}
                 className="preferences-modal__number"
                 aria-describedby={
-                  members.length > 0 ? "pref-household-hint" : undefined
+                  members.length > 0 ? 'pref-household-hint' : undefined
                 }
               />
               {members.length > 0 && (
@@ -271,8 +278,8 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               </legend>
               <p className="preferences-modal__hint">
                 Add anyone who eats differently. What a member won't eat isn't
-                banned for everyone — the planner offers them an alternative dish
-                instead. The household-wide lists below still apply to all.
+                banned for everyone — the planner offers them an alternative
+                dish instead. The household-wide lists below still apply to all.
               </p>
               {members.map((member, i) => (
                 <div key={i} className="preferences-modal__member">
@@ -334,7 +341,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                         min={0}
                         max={5000}
                         placeholder="No target"
-                        value={member.caloriesPerMeal ?? ""}
+                        value={member.caloriesPerMeal ?? ''}
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           updateMember(i, {
@@ -355,7 +362,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                         max={10}
                         step={0.5}
                         placeholder="1"
-                        value={member.portionMultiplier ?? ""}
+                        value={member.portionMultiplier ?? ''}
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           updateMember(i, {
@@ -390,7 +397,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 min={0}
                 max={240}
                 placeholder="No limit"
-                value={prefs.maxActiveTime ?? ""}
+                value={prefs.maxActiveTime ?? ''}
                 onChange={(e) => {
                   const v = Number(e.target.value);
                   setPrefs({
@@ -436,9 +443,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               label="Pantry staples (already on hand)"
               hint="e.g. olive oil, salt, cumin, paprika, oregano — anything you don't want on the shopping list"
               values={prefs.pantryStaples}
-              onChange={(next) =>
-                setPrefs({ ...prefs, pantryStaples: next })
-              }
+              onChange={(next) => setPrefs({ ...prefs, pantryStaples: next })}
             />
 
             <ChipField
@@ -463,31 +468,10 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               </div>
             )}
 
-            <fieldset className="preferences-modal__field preferences-modal__field--daymeals">
-              <legend className="preferences-modal__label">Meals per day</legend>
-              <div className="day-meals">
-                {DAYS_OF_WEEK.map((day) => {
-                  const meals = prefs.mealsByDay[day] ?? [];
-                  return (
-                    <div key={day} className="day-meals__row">
-                      <span className="day-meals__day">{day}</span>
-                      <div className="preferences-modal__checkrow day-meals__meals">
-                        {MEAL_TYPES.map((meal) => (
-                          <label key={meal} className="preferences-modal__check">
-                            <input
-                              type="checkbox"
-                              checked={meals.includes(meal)}
-                              onChange={() => toggleDayMeal(day, meal)}
-                            />
-                            {meal}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <DayMealsField
+              mealsByDay={prefs.mealsByDay}
+              onToggle={toggleDayMeal}
+            />
 
             <div className="preferences-modal__field preferences-modal__field--notes">
               <label htmlFor="pref-notes" className="preferences-modal__label">
@@ -498,7 +482,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 className="preferences-modal__notes"
                 rows={3}
                 placeholder="e.g. cook dinners double for leftovers; keep lunches mild"
-                value={prefs.notes ?? ""}
+                value={prefs.notes ?? ''}
                 onChange={(e) => setPrefs({ ...prefs, notes: e.target.value })}
               />
               <p className="preferences-modal__hint">
@@ -538,7 +522,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleImportFile(file);
-                  e.target.value = "";
+                  e.target.value = '';
                 }}
               />
             </div>
@@ -563,7 +547,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
             disabled={!prefs || saving || regenerating || hasConflicts}
             aria-describedby={hasConflicts ? conflictId : undefined}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? 'Saving...' : 'Save'}
           </button>
           {canRegenerate && (
             <button
@@ -573,7 +557,7 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
               disabled={!prefs || saving || regenerating || hasConflicts}
               aria-describedby={hasConflicts ? conflictId : undefined}
             >
-              {regenerating ? "Regenerating..." : "Save & Regenerate"}
+              {regenerating ? 'Regenerating...' : 'Save & Regenerate'}
             </button>
           )}
         </div>
@@ -582,11 +566,14 @@ export function Preferences({ onClose, onSaved, canRegenerate = false }: Prefere
   );
 }
 
-function conflictMessage(conflicts: string[], listLabel: string): string | null {
+function conflictMessage(
+  conflicts: string[],
+  listLabel: string
+): string | null {
   if (conflicts.length === 0) return null;
   return conflicts.length === 1
     ? `${conflicts[0]} is in both excluded ingredients and ${listLabel}. Remove it from one list before saving.`
-    : `${conflicts.join(", ")} are in both excluded ingredients and ${listLabel}. Remove them from one list before saving.`;
+    : `${conflicts.join(', ')} are in both excluded ingredients and ${listLabel}. Remove them from one list before saving.`;
 }
 
 interface ChipFieldProps {
@@ -607,7 +594,7 @@ export function ChipField({
   onChange,
 }: ChipFieldProps) {
   const inputId = useId();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState('');
 
   const commit = () => {
     const trimmed = draft.trim();
@@ -616,7 +603,7 @@ export function ChipField({
       (v) => v.toLowerCase() === trimmed.toLowerCase()
     );
     if (!exists) onChange([...values, trimmed]);
-    setDraft("");
+    setDraft('');
   };
 
   return (
@@ -644,15 +631,15 @@ export function ChipField({
           type="text"
           className="preferences-modal__chip-input"
           value={draft}
-          placeholder={values.length === 0 ? hint : "Add another..."}
+          placeholder={values.length === 0 ? hint : 'Add another...'}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
+            if (e.key === 'Enter' || e.key === ',') {
               e.preventDefault();
               commit();
             } else if (
-              e.key === "Backspace" &&
-              draft === "" &&
+              e.key === 'Backspace' &&
+              draft === '' &&
               values.length > 0
             ) {
               onChange(values.slice(0, -1));
@@ -662,5 +649,42 @@ export function ChipField({
         />
       </div>
     </div>
+  );
+}
+
+export function DayMealsField({
+  mealsByDay,
+  onToggle,
+}: {
+  mealsByDay: UserPreferences['mealsByDay'];
+  onToggle: (day: DayOfWeek, meal: MealType) => void;
+}) {
+  return (
+    <fieldset className="preferences-modal__field preferences-modal__field--daymeals">
+      <legend className="preferences-modal__label">Meals per day</legend>
+      <div className="day-meals">
+        {DAYS_OF_WEEK.map((day) => {
+          const meals = mealsByDay[day] ?? [];
+          return (
+            <div key={day} className="day-meals__row">
+              <span className="day-meals__day">{day}</span>
+              <div className="preferences-modal__checkrow day-meals__meals">
+                {MEAL_TYPES.map((meal) => (
+                  <label key={meal} className="preferences-modal__check">
+                    <input
+                      type="checkbox"
+                      aria-label={`${day} ${meal}`}
+                      checked={meals.includes(meal)}
+                      onChange={() => onToggle(day, meal)}
+                    />
+                    {meal}
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
