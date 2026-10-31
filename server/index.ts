@@ -23,11 +23,8 @@ import { swapMeal } from './swapMeal';
 import { moveMealInWeekPlan } from './moveMeal';
 import { scanAndPlan } from './scanAndPlan';
 import { validatePreferences, ValidationError } from './validatePreferences';
-import {
-  applyStapleChanges,
-  stapleChangeKeepsPlanFresh,
-  withStaples,
-} from '../src/app/pantryStaples';
+import { stapleChangeKeepsPlanFresh } from '../src/app/pantryStaples';
+import { updatePantryStaples } from './updatePantryStaples';
 import {
   resolveDataDir,
   loadPreferences as loadStoredPreferences,
@@ -375,16 +372,14 @@ app.post(
     const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
     const wasFresh = !!plan && !isPlanFingerprintStale(plan, prefs);
 
-    const next = applyStapleChanges(prefs.pantryStaples, changes);
-    if (
-      next.length !== prefs.pantryStaples.length ||
-      next.some((s, i) => s !== prefs.pantryStaples[i])
-    ) {
-      const saved = validatePreferences(withStaples(prefs, next));
+    const { saved, skipped } = updatePantryStaples(prefs, changes);
+    if (saved) {
       ensureDataDir();
       writeJsonAtomicWithBackup(PREFERENCES_PATH, saved);
 
-      const dropped = prefs.pantryStaples.filter((s) => !next.includes(s));
+      const dropped = prefs.pantryStaples.filter(
+        (s) => !saved.pantryStaples.includes(s)
+      );
       if (
         plan &&
         wasFresh &&
@@ -402,6 +397,7 @@ app.post(
     res.json({
       success: true,
       pantryStaples: after.pantryStaples,
+      skipped,
       stale: current ? isPlanFingerprintStale(current, after) : false,
     });
   })

@@ -24,6 +24,7 @@ const SUITES = [
   'server/attachLoyaltyFlags.test.ts',
   'server/decorateMealPlan.test.ts',
   'server/moveMeal.test.ts',
+  'server/updatePantryStaples.test.ts',
   'server/swapMeal.test.ts',
   'server/prefs-fingerprint.test.ts',
   'server/validatePreferences.test.ts',

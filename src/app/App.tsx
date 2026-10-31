@@ -639,29 +639,37 @@ export function App() {
 
   // Ask the server to drop/add pantry staples (one shared path for both
   // directions), then mirror the result: the staples that filter the list and
-  // whether the plan is now stale. Resolves to the server's staples, or null if
-  // the call failed. Each response is a full snapshot, so only the latest request
-  // applies its result — an older one landing late must not restore a dropped staple.
+  // whether the plan is now stale. Resolves to the server's staples plus any added
+  // names it skipped as too long, or the server's error if the call failed. Each
+  // response is a full snapshot, so only the latest request applies its result —
+  // an older one landing late must not restore a dropped staple.
   const syncPantryStaples = async (
     changes: StapleChanges
-  ): Promise<string[] | null> => {
+  ): Promise<
+    | { ok: true; pantryStaples: string[]; skipped: string[] }
+    | { ok: false; error: string }
+  > => {
     const seq = ++pantryStaplesSeq.current;
     try {
-      const data = await fetchJson<{ pantryStaples: string[]; stale: boolean }>(
-        API.pantryStaples,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(changes),
-        }
-      );
+      const { ok, data, error } = await postAction<{
+        pantryStaples: string[];
+        skipped?: string[];
+        stale: boolean;
+      }>(API.pantryStaples, changes);
+      if (!ok) {
+        return { ok: false, error: error || 'Could not update pantry staples' };
+      }
       if (seq === pantryStaplesSeq.current) {
         setPantryStaples(data.pantryStaples);
         if (mealPlan) setStale(data.stale);
       }
-      return data.pantryStaples;
+      return {
+        ok: true,
+        pantryStaples: data.pantryStaples,
+        skipped: data.skipped ?? [],
+      };
     } catch {
-      return null;
+      return { ok: false, error: 'Could not update pantry staples' };
     }
   };
 
@@ -683,9 +691,10 @@ export function App() {
     const dropsStaple =
       applyStapleChanges(pantryStaples, { dropMatching: names }).length !==
       pantryStaples.length;
-    const staples = dropsStaple
-      ? ((await syncPantryStaples({ dropMatching: names })) ?? pantryStaples)
-      : pantryStaples;
+    const synced = dropsStaple
+      ? await syncPantryStaples({ dropMatching: names })
+      : null;
+    const staples = synced?.ok ? synced.pantryStaples : pantryStaples;
     const mealItemNames = filterPantry(
       mealPlan?.shoppingList ?? [],
       staples
@@ -731,10 +740,24 @@ export function App() {
 
   // End of trip: fold the checked pantry items into pantryStaples in one write
   // (never per checkbox, which would flag the plan stale mid-shop). They're
-  // staples now, so any matching extras leave the list.
+  // staples now, so any matching extras leave the list. Names the server skipped
+  // as too long aren't staples, so their extras stay.
   const restockPantry = async (names: string[]) => {
-    if (!(await syncPantryStaples({ add: names }))) return;
-    const bought = new Set(names.map(normalize));
+    setError(null);
+    const synced = await syncPantryStaples({ add: names });
+    if (!synced.ok) {
+      setError(synced.error);
+      return;
+    }
+    if (synced.skipped.length > 0) {
+      setError(
+        `Too long to save as a pantry staple: ${synced.skipped.join(', ')}`
+      );
+    }
+    const skipped = new Set(synced.skipped.map(normalize));
+    const bought = new Set(
+      names.map(normalize).filter((name) => !skipped.has(name))
+    );
     const current = extrasRef.current;
     const nextExtras = current.filter((e) => !bought.has(normalize(e.name)));
     if (nextExtras.length === current.length) return;
