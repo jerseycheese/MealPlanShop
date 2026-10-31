@@ -47,6 +47,8 @@ const SUITES = [
   'src/app/pantryStaples.test.ts',
   'src/app/applyPriceEstimates.test.ts',
   'src/app/useDialog.test.ts',
+  'src/app/WeekGridCell.test.ts',
+  'src/app/weekMove.test.ts',
 ];
 
 async function main() {
