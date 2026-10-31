@@ -1,4 +1,4 @@
-import * as fs from "node:fs";
+import * as fs from 'node:fs';
 
 // Shared file-backed JSON helpers: one tmp-file+rename write and one
 // ENOENT-tolerant read for every server module that persists JSON.
@@ -10,9 +10,9 @@ import * as fs from "node:fs";
 export function readJsonOrNull<T = unknown>(filePath: string): T | null {
   let raw: string;
   try {
-    raw = fs.readFileSync(filePath, "utf-8");
+    raw = fs.readFileSync(filePath, 'utf-8');
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     console.warn(`[readJsonOrNull] failed to read ${filePath}:`, err);
     return null;
   }
@@ -35,15 +35,21 @@ export function writeJsonAtomic(filePath: string, data: unknown): void {
 
 // Like writeJsonAtomic, but first snapshots the existing file to a sibling .bak.
 // Use for hand-curated, non-regenerable data (preferences) so a bad write or
-// import always leaves a last-known-good copy to restore from. The backup is best-effort: a missing source is the first-ever
-// write (nothing to back up), and any other copy failure is logged but must not
-// block the actual write.
-export function writeJsonAtomicWithBackup(filePath: string, data: unknown): void {
+// import always leaves a last-known-good copy to restore from. The backup is
+// best-effort: a missing source is the first-ever write (nothing to back up),
+// and any other copy failure is logged but must not block the actual write.
+export function writeJsonAtomicWithBackup(
+  filePath: string,
+  data: unknown
+): void {
   try {
     fs.copyFileSync(filePath, `${filePath}.bak`);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[writeJsonAtomicWithBackup] backup of ${filePath} failed:`, err);
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn(
+        `[writeJsonAtomicWithBackup] backup of ${filePath} failed:`,
+        err
+      );
     }
   }
   writeJsonAtomic(filePath, data);
