@@ -166,6 +166,7 @@ export function App() {
     mealType: MealType;
   } | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [moveStatus, setMoveStatus] = useState<string | null>(null);
 
   // Monotonic counter to discard stale shopping-list-state PUT responses.
   // Without this, rapid toggles race: an older request resolving after a newer
@@ -412,12 +413,14 @@ export function App() {
     }
     setMovingPair({ from: from.day, to: to.day, mealType: from.mealType });
     setMoveError(null);
+    setMoveStatus(null);
     try {
       const { ok, error } = await postAction(API.mealPlanMove, { from, to });
       if (!ok) {
         setMoveError(error || 'Move failed');
       } else {
         await fetchMealPlan();
+        setMoveStatus(`Moved the ${from.mealType} to ${to.day}.`);
         // A moved meal's `${day}-${type}` key no longer points at the same slot,
         // so reset Day-view expansion the same way generate/upload do.
         setExpandedMeals(new Set());
@@ -434,6 +437,7 @@ export function App() {
   // only reached when a move is actually allowed; the guard is belt-and-suspenders.
   const handleCellPick = (day: string, mealType: MealType) => {
     if (busy || stale) return;
+    setMoveStatus(null);
     setPickedUp({ day, mealType });
   };
 
@@ -442,7 +446,10 @@ export function App() {
     if (busy || stale) return;
     if (!pickedUp) {
       const meal = mealPlan?.weekPlan.find((d) => d.day === day)?.[mealType];
-      if (meal) setPickedUp({ day, mealType });
+      if (meal) {
+        setMoveStatus(null);
+        setPickedUp({ day, mealType });
+      }
       return;
     }
     if (pickedUp.day === day && pickedUp.mealType === mealType) {
@@ -1126,7 +1133,7 @@ export function App() {
                   ? 'Moving meal...'
                   : pickedUp
                     ? `Picked up the ${pickedUp.mealType} on ${pickedUp.day}. Choose where to move it, or press Escape to cancel.`
-                    : null
+                    : moveStatus
               }
               moveError={moveError}
               onCellActivate={handleCellActivate}

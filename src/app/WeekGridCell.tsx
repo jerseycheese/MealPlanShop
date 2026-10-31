@@ -1,5 +1,5 @@
-import type { DragEvent } from "react";
-import type { Meal, MealType } from "../../types";
+import type { DragEvent } from 'react';
+import type { Meal, MealType } from '../../types';
 
 interface WeekGridCellProps {
   day: string;
@@ -35,9 +35,36 @@ export function WeekGridCell({
 
   // Busy/stale: render the meal (or an empty marker) with no interaction.
   if (interactionDisabled) {
+    // The two cells in an in-flight move stay buttons (inert) so the one the
+    // user pressed isn't unmounted, which would drop keyboard focus to <body>.
+    if (moving) {
+      return (
+        <button
+          type="button"
+          className={`week-grid-cell week-grid-cell--static week-grid-cell--moving${
+            hasMeal ? '' : ' week-grid-cell--empty'
+          }`}
+          aria-disabled="true"
+          aria-busy="true"
+          aria-label={
+            hasMeal
+              ? `${mealType} on ${day}: ${meal!.name}. Moving.`
+              : `Empty ${mealType} on ${day}. Moving.`
+          }
+        >
+          {hasMeal ? (
+            <span className="week-grid-cell__name">{meal!.name}</span>
+          ) : (
+            <span className="week-grid-cell__dash" aria-hidden="true">
+              —
+            </span>
+          )}
+        </button>
+      );
+    }
     return (
       <div
-        className={`week-grid-cell week-grid-cell--static ${hasMeal ? "" : "week-grid-cell--empty"}`}
+        className={`week-grid-cell week-grid-cell--static ${hasMeal ? '' : 'week-grid-cell--empty'}`}
       >
         {hasMeal ? (
           <span className="week-grid-cell__name">{meal!.name}</span>
@@ -53,7 +80,7 @@ export function WeekGridCell({
   const handleDragOver = (e: DragEvent) => {
     if (!isValidTarget) return; // not a valid drop -> let the browser show no-drop
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = 'move';
   };
 
   if (hasMeal) {
@@ -66,9 +93,9 @@ export function WeekGridCell({
       <button
         type="button"
         className={`week-grid-cell week-grid-cell--filled${
-          isPickedUp ? " week-grid-cell--lifted" : ""
-        }${isValidTarget ? " week-grid-cell--target" : ""}${
-          moving ? " week-grid-cell--moving" : ""
+          isPickedUp ? ' week-grid-cell--lifted' : ''
+        }${isValidTarget ? ' week-grid-cell--target' : ''}${
+          moving ? ' week-grid-cell--moving' : ''
         }`}
         draggable
         aria-pressed={isPickedUp}
@@ -76,8 +103,8 @@ export function WeekGridCell({
         aria-label={label}
         onClick={onActivate}
         onDragStart={(e) => {
-          e.dataTransfer.setData("text/plain", `${day}|${mealType}`);
-          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData('text/plain', `${day}|${mealType}`);
+          e.dataTransfer.effectAllowed = 'move';
           onPick();
         }}
         onDragEnd={onDragEnd}
@@ -89,7 +116,9 @@ export function WeekGridCell({
         }}
       >
         <span className="week-grid-cell__name">{meal!.name}</span>
-        {onSale && <span className="week-grid-cell__sale-dot" aria-hidden="true" />}
+        {onSale && (
+          <span className="week-grid-cell__sale-dot" aria-hidden="true" />
+        )}
       </button>
     );
   }
@@ -99,7 +128,7 @@ export function WeekGridCell({
     <button
       type="button"
       className={`week-grid-cell week-grid-cell--empty${
-        isValidTarget ? " week-grid-cell--target" : ""
+        isValidTarget ? ' week-grid-cell--target' : ''
       }`}
       disabled={!isValidTarget}
       aria-label={
@@ -116,7 +145,7 @@ export function WeekGridCell({
       }}
     >
       <span className="week-grid-cell__dash" aria-hidden="true">
-        {isValidTarget ? "+" : "—"}
+        {isValidTarget ? '+' : '—'}
       </span>
     </button>
   );
