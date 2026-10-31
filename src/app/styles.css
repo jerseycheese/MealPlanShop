@@ -1128,7 +1128,8 @@ body {
 
 /* ─── Preferences (header button + modal) ────────── */
 
-.header__prefs {
+.header__prefs,
+.header__change-store {
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -1144,17 +1145,20 @@ body {
     transform 0.1s;
 }
 
-.header__prefs:hover:not(:disabled) {
+.header__prefs:hover:not(:disabled),
+.header__change-store:hover:not(:disabled) {
   border-color: var(--color-primary);
   color: var(--color-primary);
   transform: translateY(-1px);
 }
 
-.header__prefs:active {
+.header__prefs:active,
+.header__change-store:active {
   transform: translateY(0);
 }
 
-.header__prefs:disabled {
+.header__prefs:disabled,
+.header__change-store:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -1857,7 +1861,8 @@ body {
   }
 
   .upload-circular__header-btn,
-  .header__prefs {
+  .header__prefs,
+  .header__change-store {
     font-size: 13px;
     padding: 8px 14px;
   }
@@ -2064,15 +2069,14 @@ body {
 }
 
 .merchant-card__expiry-pill {
-  display: inline-block;
-  align-self: start;
+  justify-self: start;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: #fff3e0;
-  color: #b45309;
-  border: 1px solid #fcd34d;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
 }
 
 .merchant-card__cta {
@@ -2261,28 +2265,6 @@ body {
 
 .store-picker-modal__close:hover {
   color: var(--color-text);
-}
-
-/* Header change-store button ──────────────────── */
-
-.header__change-store {
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-.header__change-store:hover:not(:disabled) {
-  border-color: var(--color-primary);
-}
-
-.header__change-store:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Empty state — picker variant ────────────────── */

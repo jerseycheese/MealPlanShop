@@ -945,37 +945,41 @@ export function App() {
       {error && <div className="error-banner">{error}</div>}
       {prefsError && <div className="error-banner">{prefsError}</div>}
 
-      {circular && (circular.storeName || circular.validThrough) && (
-        <div
-          className={`circular-banner${circularEnded ? ' circular-banner--ended' : ''}`}
-        >
-          {circular.storeName && (
-            <span className="circular-banner__store">{circular.storeName}</span>
-          )}
-          {circular.validThrough && (
-            <span className="circular-banner__dates">
-              {circularEnded ? 'Circular ended' : 'Valid through'}{' '}
-              {formatValidThrough(circular.validThrough)}
-              {circularEnded && ', so these sale prices may be gone'}
-            </span>
-          )}
-          {circularEnded && (
-            <button
-              className="circular-banner__cta"
-              onClick={() => setShowStorePicker(true)}
-              disabled={busy}
-              type="button"
-            >
-              Pick this week's deals
-            </button>
-          )}
-          {mealPlan?.shoppingList.some((i) => i.requiresLoyaltyCard) && (
-            <span className="circular-banner__loyalty">
-              Some prices require a loyalty card
-            </span>
-          )}
-        </div>
-      )}
+      {mealPlan &&
+        circular &&
+        (circular.storeName || circular.validThrough) && (
+          <div
+            className={`circular-banner${circularEnded ? ' circular-banner--ended' : ''}`}
+          >
+            {circular.storeName && (
+              <span className="circular-banner__store">
+                {circular.storeName}
+              </span>
+            )}
+            {circular.validThrough && (
+              <span className="circular-banner__dates">
+                {circularEnded ? 'Circular ended' : 'Valid through'}{' '}
+                {formatValidThrough(circular.validThrough)}
+                {circularEnded && ', so these sale prices may be gone'}
+              </span>
+            )}
+            {circularEnded && (
+              <button
+                className="circular-banner__cta"
+                onClick={() => setShowStorePicker(true)}
+                disabled={busy}
+                type="button"
+              >
+                Pick this week's deals
+              </button>
+            )}
+            {mealPlan?.shoppingList.some((i) => i.requiresLoyaltyCard) && (
+              <span className="circular-banner__loyalty">
+                Some prices require a loyalty card
+              </span>
+            )}
+          </div>
+        )}
 
       {comparison && (
         <StoreCompare

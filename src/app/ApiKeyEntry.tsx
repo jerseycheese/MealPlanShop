@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { API } from "./endpoints";
-import { fetchJson } from "./fetchJson";
+import { useEffect, useState } from 'react';
+import { API } from './endpoints';
+import { fetchJson } from './fetchJson';
 
-const KEY_PAGE_URL = "https://aistudio.google.com/apikey";
+const KEY_PAGE_URL = 'https://aistudio.google.com/apikey';
 
 interface ApiKeyEntryProps {
   // Fired after the stored key changes (saved or cleared), and once on initial
@@ -16,7 +16,7 @@ interface ApiKeyEntryProps {
 // back is always masked.
 export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
   const [masked, setMasked] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -26,7 +26,7 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
     fetchJson<{ hasKey?: boolean; masked?: unknown }>(API.secretsStatus)
       .then((data) => {
         if (cancelled) return;
-        setMasked(typeof data.masked === "string" ? data.masked : null);
+        setMasked(typeof data.masked === 'string' ? data.masked : null);
         onChange?.(!!data.hasKey);
       })
       .catch(() => {
@@ -41,7 +41,7 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
   const handleSave = async () => {
     const key = draft.trim();
     if (!key) {
-      setError("Paste a key first.");
+      setError('Paste a key first.');
       return;
     }
     setBusy(true);
@@ -49,8 +49,8 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
     setSaved(false);
     try {
       const res = await fetch(API.secrets, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ geminiApiKey: key }),
       });
       const data = await res.json().catch(() => ({}));
@@ -58,8 +58,8 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
         setError(data.error || "Couldn't save the key.");
         return;
       }
-      setMasked(typeof data.masked === "string" ? data.masked : null);
-      setDraft("");
+      setMasked(typeof data.masked === 'string' ? data.masked : null);
+      setDraft('');
       setSaved(true);
       onChange?.(true);
     } catch {
@@ -74,7 +74,7 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
     setError(null);
     setSaved(false);
     try {
-      const res = await fetch(API.secrets, { method: "DELETE" });
+      const res = await fetch(API.secrets, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         setError(data.error || "Couldn't clear the key.");
@@ -82,7 +82,7 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
       }
       // The server reports the effective status after clearing — a GEMINI_API_KEY
       // in the env stays in effect, so don't assume the key is gone.
-      setMasked(typeof data.masked === "string" ? data.masked : null);
+      setMasked(typeof data.masked === 'string' ? data.masked : null);
       onChange?.(!!data.hasKey);
     } catch {
       setError("Couldn't clear the key.");
@@ -111,14 +111,17 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
         <input
           type="password"
           className="api-key-entry__input"
+          aria-label="Gemini API key"
           placeholder={
-            masked ? "Paste a new key to replace it" : "Paste your Gemini API key"
+            masked
+              ? 'Paste a new key to replace it'
+              : 'Paste your Gemini API key'
           }
           value={draft}
           autoComplete="off"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === 'Enter') {
               e.preventDefault();
               handleSave();
             }
@@ -131,11 +134,11 @@ export function ApiKeyEntry({ onChange }: ApiKeyEntryProps) {
           onClick={handleSave}
           disabled={busy || !draft.trim()}
         >
-          {busy ? "Saving..." : "Save"}
+          {busy ? 'Saving...' : 'Save'}
         </button>
       </div>
       <p className="api-key-entry__hint">
-        Get a free key at{" "}
+        Get a free key at{' '}
         <a href={KEY_PAGE_URL} target="_blank" rel="noreferrer">
           aistudio.google.com/apikey
         </a>
