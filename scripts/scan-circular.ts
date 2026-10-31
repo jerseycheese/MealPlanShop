@@ -52,9 +52,10 @@ const extractionSchema = {
   required: ['items', 'storeName', 'validThrough'],
 };
 
-async function scanImage(
+export async function scanImage(
   imagePath: string,
-  prompt: string
+  prompt: string,
+  generate: typeof generateStructured = generateStructured
 ): Promise<ExtractionResult> {
   const imageBuffer = fs.readFileSync(imagePath);
   const base64Image = imageBuffer.toString('base64');
@@ -68,7 +69,7 @@ async function scanImage(
   };
   const mimeType = mimeTypes[ext] || 'image/jpeg';
 
-  const parsed = (await generateStructured({
+  const parsed = (await generate({
     prompt,
     images: [{ mimeType, data: base64Image }],
     schema: extractionSchema,
