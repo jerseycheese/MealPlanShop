@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { categorizeInBatches } from './categorize';
+import { categorizeInBatches, classifyBatchViaGemini } from './categorize';
 
 // Exported so the harness can await it — top-level await isn't available under
 // the cjs output format, and these assertions are async.
@@ -73,6 +73,16 @@ export async function run(): Promise<void> {
       { categories: [], degraded: false },
       'empty input -> empty output'
     );
+  }
+
+  // The Gemini classifier hands back the categories array from the model's
+  // { categories: [...] } reply, so a full batch keeps every category.
+  {
+    const cats = await classifyBatchViaGemini(
+      ['Bananas', 'Dish Soap', 'Ground Beef'],
+      async () => ({ categories: ['produce', 'skip', 'meat'] })
+    );
+    assert.deepEqual(cats, ['produce', 'skip', 'meat'], 'reads categories');
   }
 
   console.log('categorize.test.ts: all assertions passed');

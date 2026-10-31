@@ -9,6 +9,7 @@ const SUITES = [
   'scripts/validateValidThrough.test.ts',
   'scripts/deduplicateItems.test.ts',
   'scripts/scanCircularPdfTmp.test.ts',
+  'scripts/scanImage.test.ts',
   'scripts/writeOutputs.test.ts',
   'scripts/mealPlanShape.test.ts',
   'scripts/buildMealPlanUserPrompt.test.ts',

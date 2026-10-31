@@ -87,8 +87,11 @@ export async function categorizeInBatches(
   };
 }
 
-async function classifyBatchViaGemini(names: string[]): Promise<unknown> {
-  const parsed = (await generateStructured({
+export async function classifyBatchViaGemini(
+  names: string[],
+  generate: typeof generateStructured = generateStructured
+): Promise<unknown> {
+  const parsed = (await generate({
     prompt: buildPrompt(names),
     schema: SCHEMA,
     timeoutMs: 30_000,
