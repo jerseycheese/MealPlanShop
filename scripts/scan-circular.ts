@@ -113,8 +113,6 @@ async function convertPdfToImages(
   return files;
 }
 
-// -- validThrough sanity check --
-
 // If the string contains a 4-digit year and we can parse a date out of it,
 // drop it when the date is more than ~2 weeks in the past. Gemini sometimes
 // misreads the year (e.g. returns 2024 for a current flyer); better to show
@@ -198,7 +196,6 @@ export async function scanCircular(
     return result;
   }
 
-  // PDF: convert to images, scan each page, merge results.
   console.log(`Scanning PDF circular: ${filePath}`);
   onProgress?.({ type: 'preparing' });
 
@@ -223,7 +220,6 @@ export async function scanCircular(
 
       allItems.push(...result.items);
 
-      // Capture store info from whichever page has it
       if (result.storeName && !storeName) storeName = result.storeName;
       if (result.validThrough && !validThrough)
         validThrough = result.validThrough;

@@ -85,7 +85,7 @@ export interface ExtraItem {
 // One person in the household, with their own dietary needs. These are *softer*
 // than the household-wide excluded list: rather than banning an ingredient for
 // everyone, an item a member excludes makes the planner offer them a variant
-// dish. Absent `members` = a single shared profile (the single-profile behavior).
+// dish. Absent `members` = a single shared profile.
 export interface HouseholdMember {
   name: string;
   excludedIngredients: string[];
