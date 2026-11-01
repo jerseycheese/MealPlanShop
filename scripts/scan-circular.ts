@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import type { SaleItem, ExtractionResult } from '../types';
 import { generateStructured } from '../server/generateStructured';
 import { hasPoppler, popplerRequiredError } from '../server/poppler';
+import { parseLocalDate } from '../parseLocalDate';
 
 export const CATEGORY_ENUM = [
   'produce',
@@ -116,40 +117,48 @@ async function convertPdfToImages(
 // If the string contains a 4-digit year and we can parse a date out of it,
 // drop it when the date is more than ~2 weeks in the past. Gemini sometimes
 // misreads the year (e.g. returns 2024 for a current flyer); better to show
-// no date than a wrong one. Strings without a year are left alone — the UI
-// degrades gracefully.
+// no date than a wrong one. A date that survives is normalized to a local
+// YYYY-MM-DD, the same shape Flipp provides, so the expiry check downstream
+// can read it. Strings without a year, or that don't parse, are left alone:
+// the UI degrades gracefully.
 export function validateValidThrough(
   validThrough: string | null
 ): string | null {
   if (!validThrough) return null;
   if (!/\b20\d{2}\b/.test(validThrough)) return validThrough;
 
-  let date: Date | null = null;
-  const direct = new Date(validThrough);
-  if (!isNaN(direct.getTime())) {
-    date = direct;
-  } else {
-    const m = validThrough.match(
-      /([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})/
-    );
-    if (m) {
-      const p = new Date(`${m[1]} ${m[2]}, ${m[3]}`);
-      if (!isNaN(p.getTime())) date = p;
+  let date: Date | null = parseLocalDate(validThrough);
+  if (!date && !/^\d{4}-\d{2}-\d{2}/.test(validThrough)) {
+    const direct = new Date(validThrough);
+    if (!isNaN(direct.getTime())) {
+      date = direct;
+    } else {
+      const m = validThrough.match(
+        /([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})/
+      );
+      if (m) {
+        const p = new Date(`${m[1]} ${m[2]}, ${m[3]}`);
+        if (!isNaN(p.getTime())) date = p;
+      }
     }
   }
 
   if (!date) return validThrough;
 
+  const local = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+
   const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   if (date < cutoff) {
     console.warn(
-      `Warning: validThrough "${validThrough}" parsed as ${date
-        .toISOString()
-        .slice(0, 10)}, more than 2 weeks in the past - dropping`
+      `Warning: validThrough "${validThrough}" parsed as ${local}, more than 2 weeks in the past - dropping`
     );
     return null;
   }
-  return validThrough;
+  return local;
 }
 
 export function deduplicateItems(items: SaleItem[]): SaleItem[] {
