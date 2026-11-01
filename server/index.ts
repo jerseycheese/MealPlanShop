@@ -91,9 +91,8 @@ const MAX_CHECKED_KEYS = 500;
 const MAX_KEY_LEN = 200;
 const MAX_EXTRA_ITEMS = 100;
 const MAX_EXTRA_ITEM_LEN = 200;
-// Generous cap so a full weekly list (meal items + extras) is never silently
-// truncated on its way to Reminders — dropping grocery items would be worse than
-// a slightly long list.
+// Generous cap on lines (divider rows included) sent to Reminders. Over it, the
+// route 400s rather than truncating.
 const MAX_REMINDER_ITEMS = 200;
 
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.jpg', '.jpeg', '.png', '.webp']);
@@ -381,6 +380,9 @@ app.post(
         (s) => !saved.pantryStaples.includes(s)
       );
       if (
+        // A swap or generate in flight writes its own copy of the plan when it
+        // finishes and would clobber this re-stamp, so leave the plan stale.
+        !processing &&
         plan &&
         wasFresh &&
         stapleChangeKeepsPlanFresh(plan.weekPlan, changes.add, dropped)
@@ -581,10 +583,17 @@ app.post(
           .filter((n): n is string => typeof n === 'string')
           .map((n) => n.trim())
           .filter(Boolean)
-          .slice(0, MAX_REMINDER_ITEMS)
       : [];
     if (items.length === 0) {
       throw new HttpError(400, 'items must be a non-empty array of strings');
+    }
+    // The Reminders list is replaced wholesale, so truncating would quietly drop
+    // groceries. Refuse instead and let the UI show why.
+    if (items.length > MAX_REMINDER_ITEMS) {
+      throw new HttpError(
+        400,
+        `List is too long for Reminders (${items.length} lines, max ${MAX_REMINDER_ITEMS}).`
+      );
     }
     // sendToReminders throws a 422-tagged error (missing osascript / TCC denial /
     // AppleScript failure) that the error middleware turns into a readable message.
@@ -639,16 +648,14 @@ app.post(
   '/api/meal-plan/generate',
   asyncRoute(
     withSerial(async (_req, res) => {
-      const extraction = readJsonOrNull<ExtractionResult & unknown[]>(
-        EXTRACTION_PATH
-      );
+      const extraction = readJsonOrNull<ExtractionResult>(EXTRACTION_PATH);
       if (!extraction) {
         throw new HttpError(
           400,
           'No circular extracted yet. Upload a circular first.'
         );
       }
-      const saleItems = extraction.items || extraction;
+      const saleItems = extraction.items;
       // Route through the same decorate (loyalty/unit joins) and commit as
       // upload/Flipp, instead of writing the plan straight out — that's what
       // dropped the loyalty chips and per-unit prices on regenerate.
@@ -715,9 +722,7 @@ app.post(
       if (!plan) {
         throw new HttpError(400, 'No meal plan exists. Generate one first.');
       }
-      const extraction = readJsonOrNull<ExtractionResult & unknown[]>(
-        EXTRACTION_PATH
-      );
+      const extraction = readJsonOrNull<ExtractionResult>(EXTRACTION_PATH);
       if (!extraction) {
         throw new HttpError(
           400,
@@ -746,7 +751,7 @@ app.post(
         );
       }
 
-      const saleItems = extraction.items || extraction;
+      const saleItems = extraction.items;
 
       await swapMeal(plan, day, slotKey, saleItems, (p, d, slot, items) =>
         generateMealSwap(p, d, slot, items, preferences)
@@ -804,15 +809,6 @@ app.post(
           "to.mealType must be 'breakfast', 'lunch', or 'dinner'"
         );
       }
-      // Same-meal-type-only (locked decision): a dinner can only move to another
-      // day's dinner. Enforced here too, not just in the UI.
-      if (fromType !== toType) {
-        throw new HttpError(
-          400,
-          'Meals can only move to the same meal type on another day'
-        );
-      }
-
       const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
       if (!plan) {
         throw new HttpError(400, 'No meal plan exists. Generate one first.');
