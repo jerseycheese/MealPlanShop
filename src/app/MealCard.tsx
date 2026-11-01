@@ -125,47 +125,11 @@ export function MealCard({
 
       <div className="meal-card__details" aria-hidden={!expanded}>
         <div className="meal-card__details-inner">
-          <div className="meal-card__section">
-            <h4 className="meal-card__section-title">Ingredients</h4>
-            <ul className="meal-card__ingredients">
-              {meal.ingredients.map((ing) => (
-                <li
-                  key={`${ing.name}|${ing.quantity}`}
-                  className={`meal-card__ingredient ${ing.onSale ? 'meal-card__ingredient--sale' : ''}`}
-                >
-                  <span className="meal-card__ingredient-qty">
-                    {ing.quantity}
-                  </span>
-                  <span className="meal-card__ingredient-name">{ing.name}</span>
-                  {ing.onSale && (
-                    <span className="meal-card__sale-badge">Sale</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="meal-card__section">
-            <h4 className="meal-card__section-title">Instructions</h4>
-            <ol className="meal-card__instructions">
-              {meal.instructions.map((step, i) => (
-                <li key={`step-${i}`} className="meal-card__step">
-                  {step}
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          {variants.map((variant, vi) => (
-            <div
-              key={`variant-${vi}`}
-              className="meal-card__section meal-card__variant"
-            >
-              <h4 className="meal-card__section-title meal-card__variant-title">
-                For {variant.forMembers.join(', ')}: {variant.name}
-              </h4>
+          <div className="meal-card__details-body">
+            <div className="meal-card__section">
+              <h4 className="meal-card__section-title">Ingredients</h4>
               <ul className="meal-card__ingredients">
-                {variant.ingredients.map((ing) => (
+                {meal.ingredients.map((ing) => (
                   <li
                     key={`${ing.name}|${ing.quantity}`}
                     className={`meal-card__ingredient ${ing.onSale ? 'meal-card__ingredient--sale' : ''}`}
@@ -182,22 +146,62 @@ export function MealCard({
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="meal-card__section">
+              <h4 className="meal-card__section-title">Instructions</h4>
               <ol className="meal-card__instructions">
-                {variant.instructions.map((step, i) => (
-                  <li
-                    key={`variant-${vi}-step-${i}`}
-                    className="meal-card__step"
-                  >
+                {meal.instructions.map((step, i) => (
+                  <li key={`step-${i}`} className="meal-card__step">
                     {step}
                   </li>
                 ))}
               </ol>
             </div>
-          ))}
 
-          <div className="meal-card__times">
-            <span>Active: {formatMinutes(meal.activeTime)}</span>
-            <span>Total: {formatMinutes(meal.totalTime)}</span>
+            {variants.map((variant, vi) => (
+              <div
+                key={`variant-${vi}`}
+                className="meal-card__section meal-card__variant"
+              >
+                <h4 className="meal-card__section-title meal-card__variant-title">
+                  For {variant.forMembers.join(', ')}: {variant.name}
+                </h4>
+                <ul className="meal-card__ingredients">
+                  {variant.ingredients.map((ing) => (
+                    <li
+                      key={`${ing.name}|${ing.quantity}`}
+                      className={`meal-card__ingredient ${ing.onSale ? 'meal-card__ingredient--sale' : ''}`}
+                    >
+                      <span className="meal-card__ingredient-qty">
+                        {ing.quantity}
+                      </span>
+                      <span className="meal-card__ingredient-name">
+                        {ing.name}
+                      </span>
+                      {ing.onSale && (
+                        <span className="meal-card__sale-badge">Sale</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <ol className="meal-card__instructions">
+                  {variant.instructions.map((step, i) => (
+                    <li
+                      key={`variant-${vi}-step-${i}`}
+                      className="meal-card__step"
+                    >
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+
+            <div className="meal-card__times">
+              <span>Active: {formatMinutes(meal.activeTime)}</span>
+              <span>Total: {formatMinutes(meal.totalTime)}</span>
+            </div>
           </div>
         </div>
       </div>
