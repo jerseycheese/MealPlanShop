@@ -8,6 +8,7 @@ import type { SaleItem, ExtractionResult } from '../types';
 import { generateStructured } from '../server/generateStructured';
 import { hasPoppler, popplerRequiredError } from '../server/poppler';
 import { parseLocalDate } from '../parseLocalDate';
+import { writeJsonAtomic } from '../server/lib/jsonStore';
 
 export const CATEGORY_ENUM = [
   'produce',
@@ -263,7 +264,7 @@ export function writeExtraction(
   outputPath = path.join(__dirname, '../output/extraction.json')
 ): string {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+  writeJsonAtomic(outputPath, result);
   return outputPath;
 }
 

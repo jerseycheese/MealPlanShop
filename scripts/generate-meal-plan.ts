@@ -7,6 +7,7 @@ import type {
   HouseholdMember,
   Ingredient,
   SaleItem,
+  ExtractionResult,
   ShoppingListItem,
   UserPreferences,
   DayOfWeek,
@@ -23,6 +24,7 @@ import { generateStructured } from '../server/generateStructured';
 import { loadPreferences } from '../server/dataDir';
 import { decorateMealPlan } from '../server/decorateMealPlan';
 import { normalize } from '../normalize';
+import { writeJsonAtomic } from '../server/lib/jsonStore';
 export type { SaleItem, UserPreferences };
 
 export const DEFAULT_PANTRY_STAPLES: string[] = [
@@ -771,7 +773,7 @@ export function writeMealPlan(
     preferences
   );
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+  writeJsonAtomic(outputPath, result);
   return { result, outputPath };
 }
 
@@ -787,8 +789,10 @@ async function main() {
     process.exit(1);
   }
 
-  const extraction = JSON.parse(fs.readFileSync(itemsPath, 'utf-8'));
-  const saleItems: SaleItem[] = extraction.items || extraction;
+  const extraction: ExtractionResult = JSON.parse(
+    fs.readFileSync(itemsPath, 'utf-8')
+  );
+  const saleItems: SaleItem[] = extraction.items;
 
   const preferences = loadPreferences(DEFAULT_PREFERENCES);
   const { result, outputPath } = writeMealPlan(
