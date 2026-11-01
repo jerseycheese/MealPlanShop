@@ -495,6 +495,10 @@ body {
 .meal-card__details-inner {
   overflow: hidden;
   min-height: 0;
+}
+
+/* Padding and border live here, not on the grid item, so a 0fr row collapses to 0. */
+.meal-card__details-body {
   padding: 16px 20px 20px;
   border-top: 1px solid var(--color-border);
 }
@@ -1922,7 +1926,7 @@ body {
     font-size: 16px;
   }
 
-  .meal-card__details-inner {
+  .meal-card__details-body {
     padding: 0 16px 16px;
   }
 
