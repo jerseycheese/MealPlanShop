@@ -2,9 +2,10 @@ import { parseLocalDate } from '../../parseLocalDate';
 
 // Renders a circular's "valid through" date for the meal-plan banner.
 //
-// The PDF flow stores a free-form string like "May 19, 2026" — pass it through
-// untouched. The Flipp flow stores a date-only ISO string like "2026-06-12"
-// (occasionally with a trailing time component), which parseLocalDate anchors
+// Both flows store a date-only ISO string like "2026-06-12": the upload scan
+// normalizes Gemini's dates to it, and Flipp provides it (occasionally with a
+// trailing time component). A free-form string the scan couldn't parse, or one
+// saved before that normalizing, passes through untouched. parseLocalDate anchors
 // to local midnight so the rendered day matches the date as written rather than
 // slipping a day early west of UTC. Anything it can't parse falls back to raw.
 export function formatValidThrough(raw: string | null): string | null {
