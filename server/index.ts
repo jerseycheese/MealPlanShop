@@ -166,6 +166,46 @@ class HttpError extends Error {
   }
 }
 
+function requireJsonBody(req: express.Request): Record<string, unknown> {
+  const body = req.body as Record<string, unknown> | null | undefined;
+  if (!body || typeof body !== 'object') {
+    throw new HttpError(400, 'Body must be a JSON object');
+  }
+  return body;
+}
+
+function requireDayOfWeek(
+  value: unknown,
+  label: string
+): asserts value is string {
+  if (
+    typeof value !== 'string' ||
+    !VALID_DAYS_OF_WEEK.has(value.toLowerCase())
+  ) {
+    throw new HttpError(400, `${label} must be a valid day of the week`);
+  }
+}
+
+function requireMealType(
+  value: unknown,
+  label: string
+): asserts value is string {
+  if (typeof value !== 'string' || !VALID_MEAL_TYPES.has(value)) {
+    throw new HttpError(
+      400,
+      `${label} must be 'breakfast', 'lunch', or 'dinner'`
+    );
+  }
+}
+
+function requireMealPlan(): MealPlanResult {
+  const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
+  if (!plan) {
+    throw new HttpError(400, 'No meal plan exists. Generate one first.');
+  }
+  return plan;
+}
+
 // Wrap an async route handler so a thrown error (HttpError or otherwise) is
 // forwarded to the error middleware instead of every handler carrying its own
 // try/catch. Composes in front of withSerial.
@@ -480,10 +520,7 @@ app.get('/api/shopping-list-state', (_req, res) => {
 app.put(
   '/api/shopping-list-state',
   asyncRoute((req, res) => {
-    const body = req.body as Record<string, unknown> | null | undefined;
-    if (!body || typeof body !== 'object') {
-      throw new HttpError(400, 'Body must be a JSON object');
-    }
+    const body = requireJsonBody(req);
     if (typeof body.planId !== 'string' || !body.planId) {
       throw new HttpError(400, 'planId must be a non-empty string');
     }
@@ -699,29 +736,13 @@ app.post(
   '/api/meal-plan/swap',
   asyncRoute(
     withSerial(async (req, res) => {
-      const body = req.body as Record<string, unknown> | null | undefined;
-      if (!body || typeof body !== 'object') {
-        throw new HttpError(400, 'Body must be a JSON object');
-      }
+      const body = requireJsonBody(req);
       const day = body.day;
       const mealType = body.mealType;
-      if (
-        typeof day !== 'string' ||
-        !VALID_DAYS_OF_WEEK.has(day.toLowerCase())
-      ) {
-        throw new HttpError(400, 'day must be a valid day of the week');
-      }
-      if (typeof mealType !== 'string' || !VALID_MEAL_TYPES.has(mealType)) {
-        throw new HttpError(
-          400,
-          "mealType must be 'breakfast', 'lunch', or 'dinner'"
-        );
-      }
+      requireDayOfWeek(day, 'day');
+      requireMealType(mealType, 'mealType');
 
-      const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
-      if (!plan) {
-        throw new HttpError(400, 'No meal plan exists. Generate one first.');
-      }
+      const plan = requireMealPlan();
       const extraction = readJsonOrNull<ExtractionResult>(EXTRACTION_PATH);
       if (!extraction) {
         throw new HttpError(
@@ -768,10 +789,7 @@ app.post(
   '/api/meal-plan/move',
   asyncRoute(
     withSerial(async (req, res) => {
-      const body = req.body as Record<string, unknown> | null | undefined;
-      if (!body || typeof body !== 'object') {
-        throw new HttpError(400, 'Body must be a JSON object');
-      }
+      const body = requireJsonBody(req);
       const from = body.from as Record<string, unknown> | null | undefined;
       const to = body.to as Record<string, unknown> | null | undefined;
       if (!from || typeof from !== 'object' || !to || typeof to !== 'object') {
@@ -785,34 +803,11 @@ app.post(
       const toDay = to.day;
       const fromType = from.mealType;
       const toType = to.mealType;
-      if (
-        typeof fromDay !== 'string' ||
-        !VALID_DAYS_OF_WEEK.has(fromDay.toLowerCase())
-      ) {
-        throw new HttpError(400, 'from.day must be a valid day of the week');
-      }
-      if (
-        typeof toDay !== 'string' ||
-        !VALID_DAYS_OF_WEEK.has(toDay.toLowerCase())
-      ) {
-        throw new HttpError(400, 'to.day must be a valid day of the week');
-      }
-      if (typeof fromType !== 'string' || !VALID_MEAL_TYPES.has(fromType)) {
-        throw new HttpError(
-          400,
-          "from.mealType must be 'breakfast', 'lunch', or 'dinner'"
-        );
-      }
-      if (typeof toType !== 'string' || !VALID_MEAL_TYPES.has(toType)) {
-        throw new HttpError(
-          400,
-          "to.mealType must be 'breakfast', 'lunch', or 'dinner'"
-        );
-      }
-      const plan = readJsonOrNull<MealPlanResult>(MEAL_PLAN_PATH);
-      if (!plan) {
-        throw new HttpError(400, 'No meal plan exists. Generate one first.');
-      }
+      requireDayOfWeek(fromDay, 'from.day');
+      requireDayOfWeek(toDay, 'to.day');
+      requireMealType(fromType, 'from.mealType');
+      requireMealType(toType, 'to.mealType');
+      const plan = requireMealPlan();
 
       // Defense in depth: don't rearrange a plan that's already out of sync with the
       // saved preferences — it's about to be regenerated anyway. Same guard as swap.
